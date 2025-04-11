@@ -6,9 +6,7 @@
         </div>
 
         <div class="grid grid-cols-12 gap-4 mt-20 pb-2 md:pb-20">
-            <div class="flex justify-center col-span-12 lg:col-span-6 bg-purple-100 p-0 order-1 lg:order-none" style="border-radius: 8px">
-                <img src="/demo/images/landing/mockup.svg" class="w-11/12" alt="mockup mobile" />
-            </div>
+            <div class="flex justify-center col-span-12 lg:col-span-6 bg-purple-100 p-0 order-1 lg:order-none" style="border-radius: 8px"></div>
 
             <div class="col-span-12 lg:col-span-6 my-auto flex flex-col lg:items-end text-center lg:text-right gap-4">
                 <div class="flex items-center justify-center bg-purple-200 self-center lg:self-end" style="width: 4.2rem; height: 4.2rem; border-radius: 10px">
@@ -30,10 +28,6 @@
                 <span class="text-surface-700 dark:text-surface-100 text-2xl leading-normal mr-0 md:mr-2" style="max-width: 650px"
                     >Adipiscing commodo elit at imperdiet dui. Viverra nibh cras pulvinar mattis nunc sed blandit libero. Suspendisse in est ante in. Mauris pharetra et ultrices neque ornare aenean euismod elementum nisi.</span
                 >
-            </div>
-
-            <div class="flex justify-end order-1 sm:order-2 col-span-12 lg:col-span-6 bg-yellow-100 p-0" style="border-radius: 8px">
-                <img src="/demo/images/landing/mockup-desktop.svg" class="w-11/12" alt="mockup" />
             </div>
         </div>
     </div>
