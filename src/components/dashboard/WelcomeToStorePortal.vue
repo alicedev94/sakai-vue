@@ -1,5 +1,5 @@
 <template>
     <div class="card">
-        <h1>Bienvenido al Portal de Ingreso</h1>
+        <img src="@/assets/images/dashboard.png" alt="Logo" class="rounded-md" />
     </div>
 </template>
