@@ -1,6 +1,11 @@
 import AppLayout from '@/layout/AppLayout.vue';
 import { createRouter, createWebHistory } from 'vue-router';
 
+const isAuthenticated = () => {
+    const token = localStorage.getItem('token');
+    return token !== null;
+};
+
 const router = createRouter({
     history: createWebHistory(),
     routes: [
@@ -133,6 +138,16 @@ const router = createRouter({
             component: () => import('@/views/pages/auth/Error.vue')
         }
     ]
+});
+
+router.beforeEach((to, from, next) => {
+    if (to.path === '/auth/login' || to.path === '/landing' || to.path === '/auth/error' || to.path === '/auth/access' || to.path === '/pages/notfound') {
+        next();
+    } else if (isAuthenticated()) {
+        next();
+    } else {
+        next({ path: '/auth/login' });
+    }
 });
 
 export default router;

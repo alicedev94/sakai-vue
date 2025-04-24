@@ -1,9 +1,38 @@
 <script setup>
+import axios from 'axios';
 import { ref } from 'vue';
+
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
 
 const email = ref('');
 const password = ref('');
 const checked = ref(false);
+const error = ref(false);
+
+const errorMessage = ref('');
+
+const handleLogin = () => {
+    axios
+        .post('http://localhost:3000/api/auth/login', {
+            email: email.value,
+            password: password.value
+        })
+        .then((response) => {
+            localStorage.setItem('token', response.data.access_token);
+            router.push('/');
+        })
+        .catch((err) => {
+            error.value = true;
+            if (err.response && err.response.status === 401) {
+                errorMessage.value = 'Credenciales inválidas. Por favor, verifique su correo y contraseña.';
+            } else {
+                errorMessage.value = err.response?.data?.message || 'Error al iniciar sesión';
+            }
+            console.log(err);
+        });
+};
 </script>
 
 <template>
@@ -24,7 +53,8 @@ const checked = ref(false);
                         <label for="password1" class="block text-surface-900 dark:text-surface-0 font-medium text-xl mb-2">Contraseña</label>
                         <Password id="password1" v-model="password" placeholder="Contraseña" :toggleMask="true" class="mb-4" fluid :feedback="false"></Password>
 
-                        <Button label="Ingresar" class="w-full" as="router-link" to="/"></Button>
+                        <Button label="Ingresar" class="w-full" @click="handleLogin"></Button>
+                        <Message v-if="error" class="mt-4" severity="error">{{ errorMessage ? errorMessage : 'Error al iniciar sesión' }}</Message>
                     </div>
                 </div>
             </div>
