@@ -507,7 +507,7 @@ function onContextRightClick(event) {
         <div class="md:w-1/2">
             <div class="card">
                 <div class="font-semibold text-xl mb-4">PanelMenu</div>
-                <PanelMenu :model="panelMenuitems" />
+                <PanelMenu :model="panelMenuitems" /> :model="panelMenuitems" />
             </div>
         </div>
     </div>
