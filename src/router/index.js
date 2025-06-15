@@ -9,7 +9,7 @@ const router = createRouter({
             component: AppLayout,
             children: [
                 {
-                    path: '/',
+                    path: '/a',
                     name: 'dashboard',
                     component: () => import('@/views/Dashboard.vue')
                 },
@@ -103,6 +103,11 @@ const router = createRouter({
                     path: '/documentation',
                     name: 'documentation',
                     component: () => import('@/views/pages/Documentation.vue')
+                },
+                {
+                    path: '/',
+                    name: 'Account',
+                    component: () => import('@/components/custom-reports/customAccounts.vue')
                 }
             ]
         },
