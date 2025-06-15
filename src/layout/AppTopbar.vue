@@ -1,8 +1,16 @@
 <script setup>
 import { useLayout } from '@/layout/composables/layout';
 import AppConfigurator from './AppConfigurator.vue';
+import { useRouter } from 'vue-router';
 
 const { toggleMenu, toggleDarkMode, isDarkTheme } = useLayout();
+
+const router = useRouter();
+
+function handleLogout() {
+    localStorage.removeItem('userToken');
+    router.push('/auth/login');
+}
 </script>
 
 <template>
@@ -41,7 +49,7 @@ const { toggleMenu, toggleDarkMode, isDarkTheme } = useLayout();
                 </button>
             </div>
 
-            <div class="layout-topbar-menu hidden lg:block">
+            <div @click="handleLogout" class="layout-topbar-menu hidden lg:block">
                 <div class="layout-topbar-menu-content">
                     <button type="button" class="layout-topbar-action">
                         <i class="pi pi-sign-out"></i>

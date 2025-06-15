@@ -107,7 +107,8 @@ const router = createRouter({
                 {
                     path: '/',
                     name: 'Account',
-                    component: () => import('@/components/custom-reports/customAccounts.vue')
+                    component: () => import('@/components/custom-reports/customAccounts.vue'),
+                    meta: { requiresAuth: true }
                 }
             ]
         },
@@ -138,6 +139,21 @@ const router = createRouter({
             component: () => import('@/views/pages/auth/Error.vue')
         }
     ]
+});
+
+router.beforeEach((to, from, next) => {
+    if (to.meta.requiresAuth) {
+        const token = localStorage.getItem('userToken');
+
+        if (token) {
+            next();
+        } else {
+            console.log('No se encontró el token. Redirigiendo a /login');
+            next({ name: 'login' });
+        }
+    } else {
+        next();
+    }
 });
 
 export default router;
