@@ -1,5 +1,5 @@
 <script setup></script>
 
 <template>
-    <div class="layout-footer">&copy; 2025 Corp Report</div>
+    <div class="layout-footer uppercase">&copy; 2023 aa global car group</div>
 </template>

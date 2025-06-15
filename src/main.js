@@ -17,11 +17,11 @@ app.use(router);
 const dkPreset = definePreset(Aura, {
     semantic: {
         primary: {
-            50: '{blue.950}',
-            100: '{blue.950}',
-            200: '{blue.950}',
-            300: '{blue.950}',
-            400: '{blue.950}',
+            50: '{blue.50}',
+            100: '{blue.100}',
+            200: '{blue.200}',
+            300: '{blue.300}',
+            400: '{blue.400}',
             500: '{blue.950}',
             600: '{blue.950}',
             700: '{blue.950}',

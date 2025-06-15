@@ -102,15 +102,6 @@ function load(index) {
             </div>
             <div class="card flex flex-col gap-4">
                 <div class="font-semibold text-xl">Templating</div>
-                <div class="flex flex-wrap gap-2">
-                    <Button type="button">
-                        <img alt="logo" src="/demo/images/logo-white.svg" style="width: 1.5rem" />
-                    </Button>
-                    <Button type="button" outlined severity="success">
-                        <img alt="logo" src="/demo/images/logo.svg" style="width: 1.5rem" />
-                        <span class="ml-2 text-bold">PrimeVue</span>
-                    </Button>
-                </div>
             </div>
         </div>
         <div class="md:w-1/2">
