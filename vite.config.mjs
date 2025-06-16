@@ -7,8 +7,8 @@ import { defineConfig } from 'vite';
 
 import vueDevTools from 'vite-plugin-vue-devtools';
 
-// https://vitejs.dev/config/
 export default defineConfig({
+    base: '/cPanelTestPHP_1/',
     optimizeDeps: {
         noDiscovery: true
     },

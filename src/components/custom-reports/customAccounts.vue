@@ -2,11 +2,13 @@
 import { FilterMatchMode } from '@primevue/core/api';
 import { onMounted, ref } from 'vue';
 
-import DataTable from 'primevue/datatable';
+import axios from 'axios';
+
 import Column from 'primevue/column';
-import InputText from 'primevue/inputtext';
+import DataTable from 'primevue/datatable';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
+import InputText from 'primevue/inputtext';
 
 const dt = ref();
 const items = ref([]);
@@ -18,43 +20,19 @@ const filters = ref({
 
 const loading = ref(false);
 
-const api = [
-    {
-        id: 1,
-        name: 'Producto A',
-        description: 'Descripción del Producto A',
-        category: 'Electrónica',
-        status: 'Disponible'
-    },
-    {
-        id: 2,
-        name: 'Servicio B',
-        description: 'Descripción del Servicio B',
-        category: 'Servicios',
-        status: 'Activo'
-    },
-    {
-        id: 3,
-        name: 'Artículo C',
-        description: 'Descripción del Artículo C',
-        category: 'Hogar',
-        status: 'Agotado'
-    },
-    {
-        id: 4,
-        name: 'Material D',
-        description: 'Descripción del Material D',
-        category: 'Construcción',
-        status: 'En Stock'
+async function getItems() {
+    try {
+        const { data: products } = await axios.get('/cPanelTestPHP_1/api/index.php');
+        items.value = products;
+    } catch (error) {
+        console.log(error.message);
     }
-];
+}
 
-onMounted(() => {
+onMounted(async () => {
     loading.value = true;
-    setTimeout(() => {
-        items.value = api;
-        loading.value = false;
-    }, 500);
+    await getItems();
+    loading.value = false;
 });
 </script>
 
@@ -78,7 +56,7 @@ onMounted(() => {
         >
             <template #header>
                 <div class="flex flex-wrap items-center justify-between gap-2">
-                    <h4 class="m-0">Cuentas por cobrar</h4>
+                    <h4 class="m-0">CUENTAS POR COBRAR POR ANTIGÜEDAD</h4>
                     <IconField>
                         <InputIcon>
                             <i class="pi pi-search" />
@@ -95,10 +73,17 @@ onMounted(() => {
             </template>
 
             <Column selectionMode="multiple" style="width: 3rem" :exportable="false"></Column>
-            <Column field="name" header="Nombre del Ítem" sortable style="min-width: 12rem"></Column>
-            <Column field="description" header="Descripción" sortable style="min-width: 16rem"></Column>
-            <Column field="category" header="Categoría" sortable style="min-width: 10rem"></Column>
-            <Column field="status" header="Estado" sortable style="min-width: 12rem"></Column>
+            <Column field="CLIENTE" header="Cliente" sortable style="min-width: 12rem"></Column>
+            <Column field="CODIGO" header="Código" sortable style="min-width: 8rem"></Column>
+            <Column field="TOTAL CUENTAS POR COBRAR" header="Total Bs." sortable style="min-width: 12rem"></Column>
+            <Column field="NO VENCIDO" header="No Vencido Bs." sortable style="min-width: 10rem"></Column>
+            <Column field="VENCIDO 1-5 DIAS" header="Vencido 1-5 Días Bs." sortable style="min-width: 12rem"></Column>
+            <Column field="VENCIDO 6-15 DIAS" header="Vencido 6-15 Días Bs." sortable style="min-width: 12rem"></Column>
+            <Column field="VENCIDO 16-30 DIAS" header="Vencido 16-30 Días Bs." sortable style="min-width: 12rem"></Column>
+            <Column field="VENCIDO 31-60 DIAS" header="Vencido 31-60 Días Bs." sortable style="min-width: 12rem"></Column>
+            <Column field="VENCIDO >60 DIAS" header="Vencido >60 Días Bs." sortable style="min-width: 12rem"></Column>
+            <Column field="TOTAL DÓLARES" header="Total USD" sortable style="min-width: 10rem"></Column>
+            <Column field="TASA" header="Tasa" sortable style="min-width: 8rem"></Column>
         </DataTable>
     </div>
 </template>

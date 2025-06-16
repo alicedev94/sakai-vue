@@ -6,7 +6,7 @@ import AppMenuItem from './AppMenuItem.vue';
 const model = ref([
     {
         label: 'Reportes',
-        items: [{ label: 'Cuentas por cobrar', icon: 'pi pi-fw pi-', to: '/accounts' }]
+        items: [{ label: 'CUENTAS POR COBRAR POR ANTIGÜEDAD', icon: 'pi pi-fw pi-', to: '/accounts' }]
     }
     // {
     //     label: 'Home',

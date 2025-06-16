@@ -1,7 +1,7 @@
 <script setup>
+import logoEnterprise from '@/assets/img/logo_aaea.png';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import logoEnterprise from '@/assets/img/logo_aaea.png';
 
 const email = ref('');
 const password = ref('');
@@ -9,8 +9,8 @@ const password = ref('');
 const router = useRouter();
 
 function handleLogin() {
-    if (email.value) {
-        if (password.value == 123) {
+    if (email.value == 'admin') {
+        if (password.value == '5*u&D9q£qx)1') {
             localStorage.setItem('userToken', password.value);
             router.push('/');
         }
