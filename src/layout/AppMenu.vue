@@ -6,7 +6,23 @@ import AppMenuItem from './AppMenuItem.vue';
 const model = ref([
     {
         label: 'Reportes',
-        items: [{ label: 'CUENTAS POR COBRAR POR ANTIGÜEDAD', icon: 'pi pi-fw pi-', to: '/accounts' }]
+        items: [
+            {
+                label: 'CUENTAS POR COBRAR POR ANTIGÜEDAD',
+                icon: 'pi pi-fw pi-money-bill',
+                to: '/accounts'
+            },
+            {
+                label: 'VENTAS POR MES EN DÓLARES',
+                icon: 'pi pi-fw pi-chart-line',
+                to: '/sales'
+            },
+            {
+                label: 'VENTAS POR UNIDADES',
+                icon: 'pi pi-fw pi-box',
+                to: '/units'
+            }
+        ]
     }
     // {
     //     label: 'Home',

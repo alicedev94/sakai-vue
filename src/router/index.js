@@ -105,10 +105,26 @@ const router = createRouter({
                     component: () => import('@/views/pages/Documentation.vue')
                 },
                 {
-                    path: '/',
-                    name: 'Account',
+                    path: '/accounts',
+                    name: 'accounts',
                     component: () => import('@/components/custom-reports/customAccounts.vue'),
                     meta: { requiresAuth: true }
+                },
+                {
+                    path: '/sales',
+                    name: 'sales',
+                    component: () => import('@/components/custom-reports/customSales.vue'),
+                    meta: { requiresAuth: true }
+                },
+                {
+                    path: '/units',
+                    name: 'units',
+                    component: () => import('@/components/custom-reports/customUnits.vue'),
+                    meta: { requiresAuth: true }
+                },
+                {
+                    path: '',
+                    redirect: '/accounts'
                 }
             ]
         },

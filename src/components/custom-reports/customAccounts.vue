@@ -75,15 +75,15 @@ onMounted(async () => {
             <Column selectionMode="multiple" style="width: 3rem" :exportable="false"></Column>
             <Column field="CLIENTE" header="Cliente" sortable style="min-width: 12rem"></Column>
             <Column field="CODIGO" header="Código" sortable style="min-width: 8rem"></Column>
-            <Column field="TOTAL CUENTAS POR COBRAR" header="Total Bs." sortable style="min-width: 12rem"></Column>
-            <Column field="NO VENCIDO" header="No Vencido Bs." sortable style="min-width: 10rem"></Column>
-            <Column field="VENCIDO 1-5 DIAS" header="Vencido 1-5 Días Bs." sortable style="min-width: 12rem"></Column>
-            <Column field="VENCIDO 6-15 DIAS" header="Vencido 6-15 Días Bs." sortable style="min-width: 12rem"></Column>
-            <Column field="VENCIDO 16-30 DIAS" header="Vencido 16-30 Días Bs." sortable style="min-width: 12rem"></Column>
-            <Column field="VENCIDO 31-60 DIAS" header="Vencido 31-60 Días Bs." sortable style="min-width: 12rem"></Column>
-            <Column field="VENCIDO >60 DIAS" header="Vencido >60 Días Bs." sortable style="min-width: 12rem"></Column>
-            <Column field="TOTAL DÓLARES" header="Total USD" sortable style="min-width: 10rem"></Column>
-            <Column field="TASA" header="Tasa" sortable style="min-width: 8rem"></Column>
+            <Column field="AÑO" header="Año" sortable style="min-width: 6rem"></Column>
+            <Column field="TOTAL CXC DÓLARES" header="Total CXC USD" sortable style="min-width: 12rem"></Column>
+            <Column field="NO VENCIDO DÓLARES" header="No Vencido USD" sortable style="min-width: 12rem"></Column>
+            <Column field="VENCIDO 1-5 DIAS DÓLARES" header="Vencido 1-5 Días USD" sortable style="min-width: 14rem"></Column>
+            <Column field="VENCIDO 6-15 DIAS DÓLARES" header="Vencido 6-15 Días USD" sortable style="min-width: 14rem"></Column>
+            <Column field="VENCIDO 16-30 DIAS DÓLARES" header="Vencido 16-30 Días USD" sortable style="min-width: 14rem"></Column>
+            <Column field="VENCIDO 31-60 DIAS DÓLARES" header="Vencido 31-60 Días USD" sortable style="min-width: 14rem"></Column>
+            <Column field="VENCIDO >60 DIAS DÓLARES" header="Vencido >60 Días USD" sortable style="min-width: 14rem"></Column>
+            <Column field="TASA PROMEDIO" header="Tasa Promedio" sortable style="min-width: 10rem"></Column>
         </DataTable>
     </div>
 </template>
