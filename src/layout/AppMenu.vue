@@ -21,6 +21,11 @@ const model = ref([
                 label: 'VENTAS POR UNIDADES',
                 icon: 'pi pi-fw pi-box',
                 to: '/units'
+            },
+            {
+                label: 'VENTAS POR MARCA POR MES UNIDADES',
+                icon: 'pi pi-fw pi-tags',
+                to: '/brand-units'
             }
         ]
     }

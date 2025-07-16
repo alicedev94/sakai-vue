@@ -123,6 +123,12 @@ const router = createRouter({
                     meta: { requiresAuth: true }
                 },
                 {
+                    path: '/brand-units',
+                    name: 'brand-units',
+                    component: () => import('@/components/custom-reports/customBrandUnits.vue'),
+                    meta: { requiresAuth: true }
+                },
+                {
                     path: '',
                     redirect: '/accounts'
                 }

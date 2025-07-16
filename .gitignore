@@ -12,3 +12,6 @@ dist
 .eslintcache
 api-generator/typedoc.json
 **/.DS_Store
+
+api.zip
+dist.api
