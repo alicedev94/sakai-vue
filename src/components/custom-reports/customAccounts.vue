@@ -13,7 +13,6 @@ import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import Tag from 'primevue/tag';
-import Toast from 'primevue/toast';
 
 const dt = ref();
 const items = ref([]);
@@ -273,9 +272,12 @@ onMounted(async () => {
                         </template>
                     </Column>
 
-                    <Column field="TASA PROMEDIO" header="Tasa Promedio" sortable style="min-width: 10rem">
+                    <Column field="TASA PROMEDIO" header="📊 Tasa Promedio" sortable style="min-width: 12rem">
                         <template #body="slotProps">
-                            <span class="font-mono text-600">{{ slotProps.data['TASA PROMEDIO'] }}</span>
+                            <div class="text-center">
+                                <span class="font-mono text-600 text-sm">{{ slotProps.data['TASA PROMEDIO'] }}</span>
+                                <div class="text-xs text-400 italic">Solo informativa</div>
+                            </div>
                         </template>
                     </Column>
                 </DataTable>

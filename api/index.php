@@ -22,7 +22,6 @@ $query = "SELECT
     T0.fc_descripcion AS CLIENTE,
     T0.fc_codigo AS CODIGO,
     YEAR(T1.b) AS AÑO,
-    -- Validación para evitar división por cero en tasa
     COALESCE(CONCAT('$', FORMAT(SUM(
         CASE WHEN T1.tasa > 0 THEN T1.monto_fact / T1.tasa ELSE 0 END
     ), 2)), '$0.00') AS \"TOTAL CXC DÓLARES\",
@@ -53,7 +52,6 @@ $query = "SELECT
 
     COALESCE(FORMAT(AVG(CASE WHEN T1.tasa > 0 THEN T1.tasa END), 4), '0.0000') AS \"TASA PROMEDIO\",
 
-    -- Campo adicional para identificar status del cliente
     CASE
         WHEN SUM(CASE WHEN DATEDIFF(CURDATE(), T1.b) > 0 AND T1.tasa > 0 THEN T1.monto_fact / T1.tasa ELSE 0 END) > 0
         THEN 'VENCIDO'
@@ -64,17 +62,16 @@ FROM `etl_clientes` T0
 LEFT JOIN `etl_cxc` T1 ON T0.fc_codigo = T1.rif
 WHERE T1.monto_fact IS NOT NULL
   AND T1.monto_fact > 0
-  AND YEAR(T1.b) = ?  -- Filtrar por año específico
+  AND YEAR(T1.b) = ?
 GROUP BY T0.fc_descripcion, T0.fc_codigo, YEAR(T1.b)
 HAVING SUM(CASE WHEN T1.tasa > 0 THEN T1.monto_fact / T1.tasa ELSE 0 END) > 0
 
 UNION ALL
 
--- Fila de TOTALES al pie (con validaciones consistentes)
 SELECT
     'TOTALES' AS CLIENTE,
     '' AS CODIGO,
-    ? AS AÑO,  -- Usar el año consultado
+    ? AS AÑO,
     COALESCE(CONCAT('$', FORMAT(SUM(
         CASE WHEN T1.tasa > 0 THEN T1.monto_fact / T1.tasa ELSE 0 END
     ), 2)), '$0.00') AS \"TOTAL CXC DÓLARES\",
@@ -123,7 +120,6 @@ if (!$stmt) {
     exit();
 }
 
-// Bind parameters (año para cada parte del UNION)
 mysqli_stmt_bind_param($stmt, "iii", $ano, $ano, $ano);
 
 if (!mysqli_stmt_execute($stmt)) {
