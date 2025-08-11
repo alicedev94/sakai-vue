@@ -128,38 +128,30 @@ onMounted(async () => {
                     <Tag value="TOTALES" severity="info" class="text-sm font-semibold"></Tag>
                 </div>
 
-                <div class="grid">
-                    <div class="col-12 md:col-6 lg:col-3">
-                        <div class="bg-blue-50 border-round p-3 text-center">
-                            <div class="text-blue-600 font-semibold text-sm mb-1">TOTAL CXC</div>
-                            <div class="text-blue-900 font-bold text-xl">{{ totales['TOTAL CXC DÓLARES'] }}</div>
+                <div class="flex flex-wrap align-items-center justify-content-between gap-3">
+                    <div class="bg-blue-50 border-round p-3 text-center flex-1 min-w-200px">
+                        <div class="text-blue-600 font-semibold text-sm mb-1">TOTAL CXC</div>
+                        <div class="text-blue-900 font-bold text-xl">{{ totales['TOTAL CXC DÓLARES'] }}</div>
+                    </div>
+                    <div class="bg-green-50 border-round p-3 text-center flex-1 min-w-200px">
+                        <div class="text-green-600 font-semibold text-sm mb-1">NO VENCIDO</div>
+                        <div class="text-green-900 font-bold text-xl">{{ totales['NO VENCIDO DÓLARES'] }}</div>
+                    </div>
+                    <div class="bg-orange-50 border-round p-3 text-center flex-1 min-w-200px">
+                        <div class="text-orange-600 font-semibold text-sm mb-1">VENCIDO 1-30 DÍAS</div>
+                        <div class="text-orange-900 font-bold text-xl">
+                            ${{
+                                (
+                                    parseFloat((totales['VENCIDO 1-5 DIAS DÓLARES'] || '$0.00').replace('$', '').replace(',', '')) +
+                                    parseFloat((totales['VENCIDO 6-15 DIAS DÓLARES'] || '$0.00').replace('$', '').replace(',', '')) +
+                                    parseFloat((totales['VENCIDO 16-30 DIAS DÓLARES'] || '$0.00').replace('$', '').replace(',', ''))
+                                ).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                            }}
                         </div>
                     </div>
-                    <div class="col-12 md:col-6 lg:col-3">
-                        <div class="bg-green-50 border-round p-3 text-center">
-                            <div class="text-green-600 font-semibold text-sm mb-1">NO VENCIDO</div>
-                            <div class="text-green-900 font-bold text-xl">{{ totales['NO VENCIDO DÓLARES'] }}</div>
-                        </div>
-                    </div>
-                    <div class="col-12 md:col-6 lg:col-3">
-                        <div class="bg-orange-50 border-round p-3 text-center">
-                            <div class="text-orange-600 font-semibold text-sm mb-1">VENCIDO 1-30 DÍAS</div>
-                            <div class="text-orange-900 font-bold text-xl">
-                                ${{
-                                    (
-                                        parseFloat((totales['VENCIDO 1-5 DIAS DÓLARES'] || '$0.00').replace('$', '').replace(',', '')) +
-                                        parseFloat((totales['VENCIDO 6-15 DIAS DÓLARES'] || '$0.00').replace('$', '').replace(',', '')) +
-                                        parseFloat((totales['VENCIDO 16-30 DIAS DÓLARES'] || '$0.00').replace('$', '').replace(',', ''))
-                                    ).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                                }}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 md:col-6 lg:col-3">
-                        <div class="bg-red-50 border-round p-3 text-center">
-                            <div class="text-red-600 font-semibold text-sm mb-1">VENCIDO +60 DÍAS</div>
-                            <div class="text-red-900 font-bold text-xl">{{ totales['VENCIDO >60 DIAS DÓLARES'] }}</div>
-                        </div>
+                    <div class="bg-red-50 border-round p-3 text-center flex-1 min-w-200px">
+                        <div class="text-red-600 font-semibold text-sm mb-1">VENCIDO +60 DÍAS</div>
+                        <div class="text-red-900 font-bold text-xl">{{ totales['VENCIDO >60 DIAS DÓLARES'] }}</div>
                     </div>
                 </div>
             </template>
