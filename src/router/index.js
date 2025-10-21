@@ -110,19 +110,25 @@ const router = createRouter({
                     component: () => import('@/components/custom-reports/customAccounts.vue'),
                     meta: { requiresAuth: true }
                 },
-                // Rutas comentadas para uso futuro
-                // {
-                //     path: '/sales',
-                //     name: 'sales',
-                //     component: () => import('@/components/custom-reports/customSales.vue'),
-                //     meta: { requiresAuth: true }
-                // },
-                // {
-                //     path: '/units',
-                //     name: 'units',
-                //     component: () => import('@/components/custom-reports/customUnits.vue'),
-                //     meta: { requiresAuth: true }
-                // },
+                {
+                    path: '/total-sales',
+                    name: 'total-sales',
+                    component: () => import('@/components/custom-reports/customTotalSales.vue'),
+                    meta: { requiresAuth: true }
+                },
+                {
+                    path: '/sales',
+                    name: 'sales',
+                    component: () => import('@/components/custom-reports/customSales.vue'),
+                    meta: { requiresAuth: true }
+                },
+                {
+                    path: '/units',
+                    name: 'units',
+                    component: () => import('@/components/custom-reports/customUnits.vue'),
+                    meta: { requiresAuth: true }
+                },
+                // Ruta comentada para uso futuro
                 // {
                 //     path: '/brand-units',
                 //     name: 'brand-units',

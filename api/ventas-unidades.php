@@ -9,62 +9,102 @@ require_once 'db_connect.php'; // Ensure this file correctly connects to your da
 
 $response = array();
 
-// Obtener el año desde los parámetros GET, por defecto el año actual
-$ano = isset($_GET['ano']) ? intval($_GET['ano']) : date('Y');
+// Obtener el año desde los parámetros GET
+// Si no se envía o es 0, mostrar todos los años
+$ano = isset($_GET['ano']) ? intval($_GET['ano']) : 0;
 
-$query = "SELECT
-    c.fc_descripcion AS CLIENTE,
-    c.fc_codigo AS CODIGO,
-    $ano AS AÑO,
-    FORMAT(SUM(dv.entregado), 0) AS \"TOTAL AÑO\",
-    FORMAT(SUM(CASE WHEN dv.mes = 1 THEN dv.entregado ELSE 0 END), 0) AS ENERO,
-    FORMAT(SUM(CASE WHEN dv.mes = 2 THEN dv.entregado ELSE 0 END), 0) AS FEBRERO,
-    FORMAT(SUM(CASE WHEN dv.mes = 3 THEN dv.entregado ELSE 0 END), 0) AS MARZO,
-    FORMAT(SUM(CASE WHEN dv.mes = 4 THEN dv.entregado ELSE 0 END), 0) AS ABRIL,
-    FORMAT(SUM(CASE WHEN dv.mes = 5 THEN dv.entregado ELSE 0 END), 0) AS MAYO,
-    FORMAT(SUM(CASE WHEN dv.mes = 6 THEN dv.entregado ELSE 0 END), 0) AS JUNIO,
-    FORMAT(SUM(CASE WHEN dv.mes = 7 THEN dv.entregado ELSE 0 END), 0) AS JULIO,
-    FORMAT(SUM(CASE WHEN dv.mes = 8 THEN dv.entregado ELSE 0 END), 0) AS AGOSTO,
-    FORMAT(SUM(CASE WHEN dv.mes = 9 THEN dv.entregado ELSE 0 END), 0) AS SEPTIEMBRE,
-    FORMAT(SUM(CASE WHEN dv.mes = 10 THEN dv.entregado ELSE 0 END), 0) AS OCTUBRE,
-    FORMAT(SUM(CASE WHEN dv.mes = 11 THEN dv.entregado ELSE 0 END), 0) AS NOVIEMBRE,
-    FORMAT(SUM(CASE WHEN dv.mes = 12 THEN dv.entregado ELSE 0 END), 0) AS DICIEMBRE
-FROM
-    etl_clientes c
-INNER JOIN
-    etl_detalle_venta dv ON c.fc_rif = dv.rif
-WHERE
-    dv.ano = ?
-GROUP BY
-    c.fc_descripcion, c.fc_codigo
-HAVING
-    SUM(dv.entregado) > 0
-ORDER BY
-    c.fc_descripcion;";
-
-// Preparar la consulta para evitar inyección SQL
-$stmt = mysqli_prepare($enlace_local, $query);
-
-if (!$stmt) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Error al preparar la consulta: ' . mysqli_error($enlace_local)]);
-    mysqli_close($enlace_local);
-    exit();
-}
-
-// Vincular el parámetro del año
-mysqli_stmt_bind_param($stmt, "i", $ano);
-
-// Ejecutar la consulta
-mysqli_stmt_execute($stmt);
-$consulta = mysqli_stmt_get_result($stmt);
-
-if (!$consulta) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Error al ejecutar la consulta: ' . mysqli_error($enlace_local)]);
-    mysqli_stmt_close($stmt);
-    mysqli_close($enlace_local);
-    exit();
+// CONSULTA CORREGIDA - LEFT JOIN para no perder datos
+// Relación: etl_detalle_venta.rif = etl_clientes.fc_codigo
+if ($ano == 0) {
+    $query = "SELECT
+        COALESCE(c.fc_codigo, dv.rif, 'SIN RIF') AS CODIGO,
+        COALESCE(c.fc_descripcion, dv.rif, 'SIN CLIENTE') AS CLIENTE,
+        'TODOS' AS AÑO,
+        FORMAT(SUM(dv.entregado), 0) AS \"TOTAL AÑO\",
+        FORMAT(SUM(CASE WHEN dv.mes = 1 THEN dv.entregado ELSE 0 END), 0) AS ENERO,
+        FORMAT(SUM(CASE WHEN dv.mes = 2 THEN dv.entregado ELSE 0 END), 0) AS FEBRERO,
+        FORMAT(SUM(CASE WHEN dv.mes = 3 THEN dv.entregado ELSE 0 END), 0) AS MARZO,
+        FORMAT(SUM(CASE WHEN dv.mes = 4 THEN dv.entregado ELSE 0 END), 0) AS ABRIL,
+        FORMAT(SUM(CASE WHEN dv.mes = 5 THEN dv.entregado ELSE 0 END), 0) AS MAYO,
+        FORMAT(SUM(CASE WHEN dv.mes = 6 THEN dv.entregado ELSE 0 END), 0) AS JUNIO,
+        FORMAT(SUM(CASE WHEN dv.mes = 7 THEN dv.entregado ELSE 0 END), 0) AS JULIO,
+        FORMAT(SUM(CASE WHEN dv.mes = 8 THEN dv.entregado ELSE 0 END), 0) AS AGOSTO,
+        FORMAT(SUM(CASE WHEN dv.mes = 9 THEN dv.entregado ELSE 0 END), 0) AS SEPTIEMBRE,
+        FORMAT(SUM(CASE WHEN dv.mes = 10 THEN dv.entregado ELSE 0 END), 0) AS OCTUBRE,
+        FORMAT(SUM(CASE WHEN dv.mes = 11 THEN dv.entregado ELSE 0 END), 0) AS NOVIEMBRE,
+        FORMAT(SUM(CASE WHEN dv.mes = 12 THEN dv.entregado ELSE 0 END), 0) AS DICIEMBRE
+    FROM
+        etl_detalle_venta dv
+    LEFT JOIN
+        etl_clientes c ON dv.rif = c.fc_codigo
+    GROUP BY
+        dv.rif, c.fc_codigo, c.fc_descripcion
+    HAVING
+        SUM(dv.entregado) > 0
+    ORDER BY
+        COALESCE(c.fc_descripcion, dv.rif)";
+    
+    $consulta = mysqli_query($enlace_local, $query);
+    
+    if (!$consulta) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al ejecutar la consulta: ' . mysqli_error($enlace_local)]);
+        mysqli_close($enlace_local);
+        exit();
+    }
+    
+} else {
+    // Consultar por año específico
+    $query = "SELECT
+        COALESCE(c.fc_codigo, dv.rif, 'SIN RIF') AS CODIGO,
+        COALESCE(c.fc_descripcion, dv.rif, 'SIN CLIENTE') AS CLIENTE,
+        ? AS AÑO,
+        FORMAT(SUM(dv.entregado), 0) AS \"TOTAL AÑO\",
+        FORMAT(SUM(CASE WHEN dv.mes = 1 THEN dv.entregado ELSE 0 END), 0) AS ENERO,
+        FORMAT(SUM(CASE WHEN dv.mes = 2 THEN dv.entregado ELSE 0 END), 0) AS FEBRERO,
+        FORMAT(SUM(CASE WHEN dv.mes = 3 THEN dv.entregado ELSE 0 END), 0) AS MARZO,
+        FORMAT(SUM(CASE WHEN dv.mes = 4 THEN dv.entregado ELSE 0 END), 0) AS ABRIL,
+        FORMAT(SUM(CASE WHEN dv.mes = 5 THEN dv.entregado ELSE 0 END), 0) AS MAYO,
+        FORMAT(SUM(CASE WHEN dv.mes = 6 THEN dv.entregado ELSE 0 END), 0) AS JUNIO,
+        FORMAT(SUM(CASE WHEN dv.mes = 7 THEN dv.entregado ELSE 0 END), 0) AS JULIO,
+        FORMAT(SUM(CASE WHEN dv.mes = 8 THEN dv.entregado ELSE 0 END), 0) AS AGOSTO,
+        FORMAT(SUM(CASE WHEN dv.mes = 9 THEN dv.entregado ELSE 0 END), 0) AS SEPTIEMBRE,
+        FORMAT(SUM(CASE WHEN dv.mes = 10 THEN dv.entregado ELSE 0 END), 0) AS OCTUBRE,
+        FORMAT(SUM(CASE WHEN dv.mes = 11 THEN dv.entregado ELSE 0 END), 0) AS NOVIEMBRE,
+        FORMAT(SUM(CASE WHEN dv.mes = 12 THEN dv.entregado ELSE 0 END), 0) AS DICIEMBRE
+    FROM
+        etl_detalle_venta dv
+    LEFT JOIN
+        etl_clientes c ON dv.rif = c.fc_codigo
+    WHERE
+        dv.ano = ?
+    GROUP BY
+        dv.rif, c.fc_codigo, c.fc_descripcion
+    HAVING
+        SUM(dv.entregado) > 0
+    ORDER BY
+        COALESCE(c.fc_descripcion, dv.rif)";
+    
+    $stmt = mysqli_prepare($enlace_local, $query);
+    
+    if (!$stmt) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al preparar la consulta: ' . mysqli_error($enlace_local)]);
+        mysqli_close($enlace_local);
+        exit();
+    }
+    
+    mysqli_stmt_bind_param($stmt, "ii", $ano, $ano);
+    mysqli_stmt_execute($stmt);
+    $consulta = mysqli_stmt_get_result($stmt);
+    
+    if (!$consulta) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al ejecutar la consulta: ' . mysqli_error($enlace_local)]);
+        mysqli_stmt_close($stmt);
+        mysqli_close($enlace_local);
+        exit();
+    }
 }
 
 if (mysqli_num_rows($consulta) > 0) {
@@ -75,11 +115,13 @@ if (mysqli_num_rows($consulta) > 0) {
 
 // Agregar información del año consultado en la respuesta
 $result = [
-    'ano_consultado' => $ano,
+    'ano_consultado' => $ano == 0 ? 'TODOS' : $ano,
     'data' => $response
 ];
 
 echo json_encode($result);
 
-mysqli_stmt_close($stmt);
+if (isset($stmt)) {
+    mysqli_stmt_close($stmt);
+}
 mysqli_close($enlace_local);

@@ -12,17 +12,27 @@ const model = ref([
                 icon: 'pi pi-fw pi-money-bill',
                 to: '/accounts'
             }
-            // Los siguientes reportes están comentados para uso futuro
-            // {
-            //     label: 'VENTAS POR MES EN DÓLARES',
-            //     icon: 'pi pi-fw pi-chart-line',
-            //     to: '/sales'
-            // },
-            // {
-            //     label: 'VENTAS POR UNIDADES',
-            //     icon: 'pi pi-fw pi-box',
-            //     to: '/units'
-            // },
+        ]
+    },
+    {
+        label: 'Ventas',
+        items: [
+            {
+                label: 'VENTAS TOTALES POR MES',
+                icon: 'pi pi-fw pi-chart-bar',
+                to: '/total-sales'
+            },
+            {
+                label: 'VENTAS POR CLIENTE EN DÓLARES',
+                icon: 'pi pi-fw pi-chart-line',
+                to: '/sales'
+            },
+            {
+                label: 'VENTAS POR CLIENTE EN UNIDADES',
+                icon: 'pi pi-fw pi-box',
+                to: '/units'
+            }
+            // Reporte comentado para uso futuro
             // {
             //     label: 'VENTAS POR MARCA POR MES UNIDADES',
             //     icon: 'pi pi-fw pi-tags',

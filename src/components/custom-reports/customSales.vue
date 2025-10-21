@@ -20,11 +20,13 @@ const filters = ref({
 });
 
 const loading = ref(false);
-const selectedYear = ref(new Date().getFullYear());
-const consultedYear = ref(new Date().getFullYear());
+const selectedYear = ref(0); // 0 = TODOS los años
+const consultedYear = ref('TODOS');
 
 // Generar años para el dropdown (desde 2020 hasta año actual + 2)
-const availableYears = ref([]);
+const availableYears = ref([
+    { label: 'Todos los años', value: 0 }
+]);
 const currentYear = new Date().getFullYear();
 for (let year = 2020; year <= currentYear + 2; year++) {
     availableYears.value.push({ label: year.toString(), value: year });

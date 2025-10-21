@@ -209,43 +209,43 @@ onMounted(async () => {
                         </template>
                     </Column>
 
-                    <Column field="NO VENCIDO DÓLARES" header="✅ No Vencido USD" sortable style="min-width: 12rem">
+                    <Column field="NO VENCIDO DÓLARES" header="No Vencido USD" sortable style="min-width: 12rem">
                         <template #body="slotProps">
                             <Tag :value="slotProps.data['NO VENCIDO DÓLARES']" :severity="getAmountSeverity(slotProps.data['NO VENCIDO DÓLARES'], 'NO VENCIDO')" class="font-semibold"></Tag>
                         </template>
                     </Column>
 
-                    <Column field="VENCIDO 1-5 DIAS DÓLARES" header="⚠️ Vencido 1-5 Días" sortable style="min-width: 14rem">
+                    <Column field="VENCIDO 1-5 DIAS DÓLARES" header="Vencido 1-5 Días" sortable style="min-width: 14rem">
                         <template #body="slotProps">
                             <Tag :value="slotProps.data['VENCIDO 1-5 DIAS DÓLARES']" :severity="getAmountSeverity(slotProps.data['VENCIDO 1-5 DIAS DÓLARES'], 'VENCIDO')" class="font-semibold"></Tag>
                         </template>
                     </Column>
 
-                    <Column field="VENCIDO 6-15 DIAS DÓLARES" header="⚠️ Vencido 6-15 Días" sortable style="min-width: 14rem">
+                    <Column field="VENCIDO 6-15 DIAS DÓLARES" header="Vencido 6-15 Días" sortable style="min-width: 14rem">
                         <template #body="slotProps">
                             <Tag :value="slotProps.data['VENCIDO 6-15 DIAS DÓLARES']" :severity="getAmountSeverity(slotProps.data['VENCIDO 6-15 DIAS DÓLARES'], 'VENCIDO')" class="font-semibold"></Tag>
                         </template>
                     </Column>
 
-                    <Column field="VENCIDO 16-30 DIAS DÓLARES" header="🔶 Vencido 16-30 Días" sortable style="min-width: 14rem">
+                    <Column field="VENCIDO 16-30 DIAS DÓLARES" header="Vencido 16-30 Días" sortable style="min-width: 14rem">
                         <template #body="slotProps">
                             <Tag :value="slotProps.data['VENCIDO 16-30 DIAS DÓLARES']" :severity="getAmountSeverity(slotProps.data['VENCIDO 16-30 DIAS DÓLARES'], 'VENCIDO')" class="font-semibold"></Tag>
                         </template>
                     </Column>
 
-                    <Column field="VENCIDO 31-60 DIAS DÓLARES" header="🔴 Vencido 31-60 Días" sortable style="min-width: 14rem">
+                    <Column field="VENCIDO 31-60 DIAS DÓLARES" header="Vencido 31-60 Días" sortable style="min-width: 14rem">
                         <template #body="slotProps">
                             <Tag :value="slotProps.data['VENCIDO 31-60 DIAS DÓLARES']" :severity="getAmountSeverity(slotProps.data['VENCIDO 31-60 DIAS DÓLARES'], 'VENCIDO')" class="font-semibold"></Tag>
                         </template>
                     </Column>
 
-                    <Column field="VENCIDO >60 DIAS DÓLARES" header="💀 Vencido >60 Días" sortable style="min-width: 14rem">
+                    <Column field="VENCIDO >60 DIAS DÓLARES" header="Vencido >60 Días" sortable style="min-width: 14rem">
                         <template #body="slotProps">
                             <Tag :value="slotProps.data['VENCIDO >60 DIAS DÓLARES']" :severity="getAmountSeverity(slotProps.data['VENCIDO >60 DIAS DÓLARES'], 'VENCIDO')" class="font-semibold"></Tag>
                         </template>
                     </Column>
 
-                    <Column field="TASA PROMEDIO" header="📊 Tasa Promedio" sortable style="min-width: 12rem">
+                    <Column field="TASA PROMEDIO" header="Tasa Promedio" sortable style="min-width: 12rem">
                         <template #body="slotProps">
                             <div class="text-center">
                                 <span class="font-mono text-600 text-sm">{{ slotProps.data['TASA PROMEDIO'] }}</span>
