@@ -11,22 +11,23 @@ const model = ref([
                 label: 'CUENTAS POR COBRAR POR ANTIGÜEDAD',
                 icon: 'pi pi-fw pi-money-bill',
                 to: '/accounts'
-            },
-            {
-                label: 'VENTAS POR MES EN DÓLARES',
-                icon: 'pi pi-fw pi-chart-line',
-                to: '/sales'
-            },
-            {
-                label: 'VENTAS POR UNIDADES',
-                icon: 'pi pi-fw pi-box',
-                to: '/units'
-            },
-            {
-                label: 'VENTAS POR MARCA POR MES UNIDADES',
-                icon: 'pi pi-fw pi-tags',
-                to: '/brand-units'
             }
+            // Los siguientes reportes están comentados para uso futuro
+            // {
+            //     label: 'VENTAS POR MES EN DÓLARES',
+            //     icon: 'pi pi-fw pi-chart-line',
+            //     to: '/sales'
+            // },
+            // {
+            //     label: 'VENTAS POR UNIDADES',
+            //     icon: 'pi pi-fw pi-box',
+            //     to: '/units'
+            // },
+            // {
+            //     label: 'VENTAS POR MARCA POR MES UNIDADES',
+            //     icon: 'pi pi-fw pi-tags',
+            //     to: '/brand-units'
+            // }
         ]
     }
     // {

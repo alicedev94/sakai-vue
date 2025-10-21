@@ -8,7 +8,6 @@ import Button from 'primevue/button';
 import Card from 'primevue/card';
 import Column from 'primevue/column';
 import DataTable from 'primevue/datatable';
-import Dropdown from 'primevue/dropdown';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
@@ -22,15 +21,6 @@ const filters = ref({
 });
 
 const loading = ref(false);
-const selectedYear = ref(new Date().getFullYear());
-const consultedYear = ref(new Date().getFullYear());
-
-// Generar años para el dropdown (desde 2020 hasta año actual + 2)
-const availableYears = ref([]);
-const currentYear = new Date().getFullYear();
-for (let year = 2020; year <= currentYear + 2; year++) {
-    availableYears.value.push({ label: year.toString(), value: year });
-}
 
 // Computed para obtener los totales
 const totales = computed(() => {
@@ -67,24 +57,19 @@ const getAmountSeverity = (amount, fieldName) => {
     return 'info';
 };
 
-async function getItems(year = selectedYear.value) {
+async function getItems() {
     try {
         loading.value = true;
-        const { data: response } = await axios.get(`/cPanelTestPHP_1/api/index.php?ano=${year}`);
+        const { data: response } = await axios.get(`/cPanelTestPHP_1/api/index.php`);
 
-        // La respuesta ahora incluye año consultado y datos
+        // La respuesta incluye todos los montos acumulados sin filtro de año
         items.value = response.data || [];
-        consultedYear.value = response.ano_consultado || year;
     } catch (error) {
         console.log('Error al obtener datos:', error.message);
         items.value = [];
     } finally {
         loading.value = false;
     }
-}
-
-async function filterByYear() {
-    await getItems(selectedYear.value);
 }
 
 onMounted(async () => {
@@ -102,16 +87,12 @@ onMounted(async () => {
                         <i class="pi pi-chart-line text-primary text-2xl"></i>
                         <div>
                             <h2 class="text-2xl font-bold text-primary m-0">Cuentas por Cobrar</h2>
-                            <p class="text-600 m-0">Análisis por antigüedad - Año {{ consultedYear }}</p>
+                            <p class="text-600 m-0">Análisis por antigüedad - Todos los períodos</p>
                         </div>
                     </div>
 
                     <div class="flex align-items-center gap-3">
-                        <div class="flex align-items-center gap-2">
-                            <label for="year-filter" class="font-semibold text-900">Año:</label>
-                            <Dropdown id="year-filter" v-model="selectedYear" :options="availableYears" optionLabel="label" optionValue="value" placeholder="Seleccionar año" class="w-10rem" />
-                        </div>
-                        <Button label="Filtrar" icon="pi pi-filter" @click="filterByYear" :loading="loading" class="p-button-primary" />
+                        <Button label="Actualizar" icon="pi pi-refresh" @click="getItems" :loading="loading" class="p-button-primary" />
                     </div>
                 </div>
             </template>
@@ -123,7 +104,7 @@ onMounted(async () => {
                 <div class="flex align-items-center justify-content-between mb-3">
                     <h3 class="text-xl font-semibold text-800 m-0">
                         <i class="pi pi-calculator mr-2"></i>
-                        Resumen General - {{ consultedYear }}
+                        Resumen General - Acumulado Total
                     </h3>
                     <Tag value="TOTALES" severity="info" class="text-sm font-semibold"></Tag>
                 </div>

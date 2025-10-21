@@ -9,19 +9,10 @@ require_once 'db_connect.php'; // Ensure this file correctly connects to your da
 
 $response = array();
 
-// Obtener el año desde los parámetros GET, por defecto el año actual
-$ano = isset($_GET['ano']) ? intval($_GET['ano']) : date('Y');
-
-// Validar que el año sea válido
-if ($ano < 2000 || $ano > 2050) {
-    $ano = date('Y');
-}
-
-// QUERY MEJORADO CON FILTRO POR AÑO Y VALIDACIONES ADICIONALES
+// QUERY ACTUALIZADO - SIN FILTRO DE AÑO - MUESTRA TODOS LOS MONTOS ACUMULADOS
 $query = "SELECT
     T0.fc_descripcion AS CLIENTE,
     T0.fc_codigo AS CODIGO,
-    YEAR(T1.b) AS AÑO,
     COALESCE(CONCAT('$', FORMAT(SUM(
         CASE WHEN T1.tasa > 0 THEN T1.monto_fact / T1.tasa ELSE 0 END
     ), 2)), '$0.00') AS \"TOTAL CXC DÓLARES\",
@@ -62,8 +53,7 @@ FROM `etl_clientes` T0
 LEFT JOIN `etl_cxc` T1 ON T0.fc_codigo = T1.rif
 WHERE T1.monto_fact IS NOT NULL
   AND T1.monto_fact > 0
-  AND YEAR(T1.b) = ?
-GROUP BY T0.fc_descripcion, T0.fc_codigo, YEAR(T1.b)
+GROUP BY T0.fc_descripcion, T0.fc_codigo
 HAVING SUM(CASE WHEN T1.tasa > 0 THEN T1.monto_fact / T1.tasa ELSE 0 END) > 0
 
 UNION ALL
@@ -71,7 +61,6 @@ UNION ALL
 SELECT
     'TOTALES' AS CLIENTE,
     '' AS CODIGO,
-    ? AS AÑO,
     COALESCE(CONCAT('$', FORMAT(SUM(
         CASE WHEN T1.tasa > 0 THEN T1.monto_fact / T1.tasa ELSE 0 END
     ), 2)), '$0.00') AS \"TOTAL CXC DÓLARES\",
@@ -107,30 +96,17 @@ SELECT
 FROM `etl_cxc` T1
 WHERE T1.monto_fact IS NOT NULL
   AND T1.monto_fact > 0
-  AND T1.tasa > 0
-  AND YEAR(T1.b) = ?";
+  AND T1.tasa > 0";
 
-// Preparar la consulta
-$stmt = mysqli_prepare($enlace_local, $query);
+// Ejecutar la consulta directamente (sin parámetros preparados)
+$consulta = mysqli_query($enlace_local, $query);
 
-if (!$stmt) {
+if (!$consulta) {
     http_response_code(500);
-    echo json_encode(['error' => 'Error al preparar la consulta: ' . mysqli_error($enlace_local)]);
+    echo json_encode(['error' => 'Error al ejecutar la consulta: ' . mysqli_error($enlace_local)]);
     mysqli_close($enlace_local);
     exit();
 }
-
-mysqli_stmt_bind_param($stmt, "iii", $ano, $ano, $ano);
-
-if (!mysqli_stmt_execute($stmt)) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Error al ejecutar la consulta: ' . mysqli_stmt_error($stmt)]);
-    mysqli_stmt_close($stmt);
-    mysqli_close($enlace_local);
-    exit();
-}
-
-$consulta = mysqli_stmt_get_result($stmt);
 $data = [];
 
 if (mysqli_num_rows($consulta) > 0) {
@@ -139,10 +115,9 @@ if (mysqli_num_rows($consulta) > 0) {
     }
 }
 
-// Estructurar respuesta consistente con otros APIs
+// Estructurar respuesta
 $response = [
     'success' => true,
-    'ano_consultado' => $ano,
     'total_registros' => count($data),
     'fecha_consulta' => date('Y-m-d H:i:s'),
     'data' => $data
@@ -150,5 +125,4 @@ $response = [
 
 echo json_encode($response);
 
-mysqli_stmt_close($stmt);
 mysqli_close($enlace_local);
