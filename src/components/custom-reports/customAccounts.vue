@@ -8,6 +8,7 @@ import Button from 'primevue/button';
 import Card from 'primevue/card';
 import Column from 'primevue/column';
 import DataTable from 'primevue/datatable';
+import Dropdown from 'primevue/dropdown';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
@@ -21,16 +22,56 @@ const filters = ref({
 });
 
 const loading = ref(false);
+const selectedYear = ref(0); // 0 = TODOS los años
+const consultedYear = ref('TODOS');
 
-// Computed para obtener los totales
+// Generar años para el dropdown (desde 2020 hasta año actual + 2)
+const availableYears = ref([
+    { label: 'Todos los años', value: 0 }
+]);
+const currentYear = new Date().getFullYear();
+for (let year = 2020; year <= currentYear + 2; year++) {
+    availableYears.value.push({ label: year.toString(), value: year });
+}
+
+// Computed para calcular totales sumando directamente los registros (igual que producción)
 const totales = computed(() => {
-    const totalRow = items.value.find((item) => item.CLIENTE === 'TOTALES');
-    return totalRow || {};
+    if (!items.value || items.value.length === 0) return {};
+    
+    // Función helper para parsear montos con formato $X,XXX.XX
+    const parseAmount = (value) => {
+        if (!value || value === '$0.00') return 0;
+        return parseFloat(value.replace('$', '').replace(/,/g, ''));
+    };
+    
+    // Sumar todos los registros
+    const totals = {
+        CLIENTE: 'TOTALES',
+        'TOTAL CXC DÓLARES': items.value.reduce((sum, item) => sum + parseAmount(item['TOTAL CXC DÓLARES']), 0),
+        'NO VENCIDO DÓLARES': items.value.reduce((sum, item) => sum + parseAmount(item['NO VENCIDO DÓLARES']), 0),
+        'VENCIDO 1-5 DIAS DÓLARES': items.value.reduce((sum, item) => sum + parseAmount(item['VENCIDO 1-5 DIAS DÓLARES']), 0),
+        'VENCIDO 6-15 DIAS DÓLARES': items.value.reduce((sum, item) => sum + parseAmount(item['VENCIDO 6-15 DIAS DÓLARES']), 0),
+        'VENCIDO 16-30 DIAS DÓLARES': items.value.reduce((sum, item) => sum + parseAmount(item['VENCIDO 16-30 DIAS DÓLARES']), 0),
+        'VENCIDO 31-60 DIAS DÓLARES': items.value.reduce((sum, item) => sum + parseAmount(item['VENCIDO 31-60 DIAS DÓLARES']), 0),
+        'VENCIDO >60 DIAS DÓLARES': items.value.reduce((sum, item) => sum + parseAmount(item['VENCIDO >60 DIAS DÓLARES']), 0)
+    };
+    
+    // Formatear de vuelta a string con $
+    return {
+        CLIENTE: 'TOTALES',
+        'TOTAL CXC DÓLARES': `$${totals['TOTAL CXC DÓLARES'].toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        'NO VENCIDO DÓLARES': `$${totals['NO VENCIDO DÓLARES'].toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        'VENCIDO 1-5 DIAS DÓLARES': `$${totals['VENCIDO 1-5 DIAS DÓLARES'].toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        'VENCIDO 6-15 DIAS DÓLARES': `$${totals['VENCIDO 6-15 DIAS DÓLARES'].toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        'VENCIDO 16-30 DIAS DÓLARES': `$${totals['VENCIDO 16-30 DIAS DÓLARES'].toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        'VENCIDO 31-60 DIAS DÓLARES': `$${totals['VENCIDO 31-60 DIAS DÓLARES'].toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        'VENCIDO >60 DIAS DÓLARES': `$${totals['VENCIDO >60 DIAS DÓLARES'].toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    };
 });
 
-// Computed para datos sin la fila de totales
+// Computed para datos (ahora sin filtrar nada)
 const dataWithoutTotals = computed(() => {
-    return items.value.filter((item) => item.CLIENTE !== 'TOTALES');
+    return items.value;
 });
 
 // Función para obtener color del status
@@ -57,19 +98,24 @@ const getAmountSeverity = (amount, fieldName) => {
     return 'info';
 };
 
-async function getItems() {
+async function getItems(year = selectedYear.value) {
     try {
         loading.value = true;
-        const { data: response } = await axios.get(`/cPanelTestPHP_1/api/index.php`);
+        const { data: response } = await axios.get(`/cPanelTestPHP_1/api/index.php?ano=${year}`);
 
-        // La respuesta incluye todos los montos acumulados sin filtro de año
+        // La respuesta incluye año consultado y datos
         items.value = response.data || [];
+        consultedYear.value = response.ano_consultado || year;
     } catch (error) {
         console.log('Error al obtener datos:', error.message);
         items.value = [];
     } finally {
         loading.value = false;
     }
+}
+
+async function filterByYear() {
+    await getItems(selectedYear.value);
 }
 
 onMounted(async () => {
@@ -87,12 +133,16 @@ onMounted(async () => {
                         <i class="pi pi-chart-line text-primary text-2xl"></i>
                         <div>
                             <h2 class="text-2xl font-bold text-primary m-0">Cuentas por Cobrar</h2>
-                            <p class="text-600 m-0">Análisis por antigüedad - Todos los períodos</p>
+                            <p class="text-600 m-0">Análisis por antigüedad - Año {{ consultedYear }}</p>
                         </div>
                     </div>
 
                     <div class="flex align-items-center gap-3">
-                        <Button label="Actualizar" icon="pi pi-refresh" @click="getItems" :loading="loading" class="p-button-primary" />
+                        <div class="flex align-items-center gap-2">
+                            <label for="year-filter" class="font-semibold text-900">Año:</label>
+                            <Dropdown id="year-filter" v-model="selectedYear" :options="availableYears" optionLabel="label" optionValue="value" placeholder="Seleccionar año" class="w-10rem" />
+                        </div>
+                        <Button label="Filtrar" icon="pi pi-filter" @click="filterByYear" :loading="loading" class="p-button-primary" />
                     </div>
                 </div>
             </template>
@@ -104,7 +154,7 @@ onMounted(async () => {
                 <div class="flex align-items-center justify-content-between mb-3">
                     <h3 class="text-xl font-semibold text-800 m-0">
                         <i class="pi pi-calculator mr-2"></i>
-                        Resumen General - Acumulado Total
+                        Resumen General - {{ consultedYear === 'TODOS' ? 'Acumulado Total' : 'Año ' + consultedYear }}
                     </h3>
                     <Tag value="TOTALES" severity="info" class="text-sm font-semibold"></Tag>
                 </div>
