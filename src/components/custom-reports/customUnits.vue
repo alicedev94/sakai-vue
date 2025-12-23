@@ -14,6 +14,7 @@ import InputText from 'primevue/inputtext';
 
 const dt = ref();
 const items = ref([]);
+const rawItems = ref([]); // Items sin procesar
 const selectedItems = ref();
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
@@ -32,16 +33,74 @@ for (let year = 2020; year <= currentYear + 2; year++) {
     availableYears.value.push({ label: year.toString(), value: year });
 }
 
+// Función para agrupar ventas al detal (en unidades)
+function processItems(data) {
+    const empresas = []; // J
+    const ventasDetalle = []; // E, V
+    
+    data.forEach(item => {
+        const codigo = item.CODIGO || '';
+        if (codigo.startsWith('J')) {
+            empresas.push(item);
+        } else if (codigo.startsWith('E') || codigo.startsWith('V')) {
+            ventasDetalle.push(item);
+        } else {
+            // Si no empieza con J, E o V, lo tratamos como empresa
+            empresas.push(item);
+        }
+    });
+    
+    // Agrupar ventas al detalle
+    let ventasDetalAgrupadas = null;
+    if (ventasDetalle.length > 0) {
+        const meses = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 
+                       'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+        
+        ventasDetalAgrupadas = {
+            CLIENTE: 'VENTAS AL DETAL',
+            CODIGO: 'DETAL',
+            AÑO: ventasDetalle[0]?.AÑO || '',
+            'TOTAL AÑO': '0'
+        };
+        
+        let totalAnual = 0;
+        
+        // Sumar cada mes (unidades)
+        meses.forEach(mes => {
+            let totalMes = 0;
+            ventasDetalle.forEach(item => {
+                const valor = item[mes] || '0';
+                const numero = parseFloat(valor.toString().replace(/,/g, ''));
+                totalMes += numero;
+            });
+            ventasDetalAgrupadas[mes] = totalMes.toLocaleString('en-US', { minimumFractionDigits: 0 });
+            totalAnual += totalMes;
+        });
+        
+        ventasDetalAgrupadas['TOTAL AÑO'] = totalAnual.toLocaleString('en-US', { minimumFractionDigits: 0 });
+    }
+    
+    // Combinar: empresas primero, luego ventas al detal agrupadas
+    const resultado = [...empresas];
+    if (ventasDetalAgrupadas) {
+        resultado.push(ventasDetalAgrupadas);
+    }
+    
+    return resultado;
+}
+
 async function getItems(year = selectedYear.value) {
     try {
         loading.value = true;
         const { data: response } = await axios.get(`/cPanelTestPHP_1/api/ventas-unidades.php?ano=${year}`);
 
         // La respuesta ahora incluye año consultado y datos
-        items.value = response.data || [];
+        rawItems.value = response.data || [];
+        items.value = processItems(rawItems.value);
         consultedYear.value = response.ano_consultado || year;
     } catch (error) {
         console.log('Error al obtener datos:', error.message);
+        rawItems.value = [];
         items.value = [];
     } finally {
         loading.value = false;
@@ -50,6 +109,11 @@ async function getItems(year = selectedYear.value) {
 
 async function filterByYear() {
     await getItems(selectedYear.value);
+}
+
+// Función para aplicar clase CSS especial a ventas al detal
+function rowClass(data) {
+    return data.CODIGO === 'DETAL' ? 'ventas-detal-row' : '';
 }
 
 onMounted(async () => {
@@ -68,6 +132,7 @@ onMounted(async () => {
             :rows="15"
             :filters="filters"
             :loading="loading"
+            :rowClass="rowClass"
             paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
             :rowsPerPageOptions="[15, 25, 50, 100]"
             currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} ítems"
@@ -206,6 +271,23 @@ onMounted(async () => {
 :deep(.p-datatable .p-datatable-tbody > tr > td:nth-child(5)) {
     background-color: var(--highlight-bg);
     font-weight: bold;
+}
+
+/* Estilo especial para la fila de Ventas al Detal */
+:deep(.ventas-detal-row) {
+    background: linear-gradient(90deg, #ffeaa7 0%, #fdcb6e 100%) !important;
+    border-top: 3px solid #e17055;
+    border-bottom: 3px solid #e17055;
+}
+
+:deep(.ventas-detal-row td) {
+    color: #2d3436 !important;
+    font-weight: 700 !important;
+    font-size: 1.05em !important;
+}
+
+:deep(.ventas-detal-row:hover) {
+    background: linear-gradient(90deg, #fdcb6e 0%, #fab1a0 100%) !important;
 }
 
 /* Estilo para columnas de unidades - alineación a la derecha */
