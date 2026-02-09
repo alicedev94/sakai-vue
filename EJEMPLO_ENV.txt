@@ -1,0 +1,10 @@
+# Variables de Entorno (Opcional)
+# Si necesitas configurar URLs diferentes para desarrollo/producción
+# Crea un archivo .env.local en la raíz del proyecto con este contenido:
+
+VITE_API_BASE_URL=http://localhost:8080/api/v1
+VITE_PORT=3000
+VITE_MODE=development
+
+# Nota: Actualmente no son necesarias porque el proxy de Vite 
+# está configurado directamente en vite.config.mjs

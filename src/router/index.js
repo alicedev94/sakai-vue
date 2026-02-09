@@ -1,4 +1,5 @@
 import AppLayout from '@/layout/AppLayout.vue';
+import { useAuthStore } from '@/stores/auth';
 import { createRouter, createWebHistory } from 'vue-router';
 
 const router = createRouter({
@@ -7,6 +8,7 @@ const router = createRouter({
         {
             path: '/',
             component: AppLayout,
+            meta: { requiresAuth: true },
             children: [
                 {
                     path: '/',
@@ -116,11 +118,17 @@ const router = createRouter({
             name: 'notfound',
             component: () => import('@/views/pages/NotFound.vue')
         },
-
         {
             path: '/auth/login',
             name: 'login',
-            component: () => import('@/views/pages/auth/Login.vue')
+            component: () => import('@/views/pages/auth/Login.vue'),
+            meta: { requiresGuest: true }
+        },
+        {
+            path: '/auth/register',
+            name: 'register',
+            component: () => import('@/views/pages/auth/Register.vue'),
+            meta: { requiresGuest: true }
         },
         {
             path: '/auth/access',
@@ -131,8 +139,36 @@ const router = createRouter({
             path: '/auth/error',
             name: 'error',
             component: () => import('@/views/pages/auth/Error.vue')
+        },
+        {
+            path: '/:pathMatch(.*)*',
+            redirect: '/pages/notfound'
         }
     ]
+});
+
+// Navigation Guards
+router.beforeEach((to, from, next) => {
+    const authStore = useAuthStore();
+    const isAuthenticated = authStore.isAuthenticated;
+
+    // Si la ruta requiere autenticación
+    if (to.meta.requiresAuth && !isAuthenticated) {
+        // Redirigir al login
+        next({
+            name: 'login',
+            query: { redirect: to.fullPath }
+        });
+    }
+    // Si la ruta es solo para invitados (login, register)
+    else if (to.meta.requiresGuest && isAuthenticated) {
+        // Redirigir al dashboard si ya está autenticado
+        next({ name: 'dashboard' });
+    }
+    // Permitir navegación
+    else {
+        next();
+    }
 });
 
 export default router;

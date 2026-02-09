@@ -10,68 +10,115 @@ const router = useRouter();
 const toast = useToast();
 const authStore = useAuthStore();
 
-const email = ref('');
-const password = ref('');
-const rememberMe = ref(false);
+const formData = ref({
+    nombre: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+});
+
 const loading = ref(false);
 
-const handleLogin = async () => {
-    // Validaciones básicas
-    if (!email.value || !password.value) {
+const validateForm = () => {
+    // Validar campos vacíos
+    if (!formData.value.nombre || !formData.value.email || !formData.value.password || !formData.value.confirmPassword) {
         toast.add({
             severity: 'warn',
             summary: 'Campos requeridos',
             detail: 'Por favor, completa todos los campos',
             life: 3000
         });
-        return;
+        return false;
     }
 
     // Validar formato de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.value)) {
+    if (!emailRegex.test(formData.value.email)) {
         toast.add({
             severity: 'warn',
             summary: 'Email inválido',
             detail: 'Por favor, ingresa un email válido',
             life: 3000
         });
+        return false;
+    }
+
+    // Validar longitud de contraseña
+    if (formData.value.password.length < 6) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Contraseña débil',
+            detail: 'La contraseña debe tener al menos 6 caracteres',
+            life: 3000
+        });
+        return false;
+    }
+
+    // Validar que las contraseñas coincidan
+    if (formData.value.password !== formData.value.confirmPassword) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Contraseñas no coinciden',
+            detail: 'Las contraseñas ingresadas no son iguales',
+            life: 3000
+        });
+        return false;
+    }
+
+    return true;
+};
+
+const handleRegister = async () => {
+    if (!validateForm()) {
         return;
     }
 
     loading.value = true;
 
     try {
-        const credentials = {
-            email: email.value,
-            password: password.value
+        // Preparar datos para el backend (sin confirmPassword)
+        const userData = {
+            nombre: formData.value.nombre,
+            email: formData.value.email,
+            password: formData.value.password
         };
 
-        const response = await AuthService.login(credentials);
-
-        // Guardar en el store
-        authStore.setAuth({
-            token: response.token,
-            refreshToken: response.refreshToken,
-            user: response.user
-        });
+        const response = await AuthService.register(userData);
 
         toast.add({
             severity: 'success',
-            summary: 'Bienvenido',
-            detail: `¡Hola ${response.user?.nombre || 'Usuario'}!`,
+            summary: 'Registro exitoso',
+            detail: '¡Tu cuenta ha sido creada correctamente!',
             life: 3000
         });
 
-        // Redirigir al dashboard
-        router.push('/');
+        // Si el backend retorna token directamente, guardarlo
+        if (response.token) {
+            authStore.setAuth({
+                token: response.token,
+                refreshToken: response.refreshToken,
+                user: response.user
+            });
+
+            // Redirigir al dashboard
+            setTimeout(() => {
+                router.push('/');
+            }, 1500);
+        } else {
+            // Si no retorna token, redirigir al login
+            setTimeout(() => {
+                router.push('/auth/login');
+            }, 1500);
+        }
     } catch (error) {
-        console.error('Error en login:', error);
+        console.error('Error en registro:', error);
 
-        let errorMessage = 'Ocurrió un error al iniciar sesión';
+        let errorMessage = 'Ocurrió un error al registrar la cuenta';
 
-        if (error.status === 401) {
-            errorMessage = 'Credenciales incorrectas';
+        if (error.status === 409) {
+            errorMessage = 'Este email ya está registrado';
+        } else if (error.status === 400) {
+            errorMessage = error.message || 'Datos inválidos';
         } else if (error.status === 0) {
             errorMessage = 'No se pudo conectar con el servidor';
         } else if (error.message) {
@@ -80,7 +127,7 @@ const handleLogin = async () => {
 
         toast.add({
             severity: 'error',
-            summary: 'Error de autenticación',
+            summary: 'Error de registro',
             detail: errorMessage,
             life: 4000
         });
@@ -92,7 +139,7 @@ const handleLogin = async () => {
 // Manejar Enter para submit
 const handleKeyPress = (event) => {
     if (event.key === 'Enter') {
-        handleLogin();
+        handleRegister();
     }
 };
 </script>
@@ -101,7 +148,7 @@ const handleKeyPress = (event) => {
     <FloatingConfigurator />
     <Toast />
     <div class="bg-surface-50 dark:bg-surface-950 flex items-center justify-center min-h-screen min-w-[100vw] overflow-hidden">
-        <div class="flex flex-col items-center justify-center">
+        <div class="flex flex-col items-center justify-center py-8">
             <div style="border-radius: 56px; padding: 0.3rem; background: linear-gradient(180deg, var(--primary-color) 10%, rgba(33, 150, 243, 0) 30%)">
                 <div class="w-full bg-surface-0 dark:bg-surface-900 py-20 px-8 sm:px-20" style="border-radius: 53px">
                     <div class="text-center mb-8">
@@ -122,55 +169,80 @@ const handleKeyPress = (event) => {
                                 />
                             </g>
                         </svg>
-                        <div class="text-surface-900 dark:text-surface-0 text-3xl font-medium mb-4">¡Bienvenido!</div>
-                        <span class="text-muted-color font-medium">Inicia sesión para continuar</span>
+                        <div class="text-surface-900 dark:text-surface-0 text-3xl font-medium mb-4">¡Crea tu cuenta!</div>
+                        <span class="text-muted-color font-medium">Regístrate para comenzar</span>
                     </div>
 
                     <div>
-                        <label for="email1" class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">Email</label>
+                        <label for="nombre" class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">Nombre completo</label>
                         <InputText 
-                            id="email1" 
-                            type="email" 
-                            placeholder="correo@ejemplo.com" 
-                            class="w-full md:w-[30rem] mb-8" 
-                            v-model="email"
+                            id="nombre" 
+                            type="text" 
+                            placeholder="Juan Pérez" 
+                            class="w-full md:w-[30rem] mb-6" 
+                            v-model="formData.nombre"
                             @keypress="handleKeyPress"
                             :disabled="loading"
                         />
 
-                        <label for="password1" class="block text-surface-900 dark:text-surface-0 font-medium text-xl mb-2">Contraseña</label>
+                        <label for="email" class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">Email</label>
+                        <InputText 
+                            id="email" 
+                            type="email" 
+                            placeholder="correo@ejemplo.com" 
+                            class="w-full md:w-[30rem] mb-6" 
+                            v-model="formData.email"
+                            @keypress="handleKeyPress"
+                            :disabled="loading"
+                        />
+
+                        <label for="password" class="block text-surface-900 dark:text-surface-0 font-medium text-xl mb-2">Contraseña</label>
                         <Password 
-                            id="password1" 
-                            v-model="password" 
+                            id="password" 
+                            v-model="formData.password" 
                             placeholder="Contraseña" 
                             :toggleMask="true" 
-                            class="mb-4" 
+                            class="mb-6" 
+                            fluid 
+                            :feedback="true"
+                            @keypress="handleKeyPress"
+                            :disabled="loading"
+                        >
+                            <template #footer>
+                                <p class="mt-2 text-sm">Sugerencias:</p>
+                                <ul class="pl-2 ml-2 mt-0" style="line-height: 1.5">
+                                    <li>Al menos 6 caracteres</li>
+                                    <li>Mezcla de mayúsculas y minúsculas</li>
+                                    <li>Incluye números</li>
+                                </ul>
+                            </template>
+                        </Password>
+
+                        <label for="confirmPassword" class="block text-surface-900 dark:text-surface-0 font-medium text-xl mb-2">Confirmar Contraseña</label>
+                        <Password 
+                            id="confirmPassword" 
+                            v-model="formData.confirmPassword" 
+                            placeholder="Confirma tu contraseña" 
+                            :toggleMask="true" 
+                            class="mb-8" 
                             fluid 
                             :feedback="false"
                             @keypress="handleKeyPress"
                             :disabled="loading"
                         ></Password>
 
-                        <div class="flex items-center justify-between mt-2 mb-8 gap-8">
-                            <div class="flex items-center">
-                                <Checkbox v-model="rememberMe" id="rememberme1" binary class="mr-2" :disabled="loading"></Checkbox>
-                                <label for="rememberme1">Recuérdame</label>
-                            </div>
-                            <span class="font-medium no-underline ml-2 text-right cursor-pointer text-primary">¿Olvidaste tu contraseña?</span>
-                        </div>
-
                         <Button 
-                            label="Iniciar Sesión" 
+                            label="Crear Cuenta" 
                             class="w-full mb-4"
-                            @click="handleLogin"
+                            @click="handleRegister"
                             :loading="loading"
                             :disabled="loading"
                         />
 
                         <div class="text-center mt-4">
-                            <span class="text-muted-color">¿No tienes cuenta? </span>
-                            <router-link to="/auth/register" class="font-medium no-underline cursor-pointer text-primary">
-                                Regístrate aquí
+                            <span class="text-muted-color">¿Ya tienes cuenta? </span>
+                            <router-link to="/auth/login" class="font-medium no-underline cursor-pointer text-primary">
+                                Inicia sesión aquí
                             </router-link>
                         </div>
                     </div>

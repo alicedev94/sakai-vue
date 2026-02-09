@@ -1,8 +1,36 @@
 <script setup>
 import { useLayout } from '@/layout/composables/layout';
+import { useAuthStore } from '@/stores/auth';
+import { useRouter } from 'vue-router';
+import { useToast } from 'primevue/usetoast';
+import { computed } from 'vue';
 import AppConfigurator from './AppConfigurator.vue';
 
 const { toggleMenu, toggleDarkMode, isDarkTheme } = useLayout();
+const authStore = useAuthStore();
+const router = useRouter();
+const toast = useToast();
+
+const userName = computed(() => {
+    return authStore.currentUser?.nombre || 'Usuario';
+});
+
+const userEmail = computed(() => {
+    return authStore.currentUser?.email || '';
+});
+
+const handleLogout = () => {
+    authStore.logout();
+    
+    toast.add({
+        severity: 'info',
+        summary: 'Sesión cerrada',
+        detail: 'Has cerrado sesión correctamente',
+        life: 3000
+    });
+    
+    router.push('/auth/login');
+};
 </script>
 
 <template>
@@ -61,16 +89,12 @@ const { toggleMenu, toggleDarkMode, isDarkTheme } = useLayout();
             <div class="layout-topbar-menu hidden lg:block">
                 <div class="layout-topbar-menu-content">
                     <button type="button" class="layout-topbar-action">
-                        <i class="pi pi-calendar"></i>
-                        <span>Calendar</span>
-                    </button>
-                    <button type="button" class="layout-topbar-action">
-                        <i class="pi pi-inbox"></i>
-                        <span>Messages</span>
-                    </button>
-                    <button type="button" class="layout-topbar-action">
                         <i class="pi pi-user"></i>
-                        <span>Profile</span>
+                        <span>{{ userName }}</span>
+                    </button>
+                    <button type="button" class="layout-topbar-action" @click="handleLogout">
+                        <i class="pi pi-sign-out"></i>
+                        <span>Cerrar Sesión</span>
                     </button>
                 </div>
             </div>
