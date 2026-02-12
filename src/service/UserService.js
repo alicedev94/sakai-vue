@@ -14,13 +14,16 @@ class UserService {
      */
     static async getUsers(params = {}) {
         try {
+            const token = localStorage.getItem('token');
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
             const response = await axios.get('/api/v1/users', {
                 params: {
                     search: params.search || '',
                     includeDeleted: params.includeDeleted || false,
                     page: params.page || 0,
                     size: params.size || 50
-                }
+                },
+                headers
             });
             return response.data;
         } catch (error) {
@@ -36,7 +39,9 @@ class UserService {
      */
     static async getUserById(id) {
         try {
-            const response = await axios.get(`/api/v1/users/${id}`);
+            const token = localStorage.getItem('token');
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
+            const response = await axios.get(`/api/v1/users/${id}`, { headers });
             return response.data;
         } catch (error) {
             this.handleError(error, 'obtener el usuario');
@@ -51,7 +56,9 @@ class UserService {
      */
     static async createUser(userData) {
         try {
-            const response = await axios.post('/api/v1/users', userData);
+            const token = localStorage.getItem('token');
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
+            const response = await axios.post('/api/v1/users', userData, { headers });
             return response.data;
         } catch (error) {
             this.handleError(error, 'crear el usuario');
@@ -67,7 +74,9 @@ class UserService {
      */
     static async updateUser(id, userData) {
         try {
-            const response = await axios.put(`/api/v1/users/${id}`, userData);
+            const token = localStorage.getItem('token');
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
+            const response = await axios.put(`/api/v1/users/${id}`, userData, { headers });
             return response.data;
         } catch (error) {
             this.handleError(error, 'actualizar el usuario');
@@ -83,16 +92,19 @@ class UserService {
      */
     static async softDeleteUser(id) {
         try {
-            // Opción 1: Usar endpoint específico de soft delete
-            const response = await axios.delete(`/api/v1/users/${id}/soft`);
+            const token = localStorage.getItem('token');
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
+            const response = await axios.delete(`/api/v1/users/${id}/soft`, { headers });
             return response.data;
         } catch (error) {
             // Si el endpoint no existe, intentar con PATCH
             try {
+                const token = localStorage.getItem('token');
+                const headers = token ? { Authorization: `Bearer ${token}` } : {};
                 const response = await axios.patch(`/api/v1/users/${id}`, {
                     status: false,
                     deletedAt: new Date().toISOString()
-                });
+                }, { headers });
                 return response.data;
             } catch (patchError) {
                 this.handleError(patchError, 'eliminar el usuario');
@@ -108,10 +120,12 @@ class UserService {
      */
     static async restoreUser(id) {
         try {
+            const token = localStorage.getItem('token');
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
             const response = await axios.patch(`/api/v1/users/${id}/restore`, {
                 status: true,
                 deletedAt: null
-            });
+            }, { headers });
             return response.data;
         } catch (error) {
             this.handleError(error, 'restaurar el usuario');
@@ -127,7 +141,9 @@ class UserService {
      */
     static async hardDeleteUser(id) {
         try {
-            const response = await axios.delete(`/api/v1/users/${id}/hard`);
+            const token = localStorage.getItem('token');
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
+            const response = await axios.delete(`/api/v1/users/${id}/hard`, { headers });
             return response.data;
         } catch (error) {
             this.handleError(error, 'eliminar permanentemente el usuario');
@@ -142,14 +158,14 @@ class UserService {
      */
     static handleError(error, action) {
         console.error(`Error al ${action}:`, error);
-        
+
         let message = `Error al ${action}`;
-        
+
         if (error.response) {
             // Error de respuesta del servidor
             const status = error.response.status;
             const data = error.response.data;
-            
+
             switch (status) {
                 case 400:
                     message = data.message || 'Datos inválidos';
@@ -176,7 +192,7 @@ class UserService {
             // Error de red
             message = 'Error de conexión. Verifica tu conexión a internet';
         }
-        
+
         error.userMessage = message;
     }
 }
