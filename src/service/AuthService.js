@@ -44,8 +44,28 @@ apiClient.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
+        // Si no hay respuesta del servidor (backend caído)
+        if (!error.response) {
+            console.error('❌ Backend no disponible:', error.message);
+            
+            // Si el backend no está disponible, limpiar auth y redirigir
+            const authStore = useAuthStore();
+            if (authStore.token && typeof window !== 'undefined') {
+                console.warn('⚠️ Backend no responde. Limpiando sesión...');
+                authStore.logout();
+                
+                // Solo redirigir si no estamos ya en login
+                if (!window.location.pathname.includes('/auth/login')) {
+                    window.location.href = '/auth/login?error=backend_unavailable';
+                }
+            }
+            
+            return Promise.reject(error);
+        }
+
         // Si el error es 401 y no es la ruta de login/register/refresh
         if (error.response?.status === 401 && !originalRequest._retry) {
+            // No intentar refresh en rutas de autenticación
             if (originalRequest.url.includes('/auth/login') || 
                 originalRequest.url.includes('/auth/register') ||
                 originalRequest.url.includes('/auth/refresh')) {
@@ -71,7 +91,22 @@ apiClient.interceptors.response.use(
 
             const authStore = useAuthStore();
 
+            // Verificar que tengamos refresh token
+            if (!authStore.refreshToken) {
+                console.warn('⚠️ No hay refresh token disponible');
+                isRefreshing = false;
+                authStore.logout();
+                
+                if (typeof window !== 'undefined') {
+                    window.location.href = '/auth/login?error=no_refresh_token';
+                }
+                
+                return Promise.reject(error);
+            }
+
             try {
+                console.log('🔄 Intentando refrescar token...');
+                
                 // Intentar refresh token
                 const response = await apiClient.post('/auth/refresh', null, {
                     headers: {
@@ -81,18 +116,22 @@ apiClient.interceptors.response.use(
 
                 const newToken = response.data.token;
                 authStore.updateToken(newToken);
+                
+                console.log('✅ Token refrescado correctamente');
 
                 processQueue(null, newToken);
 
                 originalRequest.headers.Authorization = `Bearer ${newToken}`;
                 return apiClient(originalRequest);
             } catch (refreshError) {
+                console.error('❌ Error al refrescar token:', refreshError.response?.status || refreshError.message);
+                
                 processQueue(refreshError, null);
                 authStore.logout();
                 
                 // Redirigir al login
                 if (typeof window !== 'undefined') {
-                    window.location.href = '/auth/login';
+                    window.location.href = '/auth/login?error=session_expired';
                 }
                 
                 return Promise.reject(refreshError);
