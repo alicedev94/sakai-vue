@@ -21,6 +21,16 @@ const router = createRouter({
                     component: () => import('@/views/Users.vue')
                 },
                 {
+                    path: '/roles',
+                    name: 'roles',
+                    component: () => import('@/views/Roles.vue')
+                },
+                {
+                    path: '/permisos',
+                    name: 'permisos',
+                    component: () => import('@/views/Permissions.vue')
+                },
+                {
                     path: '/uikit/formlayout',
                     name: 'formlayout',
                     component: () => import('@/views/uikit/FormLayout.vue')
@@ -155,17 +165,17 @@ const router = createRouter({
 // Navigation Guards
 router.beforeEach((to, from, next) => {
     const authStore = useAuthStore();
-    
+
     // Validar la sesión antes de cada navegación
     const isAuthenticated = authStore.validateSession();
 
     // Si la ruta requiere autenticación
     if (to.meta.requiresAuth && !isAuthenticated) {
         console.log('🔒 Ruta protegida, redirigiendo al login...');
-        
+
         // Limpiar cualquier dato corrupto
         authStore.logout();
-        
+
         // Redirigir al login
         next({
             name: 'login',

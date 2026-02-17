@@ -4,12 +4,16 @@ import { FilterMatchMode } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
 import UserService from '@/service/UserService';
+import RoleService from '@/service/RoleService';
+import UserStatusService from '@/service/UserStatusService';
 
 const toast = useToast();
 const confirm = useConfirm();
 
 // Estados
 const users = ref([]);
+const roles = ref([]);
+const userStatus = ref([]);
 const loading = ref(false);
 const selectedUsers = ref([]);
 const userDialog = ref(false);
@@ -29,16 +33,16 @@ const activeUsers = computed(() => {
     return users.value.filter(user => {
         // Filtra por usuarios activos (no eliminados)
         const isActive = user.status !== false && !user.deletedAt;
-        
+
         // Si hay búsqueda, filtra también por nombre o email
         if (searchQuery.value) {
             const search = searchQuery.value.toLowerCase();
-            const matchesSearch = 
+            const matchesSearch =
                 (user.nombre?.toLowerCase().includes(search)) ||
                 (user.email?.toLowerCase().includes(search));
             return isActive && matchesSearch;
         }
-        
+
         return isActive;
     });
 });
@@ -49,7 +53,7 @@ const loadUsers = async () => {
     try {
         const data = await UserService.getUsers();
         users.value = Array.isArray(data) ? data : data.content || [];
-        
+
         // Solo mostrar mensaje de éxito si hay datos
         if (users.value.length > 0) {
             toast.add({
@@ -61,11 +65,11 @@ const loadUsers = async () => {
         }
     } catch (error) {
         console.error('Error al cargar usuarios:', error);
-        
+
         // Mensajes más específicos según el tipo de error
         let errorMessage = 'Error al cargar usuarios';
         let errorSeverity = 'error';
-        
+
         if (error.message?.includes('Network Error') || error.code === 'ERR_NETWORK') {
             errorMessage = 'No se puede conectar con el servidor. Verifica que el backend esté funcionando.';
             errorSeverity = 'warn';
@@ -74,17 +78,93 @@ const loadUsers = async () => {
         } else if (error.userMessage) {
             errorMessage = error.userMessage;
         }
-        
+
         toast.add({
             severity: errorSeverity,
             summary: 'Error de conexión',
             detail: errorMessage,
             life: 5000
         });
-        
+
         // Si es error de red, no limpiar la lista (mantener estado anterior)
         if (error.message?.includes('Network Error') || error.code === 'ERR_NETWORK') {
             users.value = [];
+        }
+    } finally {
+        loading.value = false;
+    }
+};
+
+// Cargar estatus de los usuarios para asignar a los usuarios (si es necesario)
+const loadUserStatus = async () => {
+    loading.value = true;
+    try {
+        const data = await UserStatusService.getUserStatus();
+        userStatus.value = Array.isArray(data) ? data : data.content || [];
+    } catch (error) {
+        console.error('Error al cargar los estatus de los usuarios:', error);
+
+        // Mensajes más específicos según el tipo de error
+        let errorMessage = 'Error al cargar los estatus usuarios';
+        let errorSeverity = 'error';
+
+        if (error.message?.includes('Network Error') || error.code === 'ERR_NETWORK') {
+            errorMessage = 'No se puede conectar con el servidor. Verifica que el backend esté funcionando.';
+            errorSeverity = 'warn';
+        } else if (error.response?.status === 401) {
+            errorMessage = 'Sesión expirada. Por favor, inicia sesión nuevamente.';
+        } else if (error.userMessage) {
+            errorMessage = error.userMessage;
+        }
+
+        toast.add({
+            severity: errorSeverity,
+            summary: 'Error de conexión',
+            detail: errorMessage,
+            life: 5000
+        });
+
+        // Si es error de red, no limpiar la lista (mantener estado anterior)
+        if (error.message?.includes('Network Error') || error.code === 'ERR_NETWORK') {
+            roles.value = [];
+        }
+    } finally {
+        loading.value = false;
+    }
+};
+
+// Cargar roles para asignar a los usuarios (si es necesario)
+const loadRoles = async () => {
+    loading.value = true;
+    try {
+        const data = await RoleService.getRoles();
+        roles.value = Array.isArray(data) ? data : data.content || [];
+    } catch (error) {
+        console.error('Error al cargar roles:', error);
+
+        // Mensajes más específicos según el tipo de error
+        let errorMessage = 'Error al cargar roles';
+        let errorSeverity = 'error';
+
+        if (error.message?.includes('Network Error') || error.code === 'ERR_NETWORK') {
+            errorMessage = 'No se puede conectar con el servidor. Verifica que el backend esté funcionando.';
+            errorSeverity = 'warn';
+        } else if (error.response?.status === 401) {
+            errorMessage = 'Sesión expirada. Por favor, inicia sesión nuevamente.';
+        } else if (error.userMessage) {
+            errorMessage = error.userMessage;
+        }
+
+        toast.add({
+            severity: errorSeverity,
+            summary: 'Error de conexión',
+            detail: errorMessage,
+            life: 5000
+        });
+
+        // Si es error de red, no limpiar la lista (mantener estado anterior)
+        if (error.message?.includes('Network Error') || error.code === 'ERR_NETWORK') {
+            roles.value = [];
         }
     } finally {
         loading.value = false;
@@ -97,7 +177,7 @@ const openNew = () => {
         nombre: '',
         email: '',
         password: '',
-        status: true
+        status: null
     };
     submitted.value = false;
     userDialog.value = true;
@@ -107,6 +187,16 @@ const openNew = () => {
 const hideDialog = () => {
     userDialog.value = false;
     submitted.value = false;
+};
+
+// Template para mostrar el nombre del rol
+const roleItemTemplate = (option) => {
+    return option && option.name ? option.name : '';
+};
+
+// Template para mostrar el nombre del status
+const statusItemTemplate = (option) => {
+    return option && option.name ? option.name : '';
 };
 
 // Editar usuario
@@ -124,8 +214,7 @@ const confirmDeleteUser = (userData) => {
 // Guardar usuario (crear o actualizar)
 const saveUser = async () => {
     submitted.value = true;
-
-    if (!user.value.nombre?.trim() || !user.value.email?.trim()) {
+    if (!user.value.username?.trim() || !user.value.email?.trim()) {
         toast.add({
             severity: 'warn',
             summary: 'Campos requeridos',
@@ -134,14 +223,21 @@ const saveUser = async () => {
         });
         return;
     }
-
+    // Solo enviar los atributos necesarios al backend
+    const userPayload = {
+        username: user.value.username,
+        email: user.value.email,
+        statusId: user.value.status.id,
+        roleId: user.value.role.id,
+        password: user.value.password
+    };
     try {
         if (user.value.id) {
             // Actualizar
-            await UserService.updateUser(user.value.id, user.value);
+            const updateUser = await UserService.updateUser(user.value.id, userPayload);
             const index = users.value.findIndex(u => u.id === user.value.id);
             if (index !== -1) {
-                users.value[index] = { ...user.value };
+                users.value[index] = updateUser;
             }
             toast.add({
                 severity: 'success',
@@ -151,7 +247,7 @@ const saveUser = async () => {
             });
         } else {
             // Crear
-            const newUser = await UserService.createUser(user.value);
+            const newUser = await UserService.createUser(userPayload);
             users.value.push(newUser);
             toast.add({
                 severity: 'success',
@@ -177,7 +273,7 @@ const saveUser = async () => {
 const deleteUser = async () => {
     try {
         await UserService.softDeleteUser(user.value.id);
-        
+
         // Actualizar el usuario en la lista local
         const index = users.value.findIndex(u => u.id === user.value.id);
         if (index !== -1) {
@@ -187,7 +283,7 @@ const deleteUser = async () => {
 
         deleteUserDialog.value = false;
         user.value = {};
-        
+
         toast.add({
             severity: 'success',
             summary: 'Usuario eliminado',
@@ -254,6 +350,8 @@ const formatDate = (value) => {
 // Cargar usuarios al montar
 onMounted(() => {
     loadUsers();
+    loadRoles();
+    loadUserStatus();
 });
 </script>
 
@@ -272,12 +370,12 @@ onMounted(() => {
             <!-- Toolbar de búsqueda y acciones -->
             <Toolbar class="mb-6">
                 <template #start>
-                    <Button 
-                        label="Eliminar" 
-                        icon="pi pi-trash" 
-                        severity="danger" 
-                        @click="confirmDeleteSelected" 
-                        :disabled="!selectedUsers || !selectedUsers.length" 
+                    <Button
+                        label="Eliminar"
+                        icon="pi pi-trash"
+                        severity="danger"
+                        @click="confirmDeleteSelected"
+                        :disabled="!selectedUsers || !selectedUsers.length"
                     />
                 </template>
                 <template #end>
@@ -285,9 +383,9 @@ onMounted(() => {
                         <InputIcon>
                             <i class="pi pi-search" />
                         </InputIcon>
-                        <InputText 
-                            v-model="searchQuery" 
-                            placeholder="Buscar por nombre o email..." 
+                        <InputText
+                            v-model="searchQuery"
+                            placeholder="Buscar por nombre o email..."
                             style="width: 300px"
                         />
                     </IconField>
@@ -316,64 +414,64 @@ onMounted(() => {
                 </template>
 
                 <Column selectionMode="multiple" headerStyle="width: 3rem"></Column>
-                
+
                 <Column field="id" header="ID" :sortable="true" style="min-width: 4rem">
                     <template #body="{ data }">
                         <span class="id-badge">{{ data.id }}</span>
                     </template>
                 </Column>
-                
+
                 <Column field="nombre" header="Nombre" :sortable="true" style="min-width: 12rem">
                     <template #body="{ data }">
                         <div class="user-info">
-                            <Avatar 
-                                :label="data.nombre?.charAt(0).toUpperCase()" 
-                                class="mr-2" 
-                                shape="circle" 
+                            <Avatar
+                                :label="data.username?.charAt(0).toUpperCase()"
+                                class="mr-2"
+                                shape="circle"
                                 style="background-color: var(--primary-color); color: white"
                             />
-                            <span class="font-semibold">{{ data.nombre }}</span>
+                            <span class="font-semibold">{{ data.username }}</span>
                         </div>
                     </template>
                 </Column>
-                
+
                 <Column field="email" header="Email" :sortable="true" style="min-width: 14rem">
                     <template #body="{ data }">
                         <span class="email-text">{{ data.email }}</span>
                     </template>
                 </Column>
-                
+
                 <Column field="createdAt" header="Fecha de Registro" :sortable="true" style="min-width: 10rem">
                     <template #body="{ data }">
                         <span>{{ formatDate(data.createdAt) }}</span>
                     </template>
                 </Column>
-                
+
                 <Column field="status" header="Estado" :sortable="true" style="min-width: 8rem">
                     <template #body="{ data }">
-                        <Tag 
-                            :value="data.status !== false ? 'Activo' : 'Inactivo'" 
-                            :severity="data.status !== false ? 'success' : 'danger'"
+                        <Tag
+                            :value="data.status.name"
+                            :severity="data.status.name === 'Activo' ? 'success' : 'danger'"
                         />
                     </template>
                 </Column>
-                
+
                 <Column :exportable="false" style="min-width: 12rem">
                     <template #body="{ data }">
                         <div class="action-buttons">
-                            <Button 
-                                icon="pi pi-pencil" 
-                                outlined 
-                                rounded 
-                                class="mr-2" 
+                            <Button
+                                icon="pi pi-pencil"
+                                outlined
+                                rounded
+                                class="mr-2"
                                 @click="editUser(data)"
                                 v-tooltip.top="'Editar'"
                             />
-                            <Button 
-                                icon="pi pi-trash" 
-                                outlined 
-                                rounded 
-                                severity="danger" 
+                            <Button
+                                icon="pi pi-trash"
+                                outlined
+                                rounded
+                                severity="danger"
                                 @click="confirmDeleteUser(data)"
                                 v-tooltip.top="'Eliminar'"
                             />
@@ -384,48 +482,79 @@ onMounted(() => {
         </div>
 
         <!-- Dialog para crear/editar usuario -->
-        <Dialog 
-            v-model:visible="userDialog" 
-            :style="{ width: '550px' }" 
-            header="Información del Usuario" 
-            :modal="true" 
+        <Dialog
+            v-model:visible="userDialog"
+            :style="{ width: '550px' }"
+            header="Información del Usuario"
+            :modal="true"
             class="p-fluid"
         >
             <div class="field">
-                <label for="nombre">Nombre *</label>
-                <InputText 
-                    id="nombre" 
-                    v-model.trim="user.nombre" 
-                    required="true" 
-                    autofocus 
-                    :invalid="submitted && !user.nombre"
+                <label for="nombre">Nombre * </label>
+                <InputText
+                    id="nombre"
+                    v-model.trim="user.username"
+                    required="true"
+                    autofocus
+                    :invalid="submitted && !user.username"
                     placeholder="Ingrese el nombre completo"
                 />
-                <small class="p-error" v-if="submitted && !user.nombre">El nombre es requerido.</small>
+                <small class="p-error" v-if="submitted && !user.username">El nombre es requerido.</small>
             </div>
 
             <div class="field">
                 <label for="email">Email *</label>
-                <InputText 
-                    id="email" 
-                    v-model.trim="user.email" 
-                    required="true" 
+                <InputText
+                    id="email"
+                    v-model.trim="user.email"
+                    required="true"
                     type="email"
                     :invalid="submitted && !user.email"
                     placeholder="correo@ejemplo.com"
                 />
                 <small class="p-error" v-if="submitted && !user.email">El email es requerido.</small>
             </div>
-
             <div class="field" v-if="!user.id">
                 <label for="password">Contraseña *</label>
-                <Password 
-                    id="password" 
-                    v-model="user.password" 
+                <Password
+                    id="password"
+                    v-model="user.password"
                     toggleMask
                     :feedback="true"
                     placeholder="Ingrese una contraseña"
+                    :invalid="submitted && !user.password"
                 />
+                <small class="p-error" v-if="submitted && !user.password">La contraseña es requerida.</small>
+            </div>
+            <div class="field">
+                <label for="role">Rol *</label>
+                <Dropdown
+                    id="role"
+                    v-model="user.role"
+                    :options="roles"
+                    optionLabel="name"
+                    :itemTemplate="roleItemTemplate"
+                    placeholder="Seleccione un rol"
+                    :filter="true"
+                    :showClear="true"
+                    :invalid="submitted && !user.role"
+                />
+                <small class="p-error" v-if="submitted && !user.role">El rol es requerido.</small>
+            </div>
+            <div class="field">
+                <label for="status">Estado *</label>
+                <Dropdown
+                    id="status"
+                    v-model="user.status"
+                    :options="userStatus"
+                    optionLabel="name"
+                    :itemTemplate="statusItemTemplate"
+                    placeholder="Seleccione estado"
+                    :filter="true"
+                    :showClear="true"
+                    :invalid="submitted && !user.status"
+                />
+                <small class="p-error" v-if="submitted && !user.status">El estado es requerido.</small>
             </div>
 
             <template #footer>
@@ -435,10 +564,10 @@ onMounted(() => {
         </Dialog>
 
         <!-- Dialog de confirmación de eliminación -->
-        <Dialog 
-            v-model:visible="deleteUserDialog" 
-            :style="{ width: '450px' }" 
-            header="Confirmar" 
+        <Dialog
+            v-model:visible="deleteUserDialog"
+            :style="{ width: '450px' }"
+            header="Confirmar"
             :modal="true"
         >
             <div class="confirmation-content">
