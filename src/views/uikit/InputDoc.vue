@@ -1,6 +1,6 @@
 <script setup>
-import { CountryService } from '@/service/CountryService';
-import { NodeService } from '@/service/NodeService';
+/*import { CountryService } from '@/service/CountryService';*/
+/*import { NodeService } from '@/service/NodeService';*/
 import { onMounted, ref } from 'vue';
 
 const floatValue = ref(null);
@@ -54,8 +54,8 @@ const treeSelectNodes = ref(null);
 const selectedNode = ref(null);
 
 onMounted(() => {
-    CountryService.getCountries().then((data) => (autoValue.value = data));
-    NodeService.getTreeNodes().then((data) => (treeSelectNodes.value = data));
+    /*CountryService.getCountries().then((data) => (autoValue.value = data));
+    NodeService.getTreeNodes().then((data) => (treeSelectNodes.value = data));*/
 });
 
 function searchCountry(event) {

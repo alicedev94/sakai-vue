@@ -1,5 +1,5 @@
 <script setup>
-import { PhotoService } from '@/service/PhotoService';
+/*import { PhotoService } from '@/service/PhotoService';*/
 import { ProductService } from '@/service/ProductService';
 import { onMounted, ref } from 'vue';
 
@@ -43,7 +43,7 @@ const carouselResponsiveOptions = ref([
 
 onMounted(() => {
     ProductService.getProductsSmall().then((data) => (products.value = data));
-    PhotoService.getImages().then((data) => (images.value = data));
+    /*PhotoService.getImages().then((data) => (images.value = data));*/
 });
 
 function getSeverity(status) {

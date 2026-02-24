@@ -1,6 +1,6 @@
 <script setup>
-import { CustomerService } from '@/service/CustomerService';
-import { ProductService } from '@/service/ProductService';
+/*import { CustomerService } from '@/service/CustomerService';
+import { ProductService } from '@/service/ProductService';*/
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 import { onBeforeMount, reactive, ref } from 'vue';
 
@@ -81,14 +81,14 @@ function getStockSeverity(product) {
 }
 
 onBeforeMount(() => {
-    ProductService.getProductsWithOrdersSmall().then((data) => (products.value = data));
+/*    ProductService.getProductsWithOrdersSmall().then((data) => (products.value = data));
     CustomerService.getCustomersLarge().then((data) => {
         customers1.value = data;
         loading1.value = false;
         customers1.value.forEach((customer) => (customer.date = new Date(customer.date)));
     });
     CustomerService.getCustomersLarge().then((data) => (customers2.value = data));
-    CustomerService.getCustomersMedium().then((data) => (customers3.value = data));
+    CustomerService.getCustomersMedium().then((data) => (customers3.value = data));*/
 
     initFilters1();
 });
