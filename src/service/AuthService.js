@@ -3,7 +3,8 @@ import axios from 'axios';
 
 // Crear instancia de Axios
 const apiClient = axios.create({
-    baseURL: '/api/v1', // Esto usará el proxy de Vite en desarrollo
+    // Usar variable de entorno si existe, sino usar '/api/v1' (proxy de Vite en desarrollo)
+    baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
     headers: {
         'Content-Type': 'application/json'
     },
