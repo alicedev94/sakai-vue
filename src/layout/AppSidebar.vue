@@ -1,12 +1,13 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import { computed, onMounted } from 'vue';
 import AppMenu from './AppMenu.vue';
-import { getMenu } from '@/service/MenuService';
 
-const menuItems = ref([]);
+const authStore = useAuthStore();
+const menuItems = computed(() => authStore.menu);
 
 onMounted(async () => {
-    menuItems.value = await getMenu();
+    await authStore.loadUserPermissions();
 });
 </script>
 

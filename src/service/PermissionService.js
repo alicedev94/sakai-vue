@@ -82,22 +82,11 @@ class PermissionService {
         try {
             const token = localStorage.getItem('token');
             const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.delete(`/api/v1/permissions/${id}/soft`, { headers });
+            const response = await axios.delete(`/api/v1/permissions/${id}`, { headers });
             return response.data;
         } catch (error) {
-            // Si el endpoint no existe, intentar con PATCH
-            try {
-                const token = localStorage.getItem('token');
-                const headers = token ? { Authorization: `Bearer ${token}` } : {};
-                const response = await axios.patch(`/api/v1/permissions/${id}`, {
-                    status: false,
-                    deletedAt: new Date().toISOString()
-                }, { headers });
-                return response.data;
-            } catch (patchError) {
-                this.handleError(patchError, 'eliminar el permiso');
-                throw patchError;
-            }
+            this.handleError(error, 'eliminar el permiso');
+            throw error;
         }
     }
 

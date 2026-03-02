@@ -1,13 +1,12 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { useToast } from 'primevue/usetoast';
-import RoleService from '@/service/RoleService';
 import PermissionService from '@/service/PermissionService';
+import { useRoleStore } from '@/stores/role';
+import { useToast } from 'primevue/usetoast';
+import { computed, onMounted, ref } from 'vue';
 
 const toast = useToast();
-const roles = ref([]);
+const roleStore = useRoleStore();
 const permissions = ref([]);
-const loading = ref(false);
 const roleDialog = ref(false);
 const deleteRoleDialog = ref(false);
 const role = ref({ permissions: [] });
@@ -16,20 +15,16 @@ const selectedRoles = ref([]);
 const searchQuery = ref('');
 
 const activeRoles = computed(() => {
-    return roles.value.filter(r => !r.deletedAt && r.status !== false &&
+    return roleStore.roles.filter(r => !r.deletedAt && r.status !== false &&
         (!searchQuery.value || r.name?.toLowerCase().includes(searchQuery.value.toLowerCase()) || r.code?.toLowerCase().includes(searchQuery.value.toLowerCase()))
     );
 });
 
 const loadRoles = async () => {
-    loading.value = true;
     try {
-        const data = await RoleService.getRoles();
-        roles.value = Array.isArray(data) ? data : data.content || [];
+        await roleStore.loadRoles();
     } catch (error) {
         toast.add({ severity: 'error', summary: 'Error', detail: error.userMessage || 'Error al cargar roles', life: 3000 });
-    } finally {
-        loading.value = false;
     }
 };
 
@@ -71,19 +66,16 @@ const saveRole = async () => {
     }
     try {
         const rolePayload = {
-            id: role.id,
+            id: role.value.id,
             name: role.value.name.trim(),
             code: role.value.code.trim(),
             permissionsId: role.value.permissions.map(p => p.id)
         };
         if (role.value.id) {
-            const updated = await RoleService.updateRole(role.value.id, rolePayload);
-            const idx = roles.value.findIndex(r => r.id === role.value.id);
-            if (idx !== -1) roles.value[idx] = updated;
+            await roleStore.updateRole(role.value.id, rolePayload);
             toast.add({ severity: 'success', summary: 'Rol actualizado', detail: 'Datos actualizados', life: 3000 });
         } else {
-            const created = await RoleService.createRole(rolePayload);
-            roles.value.push(created);
+            await roleStore.createRole(rolePayload);
             toast.add({ severity: 'success', summary: 'Rol creado', detail: 'El rol se ha creado', life: 3000 });
         }
         roleDialog.value = false;
@@ -95,12 +87,7 @@ const saveRole = async () => {
 
 const deleteRole = async () => {
     try {
-        await RoleService.softDeleteRole(role.value.id);
-        const idx = roles.value.findIndex(r => r.id === role.value.id);
-        if (idx !== -1) {
-            roles.value[idx].status = false;
-            roles.value[idx].deletedAt = new Date().toISOString();
-        }
+        await roleStore.softDeleteRole(role.value.id);
         deleteRoleDialog.value = false;
         role.value = { permissions: [] };
         toast.add({ severity: 'success', summary: 'Rol eliminado', detail: 'El rol ha sido eliminado', life: 3000 });
@@ -134,7 +121,7 @@ onMounted(() => {
                     <InputText v-model="searchQuery" placeholder="Buscar por nombre o código..." style="width: 300px" />
                 </template>
             </Toolbar>
-            <DataTable :value="activeRoles" :loading="loading" dataKey="id" :paginator="true" :rows="10" :rowsPerPageOptions="[5, 10, 25, 50]" responsiveLayout="scroll" class="roles-table">
+            <DataTable :value="activeRoles" :loading="roleStore.loading" dataKey="id" :paginator="true" :rows="10" :rowsPerPageOptions="[5, 10, 25, 50]" responsiveLayout="scroll" class="roles-table">
                 <template #empty>
                     <div class="empty-state">
                         <i class="pi pi-id-card" style="font-size: 3rem; color: var(--text-color-secondary)"></i>
@@ -178,39 +165,41 @@ onMounted(() => {
                 </Column>
             </DataTable>
         </div>
-        <Dialog v-model:visible="roleDialog" :style="{ width: '550px' }" header="Información del Rol" :modal="true" class="p-fluid">
-            <div class="field">
-                <label for="name">Nombre *</label>
-                <InputText id="name" v-model.trim="role.name" required autofocus :invalid="submitted && !role.name" placeholder="Nombre del rol" />
-                <small class="p-error" v-if="submitted && !role.name">El nombre es requerido.</small>
-            </div>
-            <div class="field">
-                <label for="code">Código *</label>
-                <InputText id="code" v-model.trim="role.code" required :invalid="submitted && !role.code" placeholder="Código único del rol" />
-                <small class="p-error" v-if="submitted && !role.code">El código es requerido.</small>
-            </div>
-            <div class="field">
-                <label>Permisos</label>
-                <MultiSelect
-                    v-model="role.permissions"
-                    :options="permissions"
-                    optionLabel="name"
-                    dataKey="id"
-                    placeholder="Selecciona uno o más permisos"
-                    display="chip"
-                    :filter="true"
-                    :showClear="true"
-                    :maxSelectedLabels="3"
-                    class="w-full"
-                >
-                    <template #option="{ option }">
-                        <span>{{ option.name }} <span class="perm-code">({{ option.code }})</span> <span class="perm-url">- {{ option.url }}</span></span>
-                    </template>
-                    <template #chip="{ value }">
-                        <span>{{ value.name }}</span>
-                    </template>
-                </MultiSelect>
-                <small class="p-error" v-if="submitted && (!role.permissions || !role.permissions.length)">Selecciona al menos un permiso.</small>
+        <Dialog v-model:visible="roleDialog" :style="{ width: '650px' }" :breakpoints="{ '1199px': '75vw', '575px': '90vw' }" header="Información del Rol" :modal="true" class="p-fluid">
+            <div class="formgrid grid">
+                <div class="field col-12 md:col-6">
+                    <label for="name">Nombre *</label>
+                    <InputText id="name" v-model.trim="role.name" required autofocus :invalid="submitted && !role.name" placeholder="Nombre del rol" />
+                    <small class="p-error" v-if="submitted && !role.name">El nombre es requerido.</small>
+                </div>
+                <div class="field col-12 md:col-6">
+                    <label for="code">Código *</label>
+                    <InputText id="code" v-model.trim="role.code" required :invalid="submitted && !role.code" placeholder="Código único del rol" />
+                    <small class="p-error" v-if="submitted && !role.code">El código es requerido.</small>
+                </div>
+                <div class="field col-12">
+                    <label>Permisos</label>
+                    <MultiSelect
+                        v-model="role.permissions"
+                        :options="permissions"
+                        optionLabel="name"
+                        dataKey="id"
+                        placeholder="Selecciona uno o más permisos"
+                        display="chip"
+                        :filter="true"
+                        :showClear="true"
+                        :maxSelectedLabels="3"
+                        class="w-full"
+                    >
+                        <template #option="{ option }">
+                            <span>{{ option.name }} <span class="perm-code">({{ option.code }})</span> <span class="perm-url">- {{ option.url }}</span></span>
+                        </template>
+                        <template #chip="{ value }">
+                            <span>{{ value.name }}</span>
+                        </template>
+                    </MultiSelect>
+                    <small class="p-error" v-if="submitted && (!role.permissions || !role.permissions.length)">Selecciona al menos un permiso.</small>
+                </div>
             </div>
             <template #footer>
                 <Button label="Cancelar" icon="pi pi-times" text @click="hideDialog" />
@@ -294,4 +283,32 @@ onMounted(() => {
 .perm-name { font-weight: 500; }
 .perm-code { color: var(--primary-color); margin-left: 0.5rem; }
 .perm-url { color: var(--text-color-secondary); margin-left: 0.5rem; font-size: 0.95em; }
+
+/* Clases para el grid a 2 columnas del formulario */
+.formgrid {
+    display: flex;
+    flex-wrap: wrap;
+    margin-right: -0.5rem;
+    margin-left: -0.5rem;
+    margin-top: -0.5rem;
+}
+.formgrid > .field {
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+}
+.formgrid .field input {
+    width: 100%;
+}
+.col-12 {
+    flex: 0 0 auto;
+    width: 100%;
+}
+@media (min-width: 768px) {
+    .md\:col-6 {
+        flex: 0 0 auto;
+        width: 50%;
+    }
+}
 </style>

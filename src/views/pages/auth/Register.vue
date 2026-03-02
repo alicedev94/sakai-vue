@@ -1,10 +1,10 @@
 <script setup>
+import FloatingConfigurator from '@/components/FloatingConfigurator.vue';
+import AuthService from '@/service/AuthService';
+import { useAuthStore } from '@/stores/auth';
+import { useToast } from 'primevue/usetoast';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useToast } from 'primevue/usetoast';
-import { useAuthStore } from '@/stores/auth';
-import AuthService from '@/service/AuthService';
-import FloatingConfigurator from '@/components/FloatingConfigurator.vue';
 
 const router = useRouter();
 const toast = useToast();
@@ -107,7 +107,7 @@ const handleRegister = async () => {
         } else {
             // Si no retorna token, redirigir al login
             setTimeout(() => {
-                router.push('/auth/login');
+                router.push('/v1/auth/login');
             }, 1500);
         }
     } catch (error) {
@@ -241,7 +241,7 @@ const handleKeyPress = (event) => {
 
                         <div class="text-center mt-4">
                             <span class="text-muted-color">¿Ya tienes cuenta? </span>
-                            <router-link to="/auth/login" class="font-medium no-underline cursor-pointer text-primary">
+                            <router-link to="/v1/auth/login" class="font-medium no-underline cursor-pointer text-primary">
                                 Inicia sesión aquí
                             </router-link>
                         </div>

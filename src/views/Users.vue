@@ -1,17 +1,17 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { FilterMatchMode } from '@primevue/core/api';
-import { useToast } from 'primevue/usetoast';
-import { useConfirm } from 'primevue/useconfirm';
-import UserService from '@/service/UserService';
 import RoleService from '@/service/RoleService';
 import UserStatusService from '@/service/UserStatusService';
+import { useUserStore } from '@/stores/user';
+import { FilterMatchMode } from '@primevue/core/api';
+import { useConfirm } from 'primevue/useconfirm';
+import { useToast } from 'primevue/usetoast';
+import { computed, onMounted, ref } from 'vue';
 
 const toast = useToast();
 const confirm = useConfirm();
+const userStore = useUserStore();
 
 // Estados
-const users = ref([]);
 const roles = ref([]);
 const userStatus = ref([]);
 const loading = ref(false);
@@ -30,7 +30,7 @@ const searchQuery = ref('');
 
 // Usuarios filtrados (excluye los eliminados lógicamente)
 const activeUsers = computed(() => {
-    return users.value.filter(user => {
+    return userStore.users.filter(user => {
         // Filtra por usuarios activos (no eliminados)
         const isActive = user.status !== false && !user.deletedAt;
 
@@ -38,7 +38,7 @@ const activeUsers = computed(() => {
         if (searchQuery.value) {
             const search = searchQuery.value.toLowerCase();
             const matchesSearch =
-                (user.nombre?.toLowerCase().includes(search)) ||
+                (user.username?.toLowerCase().includes(search)) ||
                 (user.email?.toLowerCase().includes(search));
             return isActive && matchesSearch;
         }
@@ -49,49 +49,25 @@ const activeUsers = computed(() => {
 
 // Cargar usuarios
 const loadUsers = async () => {
-    loading.value = true;
     try {
-        const data = await UserService.getUsers();
-        users.value = Array.isArray(data) ? data : data.content || [];
+        await userStore.loadUsers();
 
         // Solo mostrar mensaje de éxito si hay datos
-        if (users.value.length > 0) {
+        if (userStore.users.length > 0) {
             toast.add({
                 severity: 'success',
                 summary: 'Datos cargados',
-                detail: `${users.value.length} usuario(s) obtenidos`,
+                detail: `${userStore.users.length} usuario(s) obtenidos`,
                 life: 2000
             });
         }
     } catch (error) {
-        console.error('Error al cargar usuarios:', error);
-
-        // Mensajes más específicos según el tipo de error
-        let errorMessage = 'Error al cargar usuarios';
-        let errorSeverity = 'error';
-
-        if (error.message?.includes('Network Error') || error.code === 'ERR_NETWORK') {
-            errorMessage = 'No se puede conectar con el servidor. Verifica que el backend esté funcionando.';
-            errorSeverity = 'warn';
-        } else if (error.response?.status === 401) {
-            errorMessage = 'Sesión expirada. Por favor, inicia sesión nuevamente.';
-        } else if (error.userMessage) {
-            errorMessage = error.userMessage;
-        }
-
         toast.add({
-            severity: errorSeverity,
+            severity: 'error',
             summary: 'Error de conexión',
-            detail: errorMessage,
+            detail: error.userMessage || 'Error al cargar usuarios',
             life: 5000
         });
-
-        // Si es error de red, no limpiar la lista (mantener estado anterior)
-        if (error.message?.includes('Network Error') || error.code === 'ERR_NETWORK') {
-            users.value = [];
-        }
-    } finally {
-        loading.value = false;
     }
 };
 
@@ -234,11 +210,7 @@ const saveUser = async () => {
     try {
         if (user.value.id) {
             // Actualizar
-            const updateUser = await UserService.updateUser(user.value.id, userPayload);
-            const index = users.value.findIndex(u => u.id === user.value.id);
-            if (index !== -1) {
-                users.value[index] = updateUser;
-            }
+            await userStore.updateUser(user.value.id, userPayload);
             toast.add({
                 severity: 'success',
                 summary: 'Usuario actualizado',
@@ -247,8 +219,7 @@ const saveUser = async () => {
             });
         } else {
             // Crear
-            const newUser = await UserService.createUser(userPayload);
-            users.value.push(newUser);
+            await userStore.createUser(userPayload);
             toast.add({
                 severity: 'success',
                 summary: 'Usuario creado',
@@ -272,14 +243,7 @@ const saveUser = async () => {
 // Eliminar usuario (eliminado lógico)
 const deleteUser = async () => {
     try {
-        await UserService.softDeleteUser(user.value.id);
-
-        // Actualizar el usuario en la lista local
-        const index = users.value.findIndex(u => u.id === user.value.id);
-        if (index !== -1) {
-            users.value[index].status = false;
-            users.value[index].deletedAt = new Date().toISOString();
-        }
+        await userStore.softDeleteUser(user.value.id);
 
         deleteUserDialog.value = false;
         user.value = {};
@@ -311,12 +275,7 @@ const confirmDeleteSelected = () => {
         accept: async () => {
             try {
                 for (const selectedUser of selectedUsers.value) {
-                    await UserService.softDeleteUser(selectedUser.id);
-                    const index = users.value.findIndex(u => u.id === selectedUser.id);
-                    if (index !== -1) {
-                        users.value[index].status = false;
-                        users.value[index].deletedAt = new Date().toISOString();
-                    }
+                    await userStore.softDeleteUser(selectedUser.id);
                 }
                 selectedUsers.value = [];
                 toast.add({
@@ -396,7 +355,7 @@ onMounted(() => {
             <DataTable
                 v-model:selection="selectedUsers"
                 :value="activeUsers"
-                :loading="loading"
+                :loading="userStore.loading || loading"
                 dataKey="id"
                 :paginator="true"
                 :rows="10"
@@ -484,77 +443,83 @@ onMounted(() => {
         <!-- Dialog para crear/editar usuario -->
         <Dialog
             v-model:visible="userDialog"
-            :style="{ width: '550px' }"
+            :style="{ width: '650px' }"
+            :breakpoints="{ '1199px': '75vw', '575px': '90vw' }"
             header="Información del Usuario"
             :modal="true"
             class="p-fluid"
         >
-            <div class="field">
-                <label for="nombre">Nombre * </label>
-                <InputText
-                    id="nombre"
-                    v-model.trim="user.username"
-                    required="true"
-                    autofocus
-                    :invalid="submitted && !user.username"
-                    placeholder="Ingrese el nombre completo"
-                />
-                <small class="p-error" v-if="submitted && !user.username">El nombre es requerido.</small>
-            </div>
+            <div class="formgrid grid">
+                <div class="field col-12 md:col-6">
+                    <label for="nombre">Nombre * </label>
+                    <InputText
+                        id="nombre"
+                        v-model.trim="user.username"
+                        required="true"
+                        autofocus
+                        :invalid="submitted && !user.username"
+                        placeholder="Ingrese el nombre completo"
+                    />
+                    <small class="p-error" v-if="submitted && !user.username">El nombre es requerido.</small>
+                </div>
 
-            <div class="field">
-                <label for="email">Email *</label>
-                <InputText
-                    id="email"
-                    v-model.trim="user.email"
-                    required="true"
-                    type="email"
-                    :invalid="submitted && !user.email"
-                    placeholder="correo@ejemplo.com"
-                />
-                <small class="p-error" v-if="submitted && !user.email">El email es requerido.</small>
-            </div>
-            <div class="field" v-if="!user.id">
-                <label for="password">Contraseña *</label>
-                <Password
-                    id="password"
-                    v-model="user.password"
-                    toggleMask
-                    :feedback="true"
-                    placeholder="Ingrese una contraseña"
-                    :invalid="submitted && !user.password"
-                />
-                <small class="p-error" v-if="submitted && !user.password">La contraseña es requerida.</small>
-            </div>
-            <div class="field">
-                <label for="role">Rol *</label>
-                <Dropdown
-                    id="role"
-                    v-model="user.role"
-                    :options="roles"
-                    optionLabel="name"
-                    :itemTemplate="roleItemTemplate"
-                    placeholder="Seleccione un rol"
-                    :filter="true"
-                    :showClear="true"
-                    :invalid="submitted && !user.role"
-                />
-                <small class="p-error" v-if="submitted && !user.role">El rol es requerido.</small>
-            </div>
-            <div class="field">
-                <label for="status">Estado *</label>
-                <Dropdown
-                    id="status"
-                    v-model="user.status"
-                    :options="userStatus"
-                    optionLabel="name"
-                    :itemTemplate="statusItemTemplate"
-                    placeholder="Seleccione estado"
-                    :filter="true"
-                    :showClear="true"
-                    :invalid="submitted && !user.status"
-                />
-                <small class="p-error" v-if="submitted && !user.status">El estado es requerido.</small>
+                <div class="field col-12 md:col-6">
+                    <label for="email">Email *</label>
+                    <InputText
+                        id="email"
+                        v-model.trim="user.email"
+                        required="true"
+                        type="email"
+                        :invalid="submitted && !user.email"
+                        placeholder="correo@ejemplo.com"
+                    />
+                    <small class="p-error" v-if="submitted && !user.email">El email es requerido.</small>
+                </div>
+                <div class="field col-12 md:col-6" v-if="!user.id">
+                    <label for="password">Contraseña *</label>
+                    <Password
+                        id="password"
+                        v-model="user.password"
+                        toggleMask
+                        :feedback="true"
+                        placeholder="Ingrese una contraseña"
+                        :invalid="submitted && !user.password"
+                        fluid
+                        class="w-full"
+                        inputClass="w-full"
+                    />
+                    <small class="p-error" v-if="submitted && !user.password">La contraseña es requerida.</small>
+                </div>
+                <div class="field col-12 md:col-6">
+                    <label for="role">Rol *</label>
+                    <Dropdown
+                        id="role"
+                        v-model="user.role"
+                        :options="roles"
+                        optionLabel="name"
+                        :itemTemplate="roleItemTemplate"
+                        placeholder="Seleccione un rol"
+                        :filter="true"
+                        :showClear="true"
+                        :invalid="submitted && !user.role"
+                    />
+                    <small class="p-error" v-if="submitted && !user.role">El rol es requerido.</small>
+                </div>
+                <div class="field col-12 md:col-6">
+                    <label for="status">Estado *</label>
+                    <Dropdown
+                        id="status"
+                        v-model="user.status"
+                        :options="userStatus"
+                        optionLabel="name"
+                        :itemTemplate="statusItemTemplate"
+                        placeholder="Seleccione estado"
+                        :filter="true"
+                        :showClear="true"
+                        :invalid="submitted && !user.status"
+                    />
+                    <small class="p-error" v-if="submitted && !user.status">El estado es requerido.</small>
+                </div>
             </div>
 
             <template #footer>
@@ -696,5 +661,36 @@ onMounted(() => {
     border: 1px solid var(--surface-200);
     border-radius: 8px;
     padding: 1rem 1.5rem;
+}
+
+/* Clases para el grid a 2 columnas del formulario */
+.formgrid {
+    display: flex;
+    flex-wrap: wrap;
+    margin-right: -0.5rem;
+    margin-left: -0.5rem;
+    margin-top: -0.5rem;
+}
+.formgrid > .field {
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+}
+.formgrid .field input,
+.formgrid .field .p-dropdown,
+.formgrid .field .p-password,
+:deep(.formgrid .field .p-password input) {
+    width: 100%;
+}
+.col-12 {
+    flex: 0 0 auto;
+    width: 100%;
+}
+@media (min-width: 768px) {
+    .md\:col-6 {
+        flex: 0 0 auto;
+        width: 50%;
+    }
 }
 </style>

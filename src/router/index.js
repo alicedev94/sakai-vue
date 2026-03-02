@@ -11,22 +11,22 @@ const router = createRouter({
             meta: { requiresAuth: true },
             children: [
                 {
-                    path: '/',
+                    path: '/v1/',
                     name: 'dashboard',
                     component: () => import('@/views/Dashboard.vue')
                 },
                 {
-                    path: '/usuarios',
+                    path: '/v1/usuarios',
                     name: 'usuarios',
                     component: () => import('@/views/Users.vue')
                 },
                 {
-                    path: '/roles',
+                    path: '/v1/roles',
                     name: 'roles',
                     component: () => import('@/views/Roles.vue')
                 },
                 {
-                    path: '/permisos',
+                    path: '/v1/permisos',
                     name: 'permisos',
                     component: () => import('@/views/Permissions.vue')
                 },
@@ -124,40 +124,40 @@ const router = createRouter({
             ]
         },
         {
-            path: '/landing',
+            path: '/v1/landing',
             name: 'landing',
             component: () => import('@/views/pages/Landing.vue')
         },
         {
-            path: '/pages/notfound',
+            path: '/v1/pages/notfound',
             name: 'notfound',
             component: () => import('@/views/pages/NotFound.vue')
         },
         {
-            path: '/auth/login',
+            path: '/v1/auth/login',
             name: 'login',
             component: () => import('@/views/pages/auth/Login.vue'),
             meta: { requiresGuest: true }
         },
         {
-            path: '/auth/register',
+            path: '/v1/auth/register',
             name: 'register',
             component: () => import('@/views/pages/auth/Register.vue'),
             meta: { requiresGuest: true }
         },
         {
-            path: '/auth/access',
+            path: '/v1/auth/access',
             name: 'accessDenied',
             component: () => import('@/views/pages/auth/Access.vue')
         },
         {
-            path: '/auth/error',
+            path: '/v1/auth/error',
             name: 'error',
             component: () => import('@/views/pages/auth/Error.vue')
         },
         {
             path: '/:pathMatch(.*)*',
-            redirect: '/pages/notfound'
+            redirect: '/v1/pages/notfound'
         }
     ]
 });

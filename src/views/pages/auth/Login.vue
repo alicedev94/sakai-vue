@@ -1,10 +1,10 @@
 <script setup>
+import FloatingConfigurator from '@/components/FloatingConfigurator.vue';
+import AuthService from '@/service/AuthService';
+import { useAuthStore } from '@/stores/auth';
+import { useToast } from 'primevue/usetoast';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useToast } from 'primevue/usetoast';
-import { useAuthStore } from '@/stores/auth';
-import AuthService from '@/service/AuthService';
-import FloatingConfigurator from '@/components/FloatingConfigurator.vue';
 
 const router = useRouter();
 const toast = useToast();
@@ -64,7 +64,7 @@ const handleLogin = async () => {
         });
 
         // Redirigir al dashboard
-        router.push('/');
+        router.push('/v1/');
     } catch (error) {
         console.error('Error en login:', error);
 
@@ -169,7 +169,7 @@ const handleKeyPress = (event) => {
 
                         <div class="text-center mt-4">
                             <span class="text-muted-color">¿No tienes cuenta? </span>
-                            <router-link to="/auth/register" class="font-medium no-underline cursor-pointer text-primary">
+                            <router-link to="/v1/auth/register" class="font-medium no-underline cursor-pointer text-primary">
                                 Regístrate aquí
                             </router-link>
                         </div>

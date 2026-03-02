@@ -1,9 +1,9 @@
 <script setup>
 import { useLayout } from '@/layout/composables/layout';
 import { useAuthStore } from '@/stores/auth';
-import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import AppConfigurator from './AppConfigurator.vue';
 
 const { toggleMenu, toggleDarkMode, isDarkTheme } = useLayout();
@@ -29,7 +29,7 @@ const handleLogout = () => {
         life: 3000
     });
     
-    router.push('/auth/login');
+    router.push('/v1/auth/login');
 };
 </script>
 
@@ -39,7 +39,7 @@ const handleLogout = () => {
             <button class="layout-menu-button layout-topbar-action" @click="toggleMenu">
                 <i class="pi pi-bars"></i>
             </button>
-            <router-link to="/" class="layout-topbar-logo">
+            <router-link to="/v1/" class="layout-topbar-logo">
                 <svg viewBox="0 0 54 40" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path
                         fill-rule="evenodd"

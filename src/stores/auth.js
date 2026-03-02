@@ -1,3 +1,4 @@
+import { getMenu } from '@/service/MenuService';
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 
@@ -51,6 +52,11 @@ export const useAuthStore = defineStore('auth', () => {
     const token = ref(storedData.token);
     const user = ref(storedData.user);
     const refreshToken = ref(storedData.refreshToken);
+    
+    // Obtener menú, rol y permisos del localStorage (o valores por defecto)
+    const menu = ref(JSON.parse(localStorage.getItem('menu') || '[]'));
+    const role = ref(JSON.parse(localStorage.getItem('role') || 'null'));
+    const permissions = ref(JSON.parse(localStorage.getItem('permissions') || '[]'));
 
     // Getters
     const isAuthenticated = computed(() => !!token.value && !!refreshToken.value);
@@ -93,12 +99,18 @@ export const useAuthStore = defineStore('auth', () => {
         token.value = null;
         refreshToken.value = null;
         user.value = null;
+        menu.value = [];
+        role.value = null;
+        permissions.value = [];
 
         // Limpiar localStorage
         try {
             localStorage.removeItem('token');
             localStorage.removeItem('refreshToken');
             localStorage.removeItem('user');
+            localStorage.removeItem('menu');
+            localStorage.removeItem('role');
+            localStorage.removeItem('permissions');
             console.log('✅ Sesión limpiada correctamente');
         } catch (error) {
             console.error('❌ Error al limpiar localStorage:', error);
@@ -120,11 +132,34 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.setItem('user', JSON.stringify(userData));
     }
 
+    // Acción para cargar roles, permisos y menú desde el backend
+    async function loadUserPermissions() {
+        if (!isAuthenticated.value) return;
+        try {
+            const data = await getMenu();
+            console.log(data);
+            menu.value = data || [];
+            role.value = data.role || null;
+            permissions.value = data.permissions || [];
+            
+            // Guardar en localStorage para persistencia
+            localStorage.setItem('menu', JSON.stringify(menu.value));
+            localStorage.setItem('role', JSON.stringify(role.value));
+            localStorage.setItem('permissions', JSON.stringify(permissions.value));
+            console.log('✅ Permisos y menú cargados en el store');
+        } catch (error) {
+            console.error('❌ Error al cargar menú y permisos en el store:', error);
+        }
+    }
+
     return {
         // Estado
         token,
         user,
         refreshToken,
+        menu,
+        role,
+        permissions,
         // Getters
         isAuthenticated,
         currentUser,
@@ -133,6 +168,8 @@ export const useAuthStore = defineStore('auth', () => {
         updateToken,
         logout,
         updateUser,
-        validateSession
+        validateSession,
+        loadUserPermissions
     };
 });
+

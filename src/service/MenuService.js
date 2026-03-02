@@ -12,10 +12,10 @@ export async function getMenu() {
         } else {
             // Devuelve un menú por defecto si hay error
             return [
-                { categoryLabel: 'Principal', label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/' },
-                { categoryLabel: 'Gestión', label: 'Usuarios', icon: 'pi pi-fw pi-users', to: '/usuarios' },
-                { categoryLabel: 'Gestión', label: 'Roles', icon: 'pi pi-fw pi-shield', to: '/roles' },
-                { categoryLabel: 'Gestión', label: 'Permisos', icon: 'pi pi-fw pi-lock', to: '/permisos' }
+                { categoryLabel: 'Principal', label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/v1/' },
+                { categoryLabel: 'Gestión', label: 'Usuarios', icon: 'pi pi-fw pi-users', to: '/v1/usuarios' },
+                { categoryLabel: 'Gestión', label: 'Roles', icon: 'pi pi-fw pi-shield', to: '/v1/roles' },
+                { categoryLabel: 'Gestión', label: 'Permisos', icon: 'pi pi-fw pi-lock', to: '/v1/permisos' }
             ];
         }
     } catch (e) {
