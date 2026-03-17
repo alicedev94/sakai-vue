@@ -1,5 +1,4 @@
 <script setup>
-import FloatingConfigurator from '@/components/FloatingConfigurator.vue';
 import AuthService from '@/service/AuthService';
 import { useAuthStore } from '@/stores/auth';
 import { useToast } from 'primevue/usetoast';
@@ -145,7 +144,7 @@ const handleKeyPress = (event) => {
 </script>
 
 <template>
-    <FloatingConfigurator />
+    
     <Toast />
     <div class="bg-surface-50 dark:bg-surface-950 flex items-center justify-center min-h-screen min-w-[100vw] overflow-hidden">
         <div class="flex flex-col items-center justify-center py-8">

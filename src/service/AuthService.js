@@ -36,6 +36,7 @@ apiClient.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
+        console.log('🔄 Error en interceptor de response:', error);
         // Si no hay respuesta del servidor (backend caído)
         if (!error.response) {
             console.error('❌ Backend no disponible:', error.message);
@@ -47,9 +48,7 @@ apiClient.interceptors.response.use(
                 authStore.logout();
                 
                 // Solo redirigir si no estamos ya en login
-                if (!window.location.pathname.includes('/auth/login')) {
-                    window.location.href = '/auth/login?error=backend_unavailable';
-                }
+         
             }
             
             return Promise.reject(error);

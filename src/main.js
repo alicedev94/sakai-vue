@@ -1,5 +1,5 @@
-import { createApp } from 'vue';
 import { createPinia } from 'pinia';
+import { createApp } from 'vue';
 import App from './App.vue';
 import router from './router';
 
@@ -20,17 +20,17 @@ app.use(router);
 const dkPreset = definePreset(Aura, {
     semantic: {
         primary: {
-            50: '{blue.950}',
-            100: '{blue.950}',
-            200: '{blue.950}',
-            300: '{blue.950}',
-            400: '{blue.950}',
-            500: '{blue.950}',
-            600: '{blue.950}',
-            700: '{blue.950}',
-            800: '{blue.950}',
-            900: '{blue.950}',
-            950: '{blue.950}'
+            50: '{green.100}',
+            100: '{green.200}',
+            200: '{green.300}',
+            300: '{green.400}',
+            400: '{green.500}',
+            500: '{green.600}', // tono principal, verde fuerte
+            600: '{green.700}',
+            700: '{green.800}',
+            800: '{green.900}',
+            900: '{green.950}',
+            950: '{green.950}'
         }
     }
 });
