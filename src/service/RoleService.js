@@ -1,4 +1,4 @@
-import axios from 'axios';
+import apiClient from '@/service/apiClient';
 
 /**
  * Servicio para gestión de roles
@@ -14,9 +14,7 @@ class RoleService {
      */
     static async getRoles() {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.get('/api/v1/roles', { headers });
+            const response = await apiClient.get('/roles');
             return response.data;
         } catch (error) {
             this.handleError(error, 'obtener roles');
@@ -31,9 +29,7 @@ class RoleService {
      */
     static async getRoleById(id) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.get(`/api/v1/roles/${id}`, { headers });
+            const response = await apiClient.get(`/roles/${id}`);
             return response.data;
         } catch (error) {
             this.handleError(error, 'obtener el rol');
@@ -48,9 +44,7 @@ class RoleService {
      */
     static async createRole(roleData) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.post('/api/v1/roles', roleData, { headers });
+            const response = await apiClient.post('/roles', roleData);
             return response.data;
         } catch (error) {
             this.handleError(error, 'crear el rol');
@@ -66,9 +60,7 @@ class RoleService {
      */
     static async updateRole(id, roleData) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.put(`/api/v1/roles/${id}`, roleData, { headers });
+            const response = await apiClient.put(`/roles/${id}`, roleData);
             return response.data;
         } catch (error) {
             this.handleError(error, 'actualizar el rol');
@@ -84,19 +76,14 @@ class RoleService {
      */
     static async softDeleteRole(id) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.delete(`/api/v1/roles/${id}`, { headers });
+            const response = await apiClient.delete(`/roles/${id}`);
             return response.data;
         } catch (error) {
             // Si el endpoint no existe, intentar con PATCH
             try {
-                const token = localStorage.getItem('token');
-                const headers = token ? { Authorization: `Bearer ${token}` } : {};
-                const response = await axios.delete(`/api/v1/roles/${id}`, {
-                    status: false,
-                    deletedAt: new Date().toISOString()
-                }, { headers });
+                const response = await apiClient.delete(`/roles/${id}`, {
+                    data: { status: false, deletedAt: new Date().toISOString() }
+                });
                 return response.data;
             } catch (patchError) {
                 this.handleError(patchError, 'eliminar el rol');
@@ -112,12 +99,10 @@ class RoleService {
      */
     static async restoreRole(id) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.patch(`/api/v1/roles/${id}/restore`, {
+            const response = await apiClient.patch(`/roles/${id}/restore`, {
                 status: true,
                 deletedAt: null
-            }, { headers });
+            });
             return response.data;
         } catch (error) {
             this.handleError(error, 'restaurar el rol');
@@ -133,9 +118,7 @@ class RoleService {
      */
     static async hardDeleteRole(id) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.delete(`/api/v1/roles/${id}/hard`, { headers });
+            const response = await apiClient.delete(`/roles/${id}/hard`);
             return response.data;
         } catch (error) {
             this.handleError(error, 'eliminar permanentemente el rol');

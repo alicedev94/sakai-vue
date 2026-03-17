@@ -1,4 +1,4 @@
-import axios from 'axios';
+import apiClient from '@/service/apiClient';
 
 /**
  * Servicio para gestión de usuarios
@@ -14,16 +14,13 @@ class UserService {
      */
     static async getUsers(params = {}) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.get('/api/v1/users', {
+            const response = await apiClient.get('/users', {
                 params: {
                     search: params.search || '',
                     includeDeleted: params.includeDeleted || false,
                     page: params.page || 0,
                     size: params.size || 50
-                },
-                headers
+                }
             });
             return response.data;
         } catch (error) {
@@ -39,9 +36,7 @@ class UserService {
      */
     static async getUserById(id) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.get(`/api/v1/users/${id}`, { headers });
+            const response = await apiClient.get(`/users/${id}`);
             return response.data;
         } catch (error) {
             this.handleError(error, 'obtener el usuario');
@@ -56,9 +51,7 @@ class UserService {
      */
     static async createUser(userData) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.post('/api/v1/users', userData, { headers });
+            const response = await apiClient.post('/users', userData);
             return response.data;
         } catch (error) {
             this.handleError(error, 'crear el usuario');
@@ -74,9 +67,7 @@ class UserService {
      */
     static async updateUser(id, userData) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.put(`/api/v1/users/${id}`, userData, { headers });
+            const response = await apiClient.put(`/users/${id}`, userData);
             return response.data;
         } catch (error) {
             this.handleError(error, 'actualizar el usuario');
@@ -92,19 +83,15 @@ class UserService {
      */
     static async softDeleteUser(id) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.delete(`/api/v1/users/${id}/soft`, { headers });
+            const response = await apiClient.delete(`/users/${id}/soft`);
             return response.data;
         } catch (error) {
             // Si el endpoint no existe, intentar con PATCH
             try {
-                const token = localStorage.getItem('token');
-                const headers = token ? { Authorization: `Bearer ${token}` } : {};
-                const response = await axios.patch(`/api/v1/users/${id}`, {
+                const response = await apiClient.patch(`/users/${id}`, {
                     status: false,
                     deletedAt: new Date().toISOString()
-                }, { headers });
+                });
                 return response.data;
             } catch (patchError) {
                 this.handleError(patchError, 'eliminar el usuario');
@@ -120,12 +107,10 @@ class UserService {
      */
     static async restoreUser(id) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.patch(`/api/v1/users/${id}/restore`, {
+            const response = await apiClient.patch(`/users/${id}/restore`, {
                 status: true,
                 deletedAt: null
-            }, { headers });
+            });
             return response.data;
         } catch (error) {
             this.handleError(error, 'restaurar el usuario');
@@ -141,9 +126,7 @@ class UserService {
      */
     static async hardDeleteUser(id) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.delete(`/api/v1/users/${id}/hard`, { headers });
+            const response = await apiClient.delete(`/users/${id}/hard`);
             return response.data;
         } catch (error) {
             this.handleError(error, 'eliminar permanentemente el usuario');

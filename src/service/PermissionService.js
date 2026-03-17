@@ -1,4 +1,4 @@
-import axios from 'axios';
+import apiClient from '@/service/apiClient';
 
 /**
  * Servicio para gestión de permisos
@@ -11,9 +11,7 @@ class PermissionService {
      */
     static async getPermissions() {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.get('/api/v1/permissions', { headers });
+            const response = await apiClient.get('/permissions');
             return response.data;
         } catch (error) {
             this.handleError(error, 'obtener permisos');
@@ -28,9 +26,7 @@ class PermissionService {
      */
     static async getPermissionById(id) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.get(`/api/v1/permissions/${id}`, { headers });
+            const response = await apiClient.get(`/permissions/${id}`);
             return response.data;
         } catch (error) {
             this.handleError(error, 'obtener el permiso');
@@ -45,9 +41,7 @@ class PermissionService {
      */
     static async createPermission(permissionData) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.post('/api/v1/permissions', permissionData, { headers });
+            const response = await apiClient.post('/permissions', permissionData);
             return response.data;
         } catch (error) {
             this.handleError(error, 'crear el permiso');
@@ -63,9 +57,7 @@ class PermissionService {
      */
     static async updatePermission(id, permissionData) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.put(`/api/v1/permissions/${id}`, permissionData, { headers });
+            const response = await apiClient.put(`/permissions/${id}`, permissionData);
             return response.data;
         } catch (error) {
             this.handleError(error, 'actualizar el permiso');
@@ -80,9 +72,7 @@ class PermissionService {
      */
     static async softDeletePermission(id) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.delete(`/api/v1/permissions/${id}`, { headers });
+            const response = await apiClient.delete(`/permissions/${id}`);
             return response.data;
         } catch (error) {
             this.handleError(error, 'eliminar el permiso');
@@ -97,12 +87,10 @@ class PermissionService {
      */
     static async restorePermission(id) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.patch(`/api/v1/permissions/${id}/restore`, {
+            const response = await apiClient.patch(`/permissions/${id}/restore`, {
                 status: true,
                 deletedAt: null
-            }, { headers });
+            });
             return response.data;
         } catch (error) {
             this.handleError(error, 'restaurar el permiso');
@@ -117,9 +105,7 @@ class PermissionService {
      */
     static async hardDeletePermission(id) {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.delete(`/api/v1/permissions/${id}/hard`, { headers });
+            const response = await apiClient.delete(`/permissions/${id}/hard`);
             return response.data;
         } catch (error) {
             this.handleError(error, 'eliminar permanentemente el permiso');

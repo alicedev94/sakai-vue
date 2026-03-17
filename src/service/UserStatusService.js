@@ -1,5 +1,4 @@
-import axios from 'axios';
-import UserService from '@/service/UserService';
+import apiClient from '@/service/apiClient';
 
 /**
  * Servicio para gestión de roles
@@ -15,12 +14,10 @@ class UserStatusService {
      */
     static async getUserStatus() {
         try {
-            const token = localStorage.getItem('token');
-            const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const response = await axios.get('/api/v1/users/userStatus', { headers });
+            const response = await apiClient.get('/users/userStatus');
             return response.data;
         } catch (error) {
-            this.handleError(error, 'obtener roles');
+            this.handleError(error, 'obtener estados de usuario');
             throw error;
         }
     }

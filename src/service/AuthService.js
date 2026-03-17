@@ -1,15 +1,6 @@
+import apiClient from '@/service/apiClient';
 import { useAuthStore } from '@/stores/auth';
-import axios from 'axios';
 
-// Crear instancia de Axios
-const apiClient = axios.create({
-    // Usar variable de entorno si existe, sino usar '/api/v1' (proxy de Vite en desarrollo)
-    baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
-    headers: {
-        'Content-Type': 'application/json'
-    },
-    timeout: 10000
-});
 
 // Interceptor de request: añadir token a todas las peticiones
 apiClient.interceptors.request.use(
