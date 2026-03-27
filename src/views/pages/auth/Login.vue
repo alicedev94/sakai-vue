@@ -3,9 +3,10 @@ import logo from '@/assets/img/logo.jpeg';
 import AuthService from '@/service/AuthService';
 import { useAuthStore } from '@/stores/auth';
 import { useToast } from 'primevue/usetoast';
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
+const route = useRoute();
 const router = useRouter();
 const toast = useToast();
 const authStore = useAuthStore();
@@ -14,6 +15,17 @@ const email = ref('');
 const password = ref('');
 const rememberMe = ref(false);
 const loading = ref(false);
+
+onMounted(() => {
+    if (route.query.error === 'forbidden') {
+        toast.add({
+            severity: 'error',
+            summary: 'Acceso Denegado',
+            detail: 'Tu sesión no tiene permisos suficientes para realizar esta acción. Por favor, inicia sesión con una cuenta autorizada.',
+            life: 6000
+        });
+    }
+});
 
 const handleLogin = async () => {
     // Validaciones básicas

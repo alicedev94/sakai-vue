@@ -7,7 +7,7 @@ const apiClient = axios.create({
     headers: {
         'Content-Type': 'application/json'
     },
-    timeout: 10000
+    timeout: 60000
 });
 
 // ─── Interceptor de REQUEST: adjuntar JWT ────────────────────────────────────
@@ -63,6 +63,20 @@ apiClient.interceptors.response.use(
                     }
                 }
             } catch { /* store no disponible */ }
+            return Promise.reject(error);
+        }
+
+        // 403 → Acceso denegado / No autorizado
+        if (error.response?.status === 403) {
+            console.warn('⚠️ Acceso denegado (403). Redirigiendo al login...');
+            try {
+                const authStore = useAuthStore();
+                authStore.logout();
+            } catch { /* store no disponible */ }
+
+            if (typeof window !== 'undefined' && !window.location.pathname.includes('/v1/auth/login')) {
+                window.location.href = '/v1/auth/login?error=forbidden';
+            }
             return Promise.reject(error);
         }
 

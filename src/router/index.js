@@ -31,6 +31,16 @@ const router = createRouter({
                     component: () => import('@/views/Permissions.vue')
                 },
                 {
+                    path: '/v1/transacciones',
+                    name: 'transacciones',
+                    component: () => import('@/views/Transaccion.vue')
+                },
+                {
+                    path: '/v1/movimientos',
+                    name: 'movimientos',
+                    component: () => import('@/views/Movimientos.vue')
+                },
+                {
                     path: '/uikit/formlayout',
                     name: 'formlayout',
                     component: () => import('@/views/uikit/FormLayout.vue')

@@ -118,7 +118,7 @@ onMounted(() => {
             </div>
             <Toolbar class="mb-6">
                 <template #end>
-                    <InputText v-model="searchQuery" placeholder="Buscar por nombre o código..." style="width: 300px" />
+                    <InputText v-model="searchQuery" placeholder="Buscar por nombre o código..." style="width: clamp(200px, 30vw, 400px);" />
                 </template>
             </Toolbar>
             <DataTable :value="activeRoles" :loading="roleStore.loading" dataKey="id" :paginator="true" :rows="10" :rowsPerPageOptions="[5, 10, 25, 50]" responsiveLayout="scroll" class="roles-table">

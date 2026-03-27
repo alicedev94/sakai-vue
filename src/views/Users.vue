@@ -345,7 +345,7 @@ onMounted(() => {
                         <InputText
                             v-model="searchQuery"
                             placeholder="Buscar por nombre o email..."
-                            style="width: 300px"
+                            style="width: clamp(200px, 30vw, 400px);"
                         />
                     </IconField>
                 </template>
