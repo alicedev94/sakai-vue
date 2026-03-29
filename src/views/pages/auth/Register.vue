@@ -10,7 +10,7 @@ const toast = useToast();
 const authStore = useAuthStore();
 
 const formData = ref({
-    nombre: '',
+    username: '',
     email: '',
     password: '',
     confirmPassword: ''
@@ -20,7 +20,7 @@ const loading = ref(false);
 
 const validateForm = () => {
     // Validar campos vacíos
-    if (!formData.value.nombre || !formData.value.email || !formData.value.password || !formData.value.confirmPassword) {
+    if (!formData.value.username || !formData.value.email || !formData.value.password || !formData.value.confirmPassword) {
         toast.add({
             severity: 'warn',
             summary: 'Campos requeridos',
@@ -77,7 +77,7 @@ const handleRegister = async () => {
     try {
         // Preparar datos para el backend (sin confirmPassword)
         const userData = {
-            nombre: formData.value.nombre,
+            username: formData.value.username,
             email: formData.value.email,
             password: formData.value.password
         };
@@ -173,13 +173,13 @@ const handleKeyPress = (event) => {
                     </div>
 
                     <div>
-                        <label for="nombre" class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">Nombre completo</label>
+                        <label for="username" class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">Nombre completo</label>
                         <InputText 
-                            id="nombre" 
+                            id="username" 
                             type="text" 
                             placeholder="Juan Pérez" 
                             class="w-full md:w-[30rem] mb-6" 
-                            v-model="formData.nombre"
+                            v-model="formData.username"
                             @keypress="handleKeyPress"
                             :disabled="loading"
                         />
