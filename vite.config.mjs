@@ -1,6 +1,7 @@
 import { fileURLToPath, URL } from 'node:url';
 
 import { PrimeVueResolver } from '@primevue/auto-import-resolver';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 import vue from '@vitejs/plugin-vue';
 import Components from 'unplugin-vue-components/vite';
 import { defineConfig } from 'vite';
@@ -8,9 +9,11 @@ import { defineConfig } from 'vite';
 // https://vitejs.dev/config/
 export default defineConfig({
     optimizeDeps: {
-        noDiscovery: true
+        noDiscovery: true,
+        include: ['html5-qrcode']
     },
     plugins: [
+        basicSsl(),
         vue(),
         Components({
             resolvers: [PrimeVueResolver()]
@@ -23,11 +26,13 @@ export default defineConfig({
         }
     },
     server: {
+        host: true,
         port: 3000,
+        https: true,
         proxy: {
             // Proxy para las peticiones al backend
             '/api': {
-                target: 'http://149.50.135.38:8080',
+                target: 'http://localhost:8080',
                 changeOrigin: true,
                 secure: false,
                 // rewrite: (path) => path.replace(/^\/api/, '/api'), // Mantener /api en el path

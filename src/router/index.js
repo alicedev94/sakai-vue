@@ -46,6 +46,11 @@ const router = createRouter({
                     component: () => import('@/views/Sincronizacion.vue')
                 },
                 {
+                    path: '/v1/operaciones',
+                    name: 'operaciones',
+                    component: () => import('@/views/Operaciones.vue')
+                },
+                {
                     path: '/uikit/formlayout',
                     name: 'formlayout',
                     component: () => import('@/views/uikit/FormLayout.vue')
