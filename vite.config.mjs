@@ -32,7 +32,7 @@ export default defineConfig({
         proxy: {
             // Proxy para las peticiones al backend
             '/api': {
-                target: 'http://localhost:8080',
+                target: 'http://149.50.135.38:8080',
                 changeOrigin: true,
                 secure: false,
                 // rewrite: (path) => path.replace(/^\/api/, '/api'), // Mantener /api en el path
