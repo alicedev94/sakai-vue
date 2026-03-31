@@ -5,17 +5,17 @@ const BASE = '/operaciones';
 class OperacionesService {
     static async listarTodas() {
         try {
-            const { data } = await apiClient.get(BASE);
+            const { data } = await apiClient.get(`${BASE}?tipoDocumento=Orden`);
             return data;
         } catch (error) {
-            this.handleError(error, 'listar órdenes');
+            this.handleError(error, 'listar operaciones');
             throw error;
         }
     }
 
     static async listarPorEstado(estado) {
         try {
-            const { data } = await apiClient.get(`${BASE}/estado/${estado}`);
+            const { data } = await apiClient.get(`${BASE}/estado/${estado}?tipoDocumento=Orden`);
             return data;
         } catch (error) {
             this.handleError(error, 'filtrar órdenes');

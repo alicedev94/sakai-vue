@@ -46,11 +46,17 @@ const PRIORIDADES = [
     { label: 'Baja', value: 'BAJA' }
 ];
 
+const TIPOS_DOCUMENTO = [
+    { id: 1, nombre: 'Orden' },
+    { id: 2, nombre: 'PreOrden' }
+];
+
 const FORM_DEFAULTS = {
     departamento: null,
     intervaloMinutos: 5,
     esActivo: true,
-    prioridad: 'MEDIA'
+    prioridad: 'MEDIA',
+    tipoDocumento: null
 };
 
 // ─── Filtros de búsqueda ─────────────────────────────────────────────────────
@@ -131,7 +137,8 @@ const editarItem = (item) => {
         selectedItem.value = {
             ...item,
             departamento: deptObj ?? item.departamento,
-            prioridad: item.prioridad ?? 'MEDIA'
+            prioridad: item.prioridad ?? 'MEDIA',
+            tipoDocumento: item.tipoDocumento ?? null
         };
     });
     submitted.value = false;
@@ -172,11 +179,22 @@ const guardar = async () => {
         return;
     }
 
+    if (!selectedItem.value.tipoDocumento) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Campo requerido',
+            detail: 'Debes seleccionar un tipo de documento',
+            life: 3000
+        });
+        return;
+    }
+
     const payload = {
         departamento: deptValor.trim(),
         intervaloMinutos: Number(selectedItem.value.intervaloMinutos),
         esActivo: selectedItem.value.esActivo ?? true,
-        prioridad: selectedItem.value.prioridad ?? 'MEDIA'
+        prioridad: selectedItem.value.prioridad ?? 'MEDIA',
+        tipoDocumento: selectedItem.value.tipoDocumento
     };
 
     try {
@@ -249,7 +267,8 @@ const toggleActivo = async (item) => {
             departamento: item.departamento,
             intervaloMinutos: item.intervaloMinutos,
             esActivo: nuevoEstado,
-            prioridad: item.prioridad ?? 'MEDIA'
+            prioridad: item.prioridad ?? 'MEDIA',
+            tipoDocumento: item.tipoDocumento ?? null
         });
         toast.add({
             severity: 'info',
@@ -396,6 +415,13 @@ onMounted(() => {
                     </template>
                 </Column>
 
+                <!-- Tipo Documento -->
+                <Column field="tipoDocumento.nombre" header="Tipo Documento" :sortable="true" style="min-width: 11rem">
+                    <template #body="{ data }">
+                        <span class="font-semibold">{{ data.tipoDocumento?.nombre || '-' }}</span>
+                    </template>
+                </Column>
+
                 <!-- Intervalo -->
                 <Column field="intervaloMinutos" header="Intervalo (min)" :sortable="true" style="min-width: 9rem">
                     <template #body="{ data }">
@@ -520,6 +546,23 @@ onMounted(() => {
                     />
                     <small class="p-error" v-if="submitted && !selectedItem.departamento">
                         Debes seleccionar un departamento.
+                    </small>
+                </div>
+
+                <!-- Tipo Documento -->
+                <div class="field col-12">
+                    <label for="tipoDocumento">Tipo Documento *</label>
+                    <Select
+                        id="tipoDocumento"
+                        v-model="selectedItem.tipoDocumento"
+                        :options="TIPOS_DOCUMENTO"
+                        optionLabel="nombre"
+                        placeholder="Selecciona el tipo de documento..."
+                        :invalid="submitted && !selectedItem.tipoDocumento"
+                        class="w-full"
+                    />
+                    <small class="p-error" v-if="submitted && !selectedItem.tipoDocumento">
+                        Debes seleccionar un tipo de documento.
                     </small>
                 </div>
 

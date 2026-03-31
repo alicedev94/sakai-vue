@@ -1,42 +1,22 @@
 <script setup>
-import { useOperacionesStore } from '@/stores/operaciones';
+import { preOrdenesService } from '@/service/PreOrdenesService';
+import { usePreOrdenStore } from '@/stores/preOrden';
 import { FilterMatchMode } from '@primevue/core/api';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 const toast = useToast();
-const store = useOperacionesStore();
+const confirm = useConfirm();
+const store = usePreOrdenStore();
 
 const searchQuery = ref('');
 const filters = ref({ global: { value: null, matchMode: FilterMatchMode.CONTAINS } });
 
-const scanDialog = ref(false);
 const detailDialog = ref(false);
-const ordenSeleccionada = ref(null);
-const codigoEscaneado = ref('');
-const scanInput = ref(null);
-const isScanning = ref(false);
-const lastScanResult = ref(null);
+const preOrdenSeleccionada = ref(null);
 
-const cameraActiva = ref(false);
-const cameraLoading = ref(false);
-const cameraError = ref(null);
-let html5Scanner = null;
-let decodeLock = false;
-const ultimoEscaneoFueCamara = ref(false);
 
-const CAMARA_HOST_ID = 'camara-surtido-host';
-
-const FORMATOS_BARRAS = [
-    Html5QrcodeSupportedFormats.EAN_13,
-    Html5QrcodeSupportedFormats.EAN_8,
-    Html5QrcodeSupportedFormats.CODE_128,
-    Html5QrcodeSupportedFormats.UPC_A,
-    Html5QrcodeSupportedFormats.UPC_E,
-    Html5QrcodeSupportedFormats.CODE_39,
-    Html5QrcodeSupportedFormats.QR_CODE
-];
 
 const ESTADOS = [
     { label: 'Todos', value: null },
@@ -46,8 +26,8 @@ const ESTADOS = [
 ];
 const filtroEstado = ref(null);
 
-const ordenesFiltradas = computed(() => {
-    let lista = store.ordenes;
+const preOrdenesFiltradas = computed(() => {
+    let lista = store.preOrdenes;
     if (filtroEstado.value) {
         lista = lista.filter((o) => o.estado === filtroEstado.value);
     }
@@ -83,240 +63,215 @@ const formatFecha = (value) => {
 
 async function cargarDatos() {
     try {
-        await store.fetchOrdenes();
+        await store.fetchPreOrdenes();
     } catch (err) {
-        toast.add({ severity: 'error', summary: 'Error', detail: err.userMessage || 'No se pudieron cargar las órdenes', life: 5000 });
+        toast.add({ severity: 'error', summary: 'Error', detail: err.userMessage || 'No se pudieron cargar las pre ordenes', life: 5000 });
     }
 }
 
 async function verDetalle(orden) {
     try {
         await store.cargarOrdenDetalle(orden.id);
-        ordenSeleccionada.value = store.ordenActiva;
+        preOrdenSeleccionada.value = store.preOrdenActiva;
         detailDialog.value = true;
     } catch (err) {
         toast.add({ severity: 'error', summary: 'Error', detail: err.userMessage || 'No se pudo cargar el detalle', life: 4000 });
     }
 }
 
-async function abrirSurtido(orden) {
-    try {
-        if (orden.estado === 'PENDIENTE') {
-            await store.iniciarOrden(orden.id);
-            toast.add({ severity: 'info', summary: 'Iniciado', detail: `Orden ${orden.numeroOrden} en proceso`, life: 2500 });
-        } else {
-            await store.cargarOrdenDetalle(orden.id);
-        }
-        ordenSeleccionada.value = store.ordenActiva;
-        codigoEscaneado.value = '';
-        lastScanResult.value = null;
-        scanDialog.value = true;
-        await nextTick();
-        scanInput.value?.$el?.focus();
-    } catch (err) {
-        toast.add({ severity: 'error', summary: 'Error', detail: err.userMessage || 'No se pudo iniciar el surtido', life: 4000 });
-    }
-}
+onMounted(cargarDatos);
 
-async function procesarEscaneo(codigoDesdeCamara) {
-    const codigo =
-        typeof codigoDesdeCamara === 'string' && codigoDesdeCamara.length > 0
-            ? codigoDesdeCamara.trim()
-            : codigoEscaneado.value?.trim();
-    if (!codigo || !ordenSeleccionada.value) return;
+const createDialog = ref(false);
+const creando = ref(false);
+const newPreOrden = ref({
+    departamento: null,
+    usuarioSurtidor: '',
+    items: []
+});
+const departamentosList = ref([]);
+const productosList = ref([]);
+const nuevoProducto = ref({ producto: null, cantidad: 1 });
 
-    isScanning.value = true;
-    try {
-        const resultado = await store.escanear(ordenSeleccionada.value.id, codigo);
-        lastScanResult.value = resultado;
-        ordenSeleccionada.value = store.ordenActiva;
-
-        if (!resultado.encontrado) {
-            toast.add({ severity: 'warn', summary: 'No encontrado', detail: resultado.mensaje, life: 3000 });
-        } else if (resultado.ordenCompleta) {
-            toast.add({ severity: 'success', summary: '¡Orden lista!', detail: resultado.mensaje, life: 4000 });
-            scanDialog.value = false;
-        } else {
-            toast.add({ severity: 'success', summary: 'Surtido', detail: resultado.itemActualizado?.nombreProducto || resultado.mensaje, life: 2000 });
-        }
-    } catch (err) {
-        toast.add({ severity: 'error', summary: 'Error', detail: err.userMessage || 'Error en el escaneo', life: 4000 });
-    } finally {
-        isScanning.value = false;
-        codigoEscaneado.value = '';
-        const fueCamara = ultimoEscaneoFueCamara.value;
-        ultimoEscaneoFueCamara.value = false;
-        await nextTick();
-        if (!scanDialog.value || ordenSeleccionada.value?.estado === 'LISTA') return;
-        if (fueCamara) {
-            await iniciarCamara();
-        } else {
-            scanInput.value?.$el?.focus();
+async function openCreateDialog() {
+    newPreOrden.value = { departamento: null, usuarioSurtidor: '', items: [] };
+    nuevoProducto.value = { producto: null, cantidad: 1 };
+    productosList.value = [];
+    
+    if (departamentosList.value.length === 0 || !departamentosList.value.some(d => d.descripcion === '00 TODOS')) {
+        try {
+            const data = await preOrdenesService.obtenerDepartamentos();
+            let depts = Array.isArray(data) ? data : data.data || [];
+            departamentosList.value = [{ codigo: '', descripcion: '00 TODOS' }, ...depts];
+            console.log(departamentosList);
+        } catch (error) {
+            toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudieron cargar los departamentos', life: 3000 });
         }
     }
+    createDialog.value = true;
 }
 
-function mensajeFalloCamara(err) {
-    if (typeof window !== 'undefined' && !window.isSecureContext) {
-        return 'La cámara no funciona con HTTP desde la IP de tu red (ej. http://192.168…). Arranca el front con npm run dev y en el celular abre https://TU-IP:3000/v1/ (acepta la advertencia del certificado).';
-    }
-    const name = err?.name || '';
-    const msg = String(err?.message || err || '');
-    if (name === 'NotAllowedError' || /denied|Permission|permi/i.test(msg)) {
-        return 'Permiso de cámara denegado. En el navegador del celular, permite el acceso a la cámara para este sitio.';
-    }
-    if (name === 'NotFoundError') {
-        return 'No se encontró ninguna cámara.';
-    }
-    if (name === 'NotReadableError' || name === 'TrackStartError') {
-        return 'La cámara está en uso por otra app o no está disponible.';
-    }
-    if (name === 'OverconstrainedError') {
-        return 'La cámara no admite el modo solicitado. Prueba otra cámara o reinicia el navegador.';
-    }
-    if (name === 'SecurityError') {
-        return 'El navegador bloqueó la cámara por seguridad. Usa HTTPS (ver mensaje anterior) o un túnel (ngrok, Cloudflare Tunnel).';
-    }
-    if (name === 'AbortError') {
-        return 'Acceso a la cámara cancelado.';
-    }
-    return msg ? `No se pudo usar la cámara: ${msg}` : 'No se pudo usar la cámara.';
-}
+let skipItemsClear = false;
+const isEditing = computed(() => !!newPreOrden.value.id);
 
-async function detenerCamara() {
-    cameraError.value = null;
-    if (!html5Scanner) {
-        cameraActiva.value = false;
-        cameraLoading.value = false;
-        return;
+watch(() => newPreOrden.value.departamento, async (newDept) => {
+    // Solo limpiamos los items si NO estamos editando y NO estamos saltando la limpieza
+    if (!skipItemsClear && !isEditing.value) {
+        newPreOrden.value.items = []; 
     }
-    const scanner = html5Scanner;
-    html5Scanner = null;
-    try {
-        await scanner.stop();
-    } catch {
-        /* ya detenido */
-    }
-    try {
-        scanner.clear();
-    } catch {
-        /* */
-    }
-    cameraActiva.value = false;
-    cameraLoading.value = false;
-}
-
-async function iniciarCamara() {
-    if (!ordenSeleccionada.value || ordenSeleccionada.value.estado === 'LISTA') return;
-    if (html5Scanner) await detenerCamara();
-
-    cameraError.value = null;
-
-    if (typeof window !== 'undefined' && !window.isSecureContext) {
-        cameraActiva.value = false;
-        cameraError.value = mensajeFalloCamara({});
-        toast.add({ severity: 'warn', summary: 'Cámara', detail: cameraError.value, life: 9000 });
-        return;
-    }
-    if (!navigator.mediaDevices?.getUserMedia) {
-        cameraActiva.value = false;
-        cameraError.value = 'Tu navegador no permite acceder a la cámara desde esta página.';
-        toast.add({ severity: 'warn', summary: 'Cámara', detail: cameraError.value, life: 6000 });
-        return;
-    }
-
-    cameraLoading.value = true;
-    decodeLock = false;
-    cameraActiva.value = true;
-
-    try {
-        await nextTick();
-
-        const qrbox = (vw, vh) => {
-            const edge = Math.min(vw, vh);
-            const w = Math.floor(edge * 0.92);
-            return { width: w, height: Math.max(100, Math.floor(w * 0.42)) };
-        };
-
-        const configFull = {
-            fps: 10,
-            qrbox,
-            formatsToSupport: [...FORMATOS_BARRAS]
-        };
-        const configLite = { fps: 10, qrbox };
-
-        const onDecode = async (texto) => {
-            const codigo = texto?.trim();
-            if (!codigo || decodeLock || isScanning.value) return;
-            decodeLock = true;
-            ultimoEscaneoFueCamara.value = true;
-            try {
-                await detenerCamara();
-                await procesarEscaneo(codigo);
-            } finally {
-                setTimeout(() => {
-                    decodeLock = false;
-                }, 600);
-            }
-        };
-
-        const attempts = [
-            [{ facingMode: 'environment' }, configFull],
-            [{ facingMode: 'user' }, configFull],
-            [{ facingMode: 'environment' }, configLite],
-            [{ facingMode: 'user' }, configLite],
-            [{}, configLite]
-        ];
-
-        let lastErr = null;
-        for (const [cam, cfg] of attempts) {
-            try {
-                if (html5Scanner) {
-                    try {
-                        await html5Scanner.stop();
-                    } catch {
-                        /* */
-                    }
-                    try {
-                        html5Scanner.clear();
-                    } catch {
-                        /* */
-                    }
-                    html5Scanner = null;
-                }
-                html5Scanner = new Html5Qrcode(CAMARA_HOST_ID);
-                await html5Scanner.start(cam, cfg, onDecode, () => {});
-                lastErr = null;
-                break;
-            } catch (e) {
-                lastErr = e;
-                html5Scanner = null;
-            }
+    if (newDept !== null && newDept !== undefined) {
+        try {
+            const code = typeof newDept === 'object'
+                ? (newDept.codigo !== undefined ? newDept.codigo : (newDept.id || newDept.descripcion || ''))
+                : newDept;
+            const data = await preOrdenesService.obtenerProductosPorDepartamento(code);
+            let pList = Array.isArray(data) ? data : data.data || [];
+            productosList.value = pList.map(p => {
+                const cod = p.c_Codigo || p.codigoBarra || p.codigo || '';
+                const desc = p.c_Descri || p.nombreProducto || p.name || p.descripcion || '';
+                return {
+                    ...p,
+                    label: `${cod} - ${desc}`,
+                    codigoBarra: cod,
+                    nombreProducto: desc
+                };
+            });
+        } catch (error) {
+            toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudieron cargar los productos', life: 3000 });
+            productosList.value = [];
         }
-
-        if (lastErr) throw lastErr;
-    } catch (e) {
-        await detenerCamara();
-        cameraError.value = mensajeFalloCamara(e);
-        toast.add({ severity: 'warn', summary: 'Cámara', detail: cameraError.value, life: 8000 });
-    } finally {
-        cameraLoading.value = false;
-    }
-}
-
-watch(scanDialog, async (abierto) => {
-    if (!abierto) {
-        await detenerCamara();
-        ultimoEscaneoFueCamara.value = false;
-        store.limpiarOrdenActiva();
-        ordenSeleccionada.value = null;
-        lastScanResult.value = null;
+    } else {
+        productosList.value = [];
     }
 });
 
-onMounted(cargarDatos);
+function agregarProducto() {
+    const p = nuevoProducto.value.producto;
+    if (!p || nuevoProducto.value.cantidad <= 0) return;
+    
+    const existing = newPreOrden.value.items.find(i => i.codigoBarra === p.codigoBarra || i.id === p.id);
+    if (existing) {
+        existing.cantidad += nuevoProducto.value.cantidad;
+    } else {
+        newPreOrden.value.items.push({
+            idProducto: p.id || p.codigoBarra,
+            codigoBarra: p.codigoBarra,
+            nombreProducto: p.nombreProducto,
+            cantidad: nuevoProducto.value.cantidad,
+            departamento: p.c_Departamento || newPreOrden.value.departamento?.descripcion || newPreOrden.value.departamento?.codigo || newPreOrden.value.departamento
+        });
+    }
+    nuevoProducto.value = { producto: null, cantidad: 1 };
+}
 
-onUnmounted(detenerCamara);
+function removerProducto(index) {
+    newPreOrden.value.items.splice(index, 1);
+}
+
+
+async function abrirEditar(orden) {
+    skipItemsClear = true;
+    try {
+        await store.cargarOrdenDetalle(orden.id);
+        const detalle = store.preOrdenActiva;
+        newPreOrden.value = { 
+            id: detalle.id,
+            departamento: detalle.departamento, 
+            usuarioSurtidor: detalle.usuarioSurtidor, 
+            items: detalle.items ? detalle.items.map(i => ({ ...i })) : []
+        };
+        nuevoProducto.value = { producto: null, cantidad: 1 };
+        productosList.value = [];
+        
+        if (departamentosList.value.length === 0 || !departamentosList.value.some(d => d.descripcion === '00 TODOS')) {
+            const data = await preOrdenesService.obtenerDepartamentos();
+            let depts = Array.isArray(data) ? data : data.data || [];
+            departamentosList.value = [{ codigo: '', descripcion: '00 TODOS' }, ...depts];
+        }
+        
+        const deptObj = departamentosList.value.find(d => d.descripcion === detalle.departamento);
+        if (deptObj) newPreOrden.value.departamento = deptObj;
+        
+        createDialog.value = true;
+        setTimeout(() => { skipItemsClear = false; }, 200);
+    } catch (err) {
+        skipItemsClear = false;
+        toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar la orden para edición', life: 3000 });
+    }
+}
+
+async function guardarPreOrden() {
+    const payload = { ...newPreOrden.value };
+    console.log(payload);
+    payload.departamento = payload.departamento?.descripcion || payload.departamento?.codigo || payload.departamento;
+    
+    if (!payload.departamento || !payload.usuarioSurtidor || payload.items.length === 0) {
+        toast.add({ severity: 'warn', summary: 'Atención', detail: 'Complete los campos y agregue al menos un producto', life: 3000 });
+        return;
+    }
+
+    payload.tipoDocumento = { id: 2, nombre: 'PreOrden' };
+    
+    creando.value = true;
+    if (isEditing.value) {
+        try {
+            await store.actualizarPreOrden(newPreOrden.value.id, payload);
+            toast.add({ severity: 'success', summary: 'Éxito', detail: 'PreOrden actualizada', life: 3000 });
+            createDialog.value = false;
+        } catch (err) {
+            toast.add({ severity: 'error', summary: 'Error', detail: err.userMessage || 'No se pudo actualizar', life: 4000 });
+        } finally {
+            creando.value = false;
+        }
+    } else {
+        try {
+            await store.crearPreOrden(payload);
+            toast.add({ severity: 'success', summary: 'Éxito', detail: 'PreOrden creada', life: 3000 });
+            createDialog.value = false;
+        } catch (err) {
+            toast.add({ severity: 'error', summary: 'Error', detail: err.userMessage || 'No se pudo crear', life: 4000 });
+        } finally {
+            creando.value = false;
+        }
+    }
+}
+
+const confirmarEliminar = (orden) => {
+    confirm.require({
+        message: '¿Estás seguro de que deseas eliminar esta PreOrden?',
+        header: 'Confirmar Eliminación',
+        icon: 'pi pi-exclamation-triangle',
+        acceptClass: 'p-button-danger',
+        acceptLabel: 'Eliminar',
+        rejectLabel: 'Cancelar',
+        accept: async () => {
+            try {
+                await store.eliminarPreOrden(orden.id);
+                toast.add({ severity: 'success', summary: 'Eliminada', detail: 'PreOrden eliminada correctamente', life: 3000 });
+            } catch (err) {
+                toast.add({ severity: 'error', summary: 'Error', detail: err.userMessage || 'No se pudo eliminar la PreOrden', life: 4000 });
+            }
+        }
+    });
+};
+
+const confirmarAprobar = (orden) => {
+    confirm.require({
+        message: '¿Estás seguro de que deseas aprobar esta PreOrden? Se convertirá en una Orden y pasará a operaciones.',
+        header: 'Confirmar Aprobación',
+        icon: 'pi pi-check-circle',
+        acceptClass: 'p-button-success',
+        acceptLabel: 'Aprobar',
+        rejectLabel: 'Cancelar',
+        accept: async () => {
+            try {
+                await store.aprobarPreOrden(orden.id);
+                toast.add({ severity: 'success', summary: 'Aprobada', detail: 'La PreOrden ha sido aprobada', life: 3000 });
+            } catch (err) {
+                toast.add({ severity: 'error', summary: 'Error', detail: err.userMessage || 'No se pudo aprobar la PreOrden', life: 4000 });
+            }
+        }
+    });
+};
 </script>
 
 <template>
@@ -327,38 +282,44 @@ onUnmounted(detenerCamara);
                 <div>
                     <h2 class="title">
                         <i class="pi pi-box ops-icon" />
-                        Módulo de Operaciones
+                        Módulo de PreOrdenes
                     </h2>
-                    <p class="subtitle">Gestión de surtido y escaneo de órdenes</p>
+                    <p class="subtitle">Gestión de pre ordenes</p>
                 </div>
             </div>
 
             <!-- Stats -->
             <div class="stats-banner">
                 <div class="stat-item">
-                    <span class="stat-value">{{ store.totalOrdenes }}</span>
+                    <span class="stat-value">{{ store.totalPreOrdenes }}</span>
                     <span class="stat-label">Total</span>
                 </div>
                 <div class="stat-divider" />
                 <div class="stat-item">
-                    <span class="stat-value stat-pendiente">{{ store.ordenesPendientes.length }}</span>
+                    <span class="stat-value stat-pendiente">{{ store.preOrdenesPendientes.length }}</span>
                     <span class="stat-label">Pendientes</span>
                 </div>
                 <div class="stat-divider" />
                 <div class="stat-item">
-                    <span class="stat-value stat-proceso">{{ store.ordenesEnProceso.length }}</span>
+                    <span class="stat-value stat-proceso">{{ store.preOrdenesEnProceso.length }}</span>
                     <span class="stat-label">En Proceso</span>
                 </div>
                 <div class="stat-divider" />
                 <div class="stat-item">
-                    <span class="stat-value stat-lista">{{ store.ordenesListas.length }}</span>
+                    <span class="stat-value stat-lista">{{ store.preOrdenesListas.length }}</span>
                     <span class="stat-label">Listas</span>
                 </div>
             </div>
 
-            <!-- Toolbar -->
             <Toolbar class="mb-5">
                 <template #start>
+                    <Button
+                        label="Nueva PreOrden"
+                        icon="pi pi-plus"
+                        severity="primary"
+                        class="mr-2"
+                        @click="openCreateDialog"
+                    />
                     <Button
                         icon="pi pi-refresh"
                         severity="secondary"
@@ -368,7 +329,7 @@ onUnmounted(detenerCamara);
                         @click="cargarDatos"
                     />
                 </template>
-                <template #end>
+                <!-- <template #end>
                     <div class="toolbar-end">
                         <Select
                             v-model="filtroEstado"
@@ -387,12 +348,12 @@ onUnmounted(detenerCamara);
                             />
                         </IconField>
                     </div>
-                </template>
+                </template> -->
             </Toolbar>
 
             <!-- Tabla -->
             <DataTable
-                :value="ordenesFiltradas"
+                :value="preOrdenesFiltradas"
                 :loading="store.isLoading"
                 dataKey="id"
                 :paginator="true"
@@ -462,14 +423,14 @@ onUnmounted(detenerCamara);
                     </template>
                 </Column>
 
-                <Column field="estado" header="Estado" :sortable="true" style="min-width: 10rem">
+                <!-- <Column field="estado" header="Estado" :sortable="true" style="min-width: 10rem">
                     <template #body="{ data }">
                         <span :class="['estado-badge', estadoConfig[data.estado]?.class]">
                             <i :class="estadoConfig[data.estado]?.icon" />
                             {{ estadoConfig[data.estado]?.label }}
                         </span>
                     </template>
-                </Column>
+                </Column> -->
 
                 <Column field="fechaCreacion" header="Creado" :sortable="true" style="min-width: 11rem">
                     <template #body="{ data }">
@@ -495,208 +456,97 @@ onUnmounted(detenerCamara);
                                 @click="verDetalle(data)"
                             />
                             <Button
-                                v-if="data.estado !== 'LISTA'"
-                                icon="pi pi-barcode"
+                                v-if="data.estado !== 'LISTA' && data.estado !== 'EN_PROCESO'"
+                                icon="pi pi-pencil"
                                 outlined
                                 rounded
-                                v-tooltip.top="data.estado === 'PENDIENTE' ? 'Iniciar surtido' : 'Continuar surtido'"
-                                @click="abrirSurtido(data)"
+                                severity="info"
+                                v-tooltip.top="'Editar'"
+                                @click="abrirEditar(data)"
                             />
                             <Button
-                                v-else
-                                icon="pi pi-check-circle"
+                                v-if="data.estado === 'PENDIENTE'"
+                                icon="pi pi-check"
                                 outlined
                                 rounded
                                 severity="success"
-                                v-tooltip.top="'Orden completada'"
-                                disabled
+                                v-tooltip.top="'Aprobar (Convertir a Orden)'"
+                                @click="confirmarAprobar(data)"
                             />
+                            <Button
+                                v-if="data.estado === 'PENDIENTE'"
+                                icon="pi pi-trash"
+                                outlined
+                                rounded
+                                severity="danger"
+                                v-tooltip.top="'Eliminar'"
+                                @click="confirmarEliminar(data)"
+                            />
+
                         </div>
                     </template>
                 </Column>
             </DataTable>
         </div>
 
-        <!-- Dialog: Surtido / Escaneo -->
-        <Dialog
-            v-model:visible="scanDialog"
-            :style="{ width: '680px' }"
-            :breakpoints="{ '1199px': '90vw', '575px': '98vw' }"
-            header="Surtido de Orden"
-            :modal="true"
-        >
-            <div v-if="ordenSeleccionada">
-                <div class="scan-header">
-                    <div class="scan-order-info">
-                        <span class="font-bold text-lg">{{ ordenSeleccionada.numeroOrden }}</span>
-                        <span :class="['estado-badge ml-2', estadoConfig[ordenSeleccionada.estado]?.class]">
-                            <i :class="estadoConfig[ordenSeleccionada.estado]?.icon" />
-                            {{ estadoConfig[ordenSeleccionada.estado]?.label }}
-                        </span>
-                    </div>
-                    <span class="scan-progress-label">
-                        {{ ordenSeleccionada.itemsSurtidos }}/{{ ordenSeleccionada.totalItems }} surtidos
-                    </span>
-                </div>
-
-                <ProgressBar
-                    :value="progresoOrden(ordenSeleccionada)"
-                    style="height: 8px; margin-bottom: 1.25rem"
-                    :showValue="false"
-                />
-
-                <!-- Input de escaneo -->
-                <div class="scan-input-area">
-                    <label class="scan-label"><i class="pi pi-barcode" /> Escanear código de barras</label>
-                    <div class="scan-row">
-                        <InputText
-                            ref="scanInput"
-                            v-model="codigoEscaneado"
-                            placeholder="Escanea o escribe el código..."
-                            class="scan-input"
-                            @keyup.enter="procesarEscaneo"
-                            :disabled="isScanning || ordenSeleccionada.estado === 'LISTA'"
-                            autofocus
-                        />
-                        <Button
-                            icon="pi pi-send"
-                            :loading="isScanning"
-                            @click="procesarEscaneo"
-                            :disabled="!codigoEscaneado || ordenSeleccionada.estado === 'LISTA'"
-                        />
-                    </div>
-                    <small class="scan-hint">Teclado: Enter o el botón. Pistola USB suele escribir aquí y enviar Enter.</small>
-                </div>
-
-                <div class="camara-panel">
-                    <div class="camara-acciones">
-                        <Button
-                            v-if="!cameraActiva"
-                            label="Escanear con cámara"
-                            icon="pi pi-camera"
-                            class="btn-camara"
-                            :loading="cameraLoading"
-                            :disabled="ordenSeleccionada.estado === 'LISTA' || isScanning"
-                            @click="iniciarCamara"
-                        />
-                        <Button
-                            v-else
-                            label="Detener cámara"
-                            icon="pi pi-stop"
-                            severity="secondary"
-                            outlined
-                            class="btn-camara"
-                            :disabled="isScanning"
-                            @click="detenerCamara"
-                        />
-                    </div>
-                    <p v-if="cameraError" class="camara-error">
-                        <i class="pi pi-exclamation-circle" /> {{ cameraError }}
-                    </p>
-                    <div
-                        v-show="cameraActiva || cameraLoading"
-                        :id="CAMARA_HOST_ID"
-                        class="camara-host"
-                    />
-                    <p class="camara-hint">
-                        Desde el celular abre
-                        <strong>https://</strong> más la IP de tu PC y el puerto (ej.
-                        <strong>https://192.168.1.10:3000/v1/</strong>), mismo Wi‑Fi.
-                        Si el navegador advierte del certificado en desarrollo, elige avanzar / confiar.
-                        Pistola lectora o teclado pueden usar el campo de arriba.
-                    </p>
-                </div>
-
-                <!-- Resultado del último escaneo -->
-                <div v-if="lastScanResult" :class="['scan-result', lastScanResult.encontrado ? 'result-ok' : 'result-error']">
-                    <i :class="lastScanResult.encontrado ? 'pi pi-check-circle' : 'pi pi-times-circle'" />
-                    <span>{{ lastScanResult.mensaje }}</span>
-                </div>
-
-                <!-- Lista de ítems -->
-                <div class="items-list">
-                    <div
-                        v-for="item in ordenSeleccionada.items"
-                        :key="item.id"
-                        :class="['item-row', item.estadoItem === 'SURTIDO' ? 'item-surtido' : 'item-pendiente']"
-                    >
-                        <div class="item-info">
-                            <span class="item-name">{{ item.nombreProducto || 'Producto' }}</span>
-                            <span class="item-dept">{{ item.departamento }}</span>
-                        </div>
-                        <div class="item-right">
-                            <span class="item-barcode">{{ item.codigoBarra }}</span>
-                            <span class="item-qty">x{{ item.cantidad }}</span>
-                            <span :class="['item-estado', item.estadoItem === 'SURTIDO' ? 'surtido' : 'pendiente']">
-                                <i :class="item.estadoItem === 'SURTIDO' ? 'pi pi-check' : 'pi pi-clock'" />
-                                {{ item.estadoItem === 'SURTIDO' ? 'Surtido' : 'Pendiente' }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <template #footer>
-                <Button label="Cerrar" icon="pi pi-times" text @click="scanDialog = false" />
-            </template>
-        </Dialog>
+    
 
         <!-- Dialog: Detalle de producto -->
         <Dialog
             v-model:visible="detailDialog"
             :style="{ width: '620px' }"
             :breakpoints="{ '1199px': '85vw', '575px': '98vw' }"
-            header="Detalle de Orden"
+            header="Detalle de PreOrden"
             :modal="true"
         >
-            <div v-if="ordenSeleccionada">
+            <div v-if="preOrdenSeleccionada">
                 <div class="detail-grid">
                     <div class="detail-field">
                         <label>N° Orden</label>
-                        <span>{{ ordenSeleccionada.numeroOrden }}</span>
+                        <span>{{ preOrdenSeleccionada.numeroOrden }}</span>
                     </div>
                     <div class="detail-field">
                         <label>Estado</label>
-                        <span :class="['estado-badge', estadoConfig[ordenSeleccionada.estado]?.class]">
-                            <i :class="estadoConfig[ordenSeleccionada.estado]?.icon" />
-                            {{ estadoConfig[ordenSeleccionada.estado]?.label }}
+                        <span :class="['estado-badge', estadoConfig[preOrdenSeleccionada.estado]?.class]">
+                            <i :class="estadoConfig[preOrdenSeleccionada.estado]?.icon" />
+                            {{ estadoConfig[preOrdenSeleccionada.estado]?.label }}
                         </span>
                     </div>
                     <div class="detail-field">
                         <label>Departamento</label>
-                        <span>{{ ordenSeleccionada.departamento || '—' }}</span>
+                        <span>{{ preOrdenSeleccionada.departamento || '—' }}</span>
                     </div>
                     <div class="detail-field">
                         <label>Surtidor</label>
-                        <span>{{ ordenSeleccionada.usuarioSurtidor || '—' }}</span>
+                        <span>{{ preOrdenSeleccionada.usuarioSurtidor || '—' }}</span>
                     </div>
                     <div class="detail-field">
                         <label>Creado</label>
-                        <span>{{ formatFecha(ordenSeleccionada.fechaCreacion) }}</span>
+                        <span>{{ formatFecha(preOrdenSeleccionada.fechaCreacion) }}</span>
                     </div>
                     <div class="detail-field">
                         <label>Actualizado</label>
-                        <span>{{ formatFecha(ordenSeleccionada.fechaActualizacion) }}</span>
+                        <span>{{ formatFecha(preOrdenSeleccionada.fechaActualizacion) }}</span>
                     </div>
                     <div class="detail-field full">
                         <label>Progreso</label>
                         <div class="progress-detail">
-                            <span>{{ ordenSeleccionada.itemsSurtidos }}/{{ ordenSeleccionada.totalItems }} productos surtidos</span>
-                            <ProgressBar :value="progresoOrden(ordenSeleccionada)" style="height: 8px; margin-top: 0.5rem" />
+                            <span>{{ preOrdenSeleccionada.itemsSurtidos }}/{{ preOrdenSeleccionada.totalItems }} productos surtidos</span>
+                            <ProgressBar :value="progresoOrden(preOrdenSeleccionada)" style="height: 8px; margin-top: 0.5rem" />
                         </div>
                     </div>
                     <div class="detail-field full">
-                        <label>Total unidades</label>
+                        <label>Total Unidades</label>
                         <div class="progress-detail">
-                            <span>{{ ordenSeleccionada.items?.reduce((acc, item) => acc + item.cantidad, 0) || 0 }}</span>
+                            <span>{{ preOrdenSeleccionada.items?.reduce((acc, item) => acc + item.cantidad, 0) || 0 }}</span>
                         </div>
                     </div>
                 </div>
 
                 <Divider />
-                <p class="items-title"><i class="pi pi-list" /> Productos de la orden</p>
+                <p class="items-title"><i class="pi pi-list" /> Productos de la PreOrden</p>
 
-                <DataTable :value="ordenSeleccionada.items" :rows="10" :paginator="ordenSeleccionada.items?.length > 10" size="small" stripedRows>
+                <DataTable :value="preOrdenSeleccionada.items" :rows="10" :paginator="preOrdenSeleccionada.items?.length > 10" size="small" stripedRows>
                     <Column field="codigoBarra" header="Código" />
                     <Column field="nombreProducto" header="Producto" />
                     <Column field="departamento" header="Dpto." />
@@ -714,14 +564,108 @@ onUnmounted(detenerCamara);
 
             <template #footer>
                 <Button label="Cerrar" icon="pi pi-times" text @click="detailDialog = false" />
-                <Button
-                    v-if="ordenSeleccionada?.estado !== 'LISTA'"
-                    label="Surtir Orden"
-                    icon="pi pi-barcode"
-                    @click="() => { detailDialog = false; abrirSurtido(ordenSeleccionada); }"
-                />
             </template>
         </Dialog>
+
+        <!-- Dialog: Crear / Editar PreOrden -->
+        <Dialog
+            v-model:visible="createDialog"
+            :style="{ width: '800px' }"
+            :breakpoints="{ '1199px': '85vw', '575px': '98vw' }"
+            :header="isEditing ? 'Editar PreOrden' : 'Crear Nueva PreOrden'"
+            :modal="true"
+        >
+            <div class="p-fluid grid">
+                <div class="col-12 md:col-6 mb-3">
+                    <label>Departamento</label>
+                    <Select
+                        v-model="newPreOrden.departamento"
+                        :options="departamentosList"
+                        optionLabel="descripcion"
+                        placeholder="Seleccione departamento"
+                        class="w-full mt-2"
+                        :filter="true"
+                    />
+                </div>
+                <div class="col-12 md:col-6 mb-3">
+                    <label>Surtidor</label>
+                    <InputText
+                        v-model="newPreOrden.usuarioSurtidor"
+                        placeholder="Nombre o ID del surtidor"
+                        class="w-full mt-2"
+                    />
+                </div>
+                
+                <div class="col-12 mt-2">
+                    <Divider align="left">
+                        <b>Productos</b>
+                    </Divider>
+                    
+                    <div class="flex gap-2 mb-3" style="align-items: flex-end;">
+                        <div style="flex-grow: 1;">
+                            <label>Producto</label>
+                            <Select
+                                v-model="nuevoProducto.producto"
+                                :options="productosList"
+                                optionLabel="label"
+                                placeholder="Seleccione un producto"
+                                class="w-full mt-2"
+                                :filter="true"
+                                :disabled="!newPreOrden.departamento"
+                            />
+                        </div>
+                        <div style="width: 120px;">
+                            <label>Cantidad</label>
+                            <InputNumber
+                                v-model="nuevoProducto.cantidad"
+                                :min="1"
+                                showButtons
+                                class="w-full mt-2"
+                            />
+                        </div>
+                        <div>
+                            <Button
+                                icon="pi pi-plus"
+                                label="Agregar"
+                                class="mt-2"
+                                @click="agregarProducto"
+                                :disabled="!nuevoProducto.producto || !newPreOrden.departamento"
+                            />
+                        </div>
+                    </div>
+
+                    <DataTable :value="newPreOrden.items" :rows="5" :paginator="newPreOrden.items.length > 5" size="small" stripedRows>
+                        <template #empty>
+                            <div class="text-center p-3 text-secondary">No se han agregado productos</div>
+                        </template>
+                        <Column field="codigoBarra" header="Código" />
+                        <Column field="nombreProducto" header="Producto" />
+                        <Column field="cantidad" header="Cant." style="width: 140px; text-align: center;">
+                            <template #body="{ data }">
+                                <InputNumber
+                                    v-model="data.cantidad"
+                                    :min="1"
+                                    showButtons
+                                    class="w-full"
+                                    inputClass="text-center"
+                                />
+                            </template>
+                        </Column>
+                        <Column :exportable="false" header="" style="width: 60px">
+                            <template #body="{ index }">
+                                <Button icon="pi pi-trash" severity="danger" text rounded aria-label="Eliminar" @click="removerProducto(index)" />
+                            </template>
+                        </Column>
+                    </DataTable>
+                </div>
+            </div>
+
+            <template #footer>
+                <Button label="Cancelar" icon="pi pi-times" text @click="createDialog = false" :disabled="creando" />
+                <Button label="Guardar" icon="pi pi-save" @click="guardarPreOrden" :loading="creando" />
+            </template>
+        </Dialog>
+        <ConfirmDialog />
     </div>
 </template>
 

@@ -51,6 +51,11 @@ const router = createRouter({
                     component: () => import('@/views/Operaciones.vue')
                 },
                 {
+                    path: '/v1/preorden',
+                    name: 'preorden',
+                    component: () => import('@/views/PreOrdenes.vue')
+                },
+                {
                     path: '/uikit/formlayout',
                     name: 'formlayout',
                     component: () => import('@/views/uikit/FormLayout.vue')
