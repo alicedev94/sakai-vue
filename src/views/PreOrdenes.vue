@@ -4,6 +4,8 @@ import { usePreOrdenStore } from '@/stores/preOrden';
 import { FilterMatchMode } from '@primevue/core/api';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { computed, onMounted, ref, watch } from 'vue';
 
 const toast = useToast();
@@ -113,11 +115,7 @@ async function openCreateDialog() {
 let skipItemsClear = false;
 const isEditing = computed(() => !!newPreOrden.value.id);
 
-watch(() => newPreOrden.value.departamento, async (newDept) => {
-    // Solo limpiamos los items si NO estamos editando y NO estamos saltando la limpieza
-    if (!skipItemsClear && !isEditing.value) {
-        newPreOrden.value.items = []; 
-    }
+async function cargarProductos(newDept) {
     if (newDept !== null && newDept !== undefined) {
         try {
             const code = typeof newDept === 'object'
@@ -142,6 +140,14 @@ watch(() => newPreOrden.value.departamento, async (newDept) => {
     } else {
         productosList.value = [];
     }
+}
+
+watch(() => newPreOrden.value.departamento, async (newDept) => {
+    // Solo limpiamos los items si NO estamos editando y NO estamos saltando la limpieza
+    if (!skipItemsClear && !isEditing.value) {
+        newPreOrden.value.items = []; 
+    }
+    await cargarProductos(newDept);
 });
 
 function agregarProducto() {
@@ -161,6 +167,7 @@ function agregarProducto() {
             codigoBarra: p.codigoBarra,
             nombreProducto: p.nombreProducto,
             cantidad: nuevoProducto.value.cantidad,
+            cantidadSurtida: 0,
             departamento: p.c_Departamento || newPreOrden.value.departamento?.descripcion || newPreOrden.value.departamento?.codigo || newPreOrden.value.departamento
         });
     }
@@ -193,7 +200,11 @@ async function abrirEditar(orden) {
         }
         
         const deptObj = departamentosList.value.find(d => d.descripcion === detalle.departamento);
-        if (deptObj) newPreOrden.value.departamento = deptObj;
+        if (deptObj) {
+            newPreOrden.value.departamento = deptObj;
+            // Consultamos los productos inmediatamente al abrir para editar
+            await cargarProductos(deptObj);
+        }
         
         createDialog.value = true;
         setTimeout(() => { skipItemsClear = false; }, 200);
@@ -275,6 +286,95 @@ const confirmarAprobar = (orden) => {
             }
         }
     });
+};
+
+const exportarPDF = () => {
+    const doc = new jsPDF();
+    const data = preOrdenSeleccionada.value;
+    
+    // Configuración de colores y fuentes
+    const primaryColor = [33, 150, 243]; // Azul PrimeVue
+    
+    // Encabezado
+    doc.setFontSize(20);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('Detalle de PreOrden', 14, 22);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generado el: ${formatFecha(new Date())}`, 14, 30);
+    
+    // Línea divisoria
+    doc.setDrawColor(230);
+    doc.line(14, 35, 196, 35);
+    
+    // Información General
+    doc.setFontSize(12);
+    doc.setTextColor(50);
+    doc.text('Información de la Orden', 14, 45);
+    
+    const infoGeneral = [
+        ['N° Orden:', data.numeroOrden || 'N/A', 'Estado:', data.estado || 'N/A'],
+        ['Departamento:', data.departamento || '—', 'Surtidor:', data.usuarioSurtidor || '—'],
+        ['Creado:', formatFecha(data.fechaCreacion), 'Actualizado:', formatFecha(data.fechaActualizacion)]
+    ];
+    
+    autoTable(doc, {
+        startY: 50,
+        body: infoGeneral,
+        theme: 'plain',
+        styles: { fontSize: 10, cellPadding: 2 },
+        columnStyles: {
+            0: { fontStyle: 'bold', width: 35 },
+            2: { fontStyle: 'bold', width: 35 }
+        }
+    });
+    
+    // Resumen de cantidades
+    const totalUnidades = data.items?.reduce((acc, item) => acc + item.cantidad, 0) || 0;
+    doc.text('Resumen de Totales', 14, doc.lastAutoTable.finalY + 10);
+    
+    autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 15,
+        body: [
+            ['Total Productos:', data.totalItems || 0, 'Surtidos:', data.itemsSurtidos || 0],
+            ['Total Unidades:', totalUnidades, 'Progreso:', `${progresoOrden(data)}%`]
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: primaryColor },
+        styles: { fontSize: 10 }
+    });
+    
+    // Tabla de Productos
+    doc.text('Lista de Productos', 14, doc.lastAutoTable.finalY + 10);
+    
+    const tableData = data.items.map(item => [
+        item.codigoBarra,
+        item.nombreProducto,
+        item.departamento || '—',
+        item.cantidad,
+        item.estadoItem === 'SURTIDO' ? 'Surtido' : 'Pendiente'
+    ]);
+    
+    autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 15,
+        head: [['Código', 'Producto', 'Dpto.', 'Cant.', 'Estado']],
+        body: tableData,
+        headStyles: { fillColor: primaryColor },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+        styles: { fontSize: 9 }
+    });
+    
+    // Footer del PDF
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(`Página ${i} de ${pageCount}`, 196, 285, { align: 'right' });
+    }
+    
+    doc.save(`PreOrden_${data.numeroOrden || data.id}.pdf`);
 };
 </script>
 
@@ -567,7 +667,8 @@ const confirmarAprobar = (orden) => {
             </div>
 
             <template #footer>
-                <Button label="Cerrar" icon="pi pi-times" text @click="detailDialog = false" />
+                <Button label="Imprimir PDF" icon="pi pi-file-pdf" @click="exportarPDF" />
+                <!-- <Button label="Cerrar" icon="pi pi-times" text @click="detailDialog = false" /> -->
             </template>
         </Dialog>
 
@@ -665,7 +766,7 @@ const confirmarAprobar = (orden) => {
             </div>
 
             <template #footer>
-                <Button label="Cancelar" icon="pi pi-times" text @click="createDialog = false" :disabled="creando" />
+                <!-- <Button label="Cancelar" icon="pi pi-times" text @click="createDialog = false" :disabled="creando" /> -->
                 <Button label="Guardar" icon="pi pi-save" @click="guardarPreOrden" :loading="creando" />
             </template>
         </Dialog>

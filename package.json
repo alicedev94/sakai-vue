@@ -12,6 +12,8 @@
         "axios": "^1.13.5",
         "chart.js": "3.3.2",
         "html5-qrcode": "^2.3.8",
+        "jspdf": "^4.2.1",
+        "jspdf-autotable": "^5.0.7",
         "pinia": "^3.0.4",
         "primeicons": "^7.0.0",
         "primevue": "^4.3.1",

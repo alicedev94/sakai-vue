@@ -3,6 +3,8 @@ import { useOperacionesStore } from '@/stores/operaciones';
 import { FilterMatchMode } from '@primevue/core/api';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { useToast } from 'primevue/usetoast';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const toast = useToast();
@@ -317,6 +319,88 @@ watch(scanDialog, async (abierto) => {
 onMounted(cargarDatos);
 
 onUnmounted(detenerCamara);
+
+const exportarPDF = () => {
+    const doc = new jsPDF();
+    const data = ordenSeleccionada.value;
+    
+    const primaryColor = [33, 150, 243];
+    
+    doc.setFontSize(20);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text('Detalle de Orden', 14, 22);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generado el: ${formatFecha(new Date())}`, 14, 30);
+    
+    doc.setDrawColor(230);
+    doc.line(14, 35, 196, 35);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(50);
+    doc.text('Información de la Orden', 14, 45);
+    
+    const infoGeneral = [
+        ['N° Orden:', data.numeroOrden || 'N/A', 'Estado:', data.estado || 'N/A'],
+        ['Departamento:', data.departamento || '—', 'Surtidor:', data.usuarioSurtidor || '—'],
+        ['Creado:', formatFecha(data.fechaCreacion), 'Actualizado:', formatFecha(data.fechaActualizacion)]
+    ];
+    
+    autoTable(doc, {
+        startY: 50,
+        body: infoGeneral,
+        theme: 'plain',
+        styles: { fontSize: 10, cellPadding: 2 },
+        columnStyles: {
+            0: { fontStyle: 'bold', width: 35 },
+            2: { fontStyle: 'bold', width: 35 }
+        }
+    });
+    
+    const totalUnidades = data.items?.reduce((acc, item) => acc + item.cantidad, 0) || 0;
+    doc.text('Resumen de Totales', 14, doc.lastAutoTable.finalY + 10);
+    
+    autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 15,
+        body: [
+            ['Total Productos:', data.totalItems || 0, 'Surtidos:', data.itemsSurtidos || 0],
+            ['Total Unidades:', totalUnidades, 'Progreso:', `${progresoOrden(data)}%`]
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: primaryColor },
+        styles: { fontSize: 10 }
+    });
+    
+    doc.text('Lista de Productos', 14, doc.lastAutoTable.finalY + 10);
+    
+    const tableData = data.items.map(item => [
+        item.codigoBarra,
+        item.nombreProducto,
+        item.departamento || '—',
+        item.cantidad,
+        item.estadoItem === 'SURTIDO' ? 'Surtido' : 'Pendiente'
+    ]);
+    
+    autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 15,
+        head: [['Código', 'Producto', 'Dpto.', 'Cant.', 'Estado']],
+        body: tableData,
+        headStyles: { fillColor: primaryColor },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+        styles: { fontSize: 9 }
+    });
+    
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(`Página ${i} de ${pageCount}`, 196, 285, { align: 'right' });
+    }
+    
+    doc.save(`Orden_${data.numeroOrden || data.id}.pdf`);
+};
 </script>
 
 <template>
@@ -637,7 +721,7 @@ onUnmounted(detenerCamara);
             </div>
 
             <template #footer>
-                <Button label="Cerrar" icon="pi pi-times" text @click="scanDialog = false" />
+                <!-- <Button label="Cerrar" icon="pi pi-times" text @click="scanDialog = false" /> -->
             </template>
         </Dialog>
 
@@ -713,7 +797,8 @@ onUnmounted(detenerCamara);
             </div>
 
             <template #footer>
-                <Button label="Cerrar" icon="pi pi-times" text @click="detailDialog = false" />
+                <!-- <Button label="Cerrar" icon="pi pi-times" text @click="detailDialog = false" /> -->
+                <Button label="Imprimir PDF" icon="pi pi-file-pdf" @click="exportarPDF" />
                 <Button
                     v-if="ordenSeleccionada?.estado !== 'LISTA'"
                     label="Surtir Orden"
