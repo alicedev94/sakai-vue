@@ -148,7 +148,11 @@ function agregarProducto() {
     const p = nuevoProducto.value.producto;
     if (!p || nuevoProducto.value.cantidad <= 0) return;
     
-    const existing = newPreOrden.value.items.find(i => i.codigoBarra === p.codigoBarra || i.id === p.id);
+    const existing = newPreOrden.value.items.find(i => 
+        (p.codigoBarra && i.codigoBarra === p.codigoBarra) || 
+        (p.id !== undefined && i.id === p.id) ||
+        (p.idProducto !== undefined && i.idProducto === (p.id || p.codigoBarra))
+    );
     if (existing) {
         existing.cantidad += nuevoProducto.value.cantidad;
     } else {
