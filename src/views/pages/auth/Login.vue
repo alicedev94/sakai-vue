@@ -61,17 +61,13 @@ const handleLogin = async () => {
 
         const response = await AuthService.login(credentials);
 
-        // Guardar en el store
-        authStore.setAuth({
-            token: response.token,
-            refreshToken: response.refreshToken,
-            user: response.user
-        });
+        // Guardar en el store (pasamos toda la respuesta porque es un objeto plano)
+        authStore.setAuth(response);
 
         toast.add({
             severity: 'success',
             summary: 'Bienvenido',
-            detail: `¡Hola ${response.user?.nombre || 'Usuario'}!`,
+            detail: `¡Hola ${response.username || 'Usuario'}!`,
             life: 3000
         });
 

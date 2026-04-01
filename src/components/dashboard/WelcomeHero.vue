@@ -6,7 +6,7 @@ const authStore = useAuthStore();
 
 const userName = computed(() => {
     const user = authStore.currentUser;
-    return user?.nombre || 'Usuario';
+    return user?.username || 'Usuario';
 });
 
 const greeting = computed(() => {

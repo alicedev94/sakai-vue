@@ -18,7 +18,6 @@ export const useAuthStore = defineStore('auth', () => {
                     try {
                         parsedUser = JSON.parse(storedUser);
                     } catch (e) {
-                        console.warn('⚠️ Usuario en localStorage corrupto, limpiando...');
                         localStorage.removeItem('user');
                     }
                 }
@@ -72,14 +71,19 @@ export const useAuthStore = defineStore('auth', () => {
 
         token.value = authData.token;
         refreshToken.value = authData.refreshToken;
-        user.value = authData.user;
+        
+        // Si el backend manda los datos planos, los agrupamos en el objeto user
+        user.value = authData.user || {
+            username: authData.username,
+            email: authData.email,
+            id: authData.id
+        };
 
         // Guardar en localStorage
         try {
             localStorage.setItem('token', authData.token);
             localStorage.setItem('refreshToken', authData.refreshToken);
-            localStorage.setItem('user', JSON.stringify(authData.user));
-            console.log('✅ Sesión guardada correctamente');
+            localStorage.setItem('user', JSON.stringify(user.value));
         } catch (error) {
             console.error('❌ Error al guardar en localStorage:', error);
         }
@@ -111,7 +115,6 @@ export const useAuthStore = defineStore('auth', () => {
             localStorage.removeItem('menu');
             localStorage.removeItem('role');
             localStorage.removeItem('permissions');
-            console.log('✅ Sesión limpiada correctamente');
         } catch (error) {
             console.error('❌ Error al limpiar localStorage:', error);
         }
@@ -137,7 +140,6 @@ export const useAuthStore = defineStore('auth', () => {
         if (!isAuthenticated.value) return;
         try {
             const data = await getMenu();
-            console.log(data);
             menu.value = data || [];
             role.value = data.role || null;
             permissions.value = data.permissions || [];
@@ -146,7 +148,6 @@ export const useAuthStore = defineStore('auth', () => {
             localStorage.setItem('menu', JSON.stringify(menu.value));
             localStorage.setItem('role', JSON.stringify(role.value));
             localStorage.setItem('permissions', JSON.stringify(permissions.value));
-            console.log('✅ Permisos y menú cargados en el store');
         } catch (error) {
             console.error('❌ Error al cargar menú y permisos en el store:', error);
         }
