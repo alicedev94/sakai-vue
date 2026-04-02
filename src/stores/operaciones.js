@@ -13,11 +13,11 @@ export const useOperacionesStore = defineStore('operaciones', () => {
     const ordenesEnProceso = computed(() => ordenes.value.filter((o) => o.estado === 'EN_PROCESO'));
     const ordenesListas = computed(() => ordenes.value.filter((o) => o.estado === 'LISTA'));
 
-    async function fetchOrdenes() {
+    async function fetchOrdenes(params = {}) {
         isLoading.value = true;
         error.value = null;
         try {
-            const data = await OperacionesService.listarTodas();
+            const data = await OperacionesService.listarTodas(params);
             ordenes.value = Array.isArray(data) ? data : [];
         } catch (err) {
             error.value = err.userMessage || 'Error al cargar las órdenes';
@@ -83,6 +83,21 @@ export const useOperacionesStore = defineStore('operaciones', () => {
         ordenActiva.value = null;
     }
 
+    async function finalizarOrden(id) {
+        isLoading.value = true;
+        try {
+            const actualizada = await OperacionesService.finalizarOrden(id);
+            _actualizarEnLista(actualizada);
+            ordenActiva.value = actualizada;
+            return actualizada;
+        } catch (err) {
+            error.value = err.userMessage || 'Error al finalizar la orden';
+            throw err;
+        } finally {
+            isLoading.value = false;
+        }
+    }
+
     return {
         ordenes,
         ordenActiva,
@@ -96,6 +111,7 @@ export const useOperacionesStore = defineStore('operaciones', () => {
         cargarOrdenDetalle,
         iniciarOrden,
         escanear,
-        limpiarOrdenActiva
+        limpiarOrdenActiva,
+        finalizarOrden
     };
 });

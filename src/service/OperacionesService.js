@@ -3,9 +3,14 @@ import apiClient from '@/service/apiClient';
 const BASE = '/operaciones';
 
 class OperacionesService {
-    static async listarTodas() {
+    static async listarTodas(params = {}) {
         try {
-            const { data } = await apiClient.get(`${BASE}?tipoDocumento=Orden`);
+            const { data } = await apiClient.get(`${BASE}`, {
+                params: {
+                    tipoDocumento: 'Orden',
+                    ...params
+                }
+            });
             return data;
         } catch (error) {
             this.handleError(error, 'listar operaciones');
@@ -66,6 +71,16 @@ class OperacionesService {
             message = 'Sin conexión con el servidor';
         }
         error.userMessage = message;
+    }
+
+    static async finalizarOrden(id) {
+        try {
+            const { data } = await apiClient.patch(`${BASE}/${id}/finalizar`);
+            return data;
+        } catch (error) {
+            this.handleError(error, 'finalizar orden');
+            throw error;
+        }
     }
 }
 

@@ -2,15 +2,18 @@
 import { useOperacionesStore } from '@/stores/operaciones';
 import { FilterMatchMode } from '@primevue/core/api';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
-import { useToast } from 'primevue/usetoast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useConfirm } from 'primevue/useconfirm';
+import { useToast } from 'primevue/usetoast';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const toast = useToast();
 const store = useOperacionesStore();
+const confirm = useConfirm();
 
 const searchQuery = ref('');
+const filtroFecha = ref(new Date());
 const filters = ref({ global: { value: null, matchMode: FilterMatchMode.CONTAINS } });
 
 const scanDialog = ref(false);
@@ -75,6 +78,21 @@ const estadoConfig = {
     LISTA: { label: 'Orden Lista', class: 'estado-lista', icon: 'pi pi-check-circle' }
 };
 
+const itemEstadoConfig = {
+    PENDIENTE: { label: 'Pendiente', class: 'pendiente', icon: 'pi pi-clock' },
+    SURTIDO: { label: 'Surtido', class: 'surtido', icon: 'pi pi-check' },
+    NO_SURTIDO: { label: 'No Surtido', class: 'no-surtido', icon: 'pi pi-times' }
+};
+
+const formatDateForApi = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 const formatFecha = (value) => {
     if (!value) return '-';
     const d = new Date(value);
@@ -85,10 +103,25 @@ const formatFecha = (value) => {
 
 async function cargarDatos() {
     try {
-        await store.fetchOrdenes();
+        const params = {};
+        if (filtroFecha.value) {
+            params.fecha = formatDateForApi(filtroFecha.value);
+        }
+        await store.fetchOrdenes(params);
     } catch (err) {
         toast.add({ severity: 'error', summary: 'Error', detail: err.userMessage || 'No se pudieron cargar las órdenes', life: 5000 });
     }
+}
+
+watch(filtroFecha, () => {
+    cargarDatos();
+});
+
+function clearFilters() {
+    searchQuery.value = '';
+    filtroEstado.value = null;
+    filtroFecha.value = null;
+    cargarDatos();
 }
 
 async function verDetalle(orden) {
@@ -324,11 +357,11 @@ const exportarPDF = () => {
     const doc = new jsPDF();
     const data = ordenSeleccionada.value;
     
-    const primaryColor = [33, 150, 243];
+    const primaryColor = [22, 163, 74]; // Verde PrimeVue (green-600)
     
     doc.setFontSize(20);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text('Detalle de Orden', 14, 22);
+    doc.text('Detalle Orden', 14, 22);
     
     doc.setFontSize(10);
     doc.setTextColor(100);
@@ -339,12 +372,13 @@ const exportarPDF = () => {
     
     doc.setFontSize(12);
     doc.setTextColor(50);
-    doc.text('Información de la Orden', 14, 45);
+    doc.text('Información', 14, 45);
     
     const infoGeneral = [
-        ['N° Orden:', data.numeroOrden || 'N/A', 'Estado:', data.estado || 'N/A'],
+        ['N° Documento:', data.numeroOrden || 'N/A', 'Estado:', data.estado || 'N/A'],
         ['Departamento:', data.departamento || '—', 'Surtidor:', data.usuarioSurtidor || '—'],
-        ['Creado:', formatFecha(data.fechaCreacion), 'Actualizado:', formatFecha(data.fechaActualizacion)]
+        ['Creado:', formatFecha(data.fechaCreacion), 'Actualizado:', formatFecha(data.fechaActualizacion)],
+        ['Finalizado:', formatFecha(data.fechaFinalizacion)]
     ];
     
     autoTable(doc, {
@@ -364,7 +398,7 @@ const exportarPDF = () => {
     autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 15,
         body: [
-            ['Total Productos:', data.totalItems || 0, 'Surtidos:', data.itemsSurtidos || 0],
+            ['Total Productos:', data.totalItems || 0, 'Productos Surtidos:', data.itemsSurtidos || 0],
             ['Total Unidades:', totalUnidades, 'Progreso:', `${progresoOrden(data)}%`]
         ],
         theme: 'grid',
@@ -379,7 +413,7 @@ const exportarPDF = () => {
         item.nombreProducto,
         item.departamento || '—',
         item.cantidad,
-        item.estadoItem === 'SURTIDO' ? 'Surtido' : 'Pendiente'
+        item.estadoItem
     ]);
     
     autoTable(doc, {
@@ -399,7 +433,29 @@ const exportarPDF = () => {
         doc.text(`Página ${i} de ${pageCount}`, 196, 285, { align: 'right' });
     }
     
-    doc.save(`Orden_${data.numeroOrden || data.id}.pdf`);
+    doc.save(`Doc_${data.numeroOrden || data.id}.pdf`);
+};
+
+const finalizarOrden = async () => {
+    confirm.require({
+        message: '¿Estás seguro de que deseas finalizar esta Orden? Los items no surtidos se marcarán como NO_SURTIDO.',
+        header: 'Confirmar Finalización',
+        icon: 'pi pi-check-circle',
+        acceptClass: 'p-button-success',
+        acceptLabel: 'Finalizar',
+        rejectLabel: 'Cancelar',
+        accept: async () => {
+            try {
+                await store.finalizarOrden(ordenSeleccionada.value.id);
+                toast.add({ severity: 'success', summary: 'Éxito', detail: 'Orden finalizada correctamente', life: 4000 });
+                detailDialog.value = false;
+                await cargarDatos();
+            } catch (error) {
+                console.log(error);
+                toast.add({ severity: 'error', summary: 'Error', detail: error.userMessage || 'No se pudo finalizar la orden', life: 4000 });
+            }
+        }
+    });
 };
 </script>
 
@@ -451,6 +507,14 @@ const exportarPDF = () => {
                         :loading="store.isLoading"
                         @click="cargarDatos"
                     />
+                    <Button
+                        icon="pi pi-filter-slash"
+                        severity="secondary"
+                        outlined
+                        v-tooltip.top="'Limpiar filtros'"
+                        @click="clearFilters"
+                        class="ml-2"
+                    />
                 </template>
                 <template #end>
                     <div class="toolbar-end">
@@ -461,6 +525,14 @@ const exportarPDF = () => {
                             optionValue="value"
                             placeholder="Todos los estados"
                             class="filter-select"
+                        />
+                        <Calendar 
+                            v-model="filtroFecha" 
+                            dateFormat="yy-mm-dd" 
+                            placeholder="Fecha de consulta" 
+                            :showIcon="true"
+                            style="width: 160px"
+                            class="date-filter"
                         />
                         <IconField>
                             <InputIcon><i class="pi pi-search" /></InputIcon>
@@ -555,9 +627,15 @@ const exportarPDF = () => {
                     </template>
                 </Column>
 
-                <Column field="fechaCreacion" header="Creado" :sortable="true" style="min-width: 11rem">
+                <Column field="fechaCreacion" header="Fecha Creación" :sortable="true" style="min-width: 11rem">
                     <template #body="{ data }">
                         <span class="fecha-text">{{ formatFecha(data.fechaCreacion) }}</span>
+                    </template>
+                </Column>
+
+                <Column field="fechaFinalizacion" header="Fecha Finalización" :sortable="true" style="min-width: 11rem">
+                    <template #body="{ data }">
+                        <span class="fecha-text">{{ formatFecha(data.fechaFinalizacion) }}</span>
                     </template>
                 </Column>
 
@@ -639,8 +717,7 @@ const exportarPDF = () => {
                             placeholder="Escanea o escribe el código..."
                             class="scan-input"
                             @keyup.enter="procesarEscaneo"
-                            :disabled="isScanning || ordenSeleccionada.estado === 'LISTA'"
-                            autofocus
+                            :disabled="isScanning || (ordenSeleccionada && ordenSeleccionada.estado === 'LISTA')"
                         />
                         <Button
                             icon="pi pi-send"
@@ -711,9 +788,9 @@ const exportarPDF = () => {
                         <div class="item-right">
                             <span class="item-barcode">{{ item.codigoBarra }}</span>
                             <span class="item-qty">x{{ item.cantidad }}</span>
-                            <span :class="['item-estado', item.estadoItem === 'SURTIDO' ? 'surtido' : 'pendiente']">
-                                <i :class="item.estadoItem === 'SURTIDO' ? 'pi pi-check' : 'pi pi-clock'" />
-                                {{ item.estadoItem === 'SURTIDO' ? 'Surtido' : 'Pendiente' }}
+                            <span :class="['item-estado', itemEstadoConfig[item.estadoItem]?.class]">
+                                <i :class="itemEstadoConfig[item.estadoItem]?.icon" />
+                                {{ itemEstadoConfig[item.estadoItem]?.label }}
                             </span>
                         </div>
                     </div>
@@ -736,7 +813,7 @@ const exportarPDF = () => {
             <div v-if="ordenSeleccionada">
                 <div class="detail-grid">
                     <div class="detail-field">
-                        <label>N° Orden</label>
+                        <label>N° Documento</label>
                         <span>{{ ordenSeleccionada.numeroOrden }}</span>
                     </div>
                     <div class="detail-field">
@@ -755,12 +832,16 @@ const exportarPDF = () => {
                         <span>{{ ordenSeleccionada.usuarioSurtidor || '—' }}</span>
                     </div>
                     <div class="detail-field">
-                        <label>Creado</label>
+                        <label>Fecha Creación</label>
                         <span>{{ formatFecha(ordenSeleccionada.fechaCreacion) }}</span>
                     </div>
                     <div class="detail-field">
-                        <label>Actualizado</label>
+                        <label>Fecha Actualización</label>
                         <span>{{ formatFecha(ordenSeleccionada.fechaActualizacion) }}</span>
+                    </div>
+                    <div class="detail-field">
+                        <label>Fecha Finalización</label>
+                        <span>{{ formatFecha(ordenSeleccionada.fechaFinalizacion) }}</span>
                     </div>
                     <div class="detail-field full">
                         <label>Progreso</label>
@@ -787,9 +868,9 @@ const exportarPDF = () => {
                     <Column field="cantidad" header="Cant." style="min-width: 5rem" />
                     <Column field="estadoItem" header="Estado" style="min-width: 8rem">
                         <template #body="{ data }">
-                            <span :class="['item-estado', data.estadoItem === 'SURTIDO' ? 'surtido' : 'pendiente']">
-                                <i :class="data.estadoItem === 'SURTIDO' ? 'pi pi-check' : 'pi pi-clock'" />
-                                {{ data.estadoItem === 'SURTIDO' ? 'Surtido' : 'Pendiente' }}
+                            <span :class="['item-estado', itemEstadoConfig[data.estadoItem]?.class]">
+                                <i :class="itemEstadoConfig[data.estadoItem]?.icon" />
+                                {{ itemEstadoConfig[data.estadoItem]?.label }}
                             </span>
                         </template>
                     </Column>
@@ -799,6 +880,13 @@ const exportarPDF = () => {
             <template #footer>
                 <!-- <Button label="Cerrar" icon="pi pi-times" text @click="detailDialog = false" /> -->
                 <Button label="Imprimir PDF" icon="pi pi-file-pdf" @click="exportarPDF" />
+                <Button 
+                    v-if="ordenSeleccionada?.estado !== 'LISTA' && ordenSeleccionada?.estado !== 'PENDIENTE'"
+                    label="Finalizar Orden" 
+                    icon="pi pi-check" 
+                    severity="success"
+                    @click="finalizarOrden" 
+                />
                 <Button
                     v-if="ordenSeleccionada?.estado !== 'LISTA'"
                     label="Surtir Orden"
@@ -807,6 +895,7 @@ const exportarPDF = () => {
                 />
             </template>
         </Dialog>
+        <ConfirmDialog />
     </div>
 </template>
 
@@ -1199,6 +1288,7 @@ const exportarPDF = () => {
 
     &.surtido { color: var(--green-500); }
     &.pendiente { color: var(--orange-400); }
+    &.no-surtido { color: var(--red-500); }
 }
 
 /* Detail Dialog */

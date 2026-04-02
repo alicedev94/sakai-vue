@@ -2,10 +2,10 @@
 import { preOrdenesService } from '@/service/PreOrdenesService';
 import { usePreOrdenStore } from '@/stores/preOrden';
 import { FilterMatchMode } from '@primevue/core/api';
-import { useConfirm } from 'primevue/useconfirm';
-import { useToast } from 'primevue/usetoast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useConfirm } from 'primevue/useconfirm';
+import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref, watch } from 'vue';
 
 const toast = useToast();
@@ -13,6 +13,7 @@ const confirm = useConfirm();
 const store = usePreOrdenStore();
 
 const searchQuery = ref('');
+const filtroFecha = ref(new Date());
 const filters = ref({ global: { value: null, matchMode: FilterMatchMode.CONTAINS } });
 
 const detailDialog = ref(false);
@@ -55,6 +56,21 @@ const estadoConfig = {
     LISTA: { label: 'Orden Lista', class: 'estado-lista', icon: 'pi pi-check-circle' }
 };
 
+const itemEstadoConfig = {
+    PENDIENTE: { label: 'Pendiente', class: 'pendiente', icon: 'pi pi-clock' },
+    SURTIDO: { label: 'Surtido', class: 'surtido', icon: 'pi pi-check' },
+    NO_SURTIDO: { label: 'No Surtido', class: 'no-surtido', icon: 'pi pi-times' }
+};
+
+const formatDateForApi = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 const formatFecha = (value) => {
     if (!value) return '-';
     const d = new Date(value);
@@ -65,10 +81,25 @@ const formatFecha = (value) => {
 
 async function cargarDatos() {
     try {
-        await store.fetchPreOrdenes();
+        const params = {};
+        if (filtroFecha.value) {
+            params.fecha = formatDateForApi(filtroFecha.value);
+        }
+        await store.fetchPreOrdenes(params);
     } catch (err) {
         toast.add({ severity: 'error', summary: 'Error', detail: err.userMessage || 'No se pudieron cargar las pre ordenes', life: 5000 });
     }
+}
+
+watch(filtroFecha, () => {
+    cargarDatos();
+});
+
+function clearFilters() {
+    searchQuery.value = '';
+    filtroEstado.value = null;
+    filtroFecha.value = null;
+    cargarDatos();
 }
 
 async function verDetalle(orden) {
@@ -104,7 +135,6 @@ async function openCreateDialog() {
             const data = await preOrdenesService.obtenerDepartamentos();
             let depts = Array.isArray(data) ? data : data.data || [];
             departamentosList.value = [{ codigo: '', descripcion: '00 TODOS' }, ...depts];
-            console.log(departamentosList);
         } catch (error) {
             toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudieron cargar los departamentos', life: 3000 });
         }
@@ -210,13 +240,13 @@ async function abrirEditar(orden) {
         setTimeout(() => { skipItemsClear = false; }, 200);
     } catch (err) {
         skipItemsClear = false;
-        toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar la orden para edición', life: 3000 });
+        toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar la Preorden para edición', life: 3000 });
     }
 }
 
 async function guardarPreOrden() {
     const payload = { ...newPreOrden.value };
-    console.log(payload);
+
     payload.departamento = payload.departamento?.descripcion || payload.departamento?.codigo || payload.departamento;
     
     if (!payload.departamento || !payload.usuarioSurtidor || payload.items.length === 0) {
@@ -229,7 +259,11 @@ async function guardarPreOrden() {
     creando.value = true;
     if (isEditing.value) {
         try {
-            await store.actualizarPreOrden(newPreOrden.value.id, payload);
+            const params = {};
+            if (filtroFecha.value) {
+                params.fecha = formatDateForApi(filtroFecha.value);
+            }
+            await store.actualizarPreOrden(newPreOrden.value.id, payload, params);
             toast.add({ severity: 'success', summary: 'Éxito', detail: 'PreOrden actualizada', life: 3000 });
             createDialog.value = false;
         } catch (err) {
@@ -239,7 +273,11 @@ async function guardarPreOrden() {
         }
     } else {
         try {
-            await store.crearPreOrden(payload);
+            const params = {};
+            if (filtroFecha.value) {
+                params.fecha = formatDateForApi(filtroFecha.value);
+            }
+            await store.crearPreOrden(payload, params);
             toast.add({ severity: 'success', summary: 'Éxito', detail: 'PreOrden creada', life: 3000 });
             createDialog.value = false;
         } catch (err) {
@@ -260,7 +298,11 @@ const confirmarEliminar = (orden) => {
         rejectLabel: 'Cancelar',
         accept: async () => {
             try {
-                await store.eliminarPreOrden(orden.id);
+                const params = {};
+                if (filtroFecha.value) {
+                    params.fecha = formatDateForApi(filtroFecha.value);
+                }
+                await store.eliminarPreOrden(orden.id, params);
                 toast.add({ severity: 'success', summary: 'Eliminada', detail: 'PreOrden eliminada correctamente', life: 3000 });
             } catch (err) {
                 toast.add({ severity: 'error', summary: 'Error', detail: err.userMessage || 'No se pudo eliminar la PreOrden', life: 4000 });
@@ -271,7 +313,7 @@ const confirmarEliminar = (orden) => {
 
 const confirmarAprobar = (orden) => {
     confirm.require({
-        message: '¿Estás seguro de que deseas aprobar esta PreOrden? Se convertirá en una Orden y pasará a operaciones.',
+        message: '¿Estás seguro de que deseas aprobar esta PreOrden? Se convertirá en una Orden.',
         header: 'Confirmar Aprobación',
         icon: 'pi pi-check-circle',
         acceptClass: 'p-button-success',
@@ -279,7 +321,11 @@ const confirmarAprobar = (orden) => {
         rejectLabel: 'Cancelar',
         accept: async () => {
             try {
-                await store.aprobarPreOrden(orden.id);
+                const params = {};
+                if (filtroFecha.value) {
+                    params.fecha = formatDateForApi(filtroFecha.value);
+                }
+                await store.aprobarPreOrden(orden.id, params);
                 toast.add({ severity: 'success', summary: 'Aprobada', detail: 'La PreOrden ha sido aprobada', life: 3000 });
             } catch (err) {
                 toast.add({ severity: 'error', summary: 'Error', detail: err.userMessage || 'No se pudo aprobar la PreOrden', life: 4000 });
@@ -293,12 +339,12 @@ const exportarPDF = () => {
     const data = preOrdenSeleccionada.value;
     
     // Configuración de colores y fuentes
-    const primaryColor = [33, 150, 243]; // Azul PrimeVue
+    const primaryColor = [22, 163, 74]; // Verde PrimeVue (green-600)
     
     // Encabezado
     doc.setFontSize(20);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text('Detalle de PreOrden', 14, 22);
+    doc.text('Detalle PreOrden', 14, 22);
     
     doc.setFontSize(10);
     doc.setTextColor(100);
@@ -311,10 +357,10 @@ const exportarPDF = () => {
     // Información General
     doc.setFontSize(12);
     doc.setTextColor(50);
-    doc.text('Información de la Orden', 14, 45);
+    doc.text('Información', 14, 45);
     
     const infoGeneral = [
-        ['N° Orden:', data.numeroOrden || 'N/A', 'Estado:', data.estado || 'N/A'],
+        ['N° Documento:', data.numeroOrden || 'N/A', 'Estado:', data.estado || 'N/A'],
         ['Departamento:', data.departamento || '—', 'Surtidor:', data.usuarioSurtidor || '—'],
         ['Creado:', formatFecha(data.fechaCreacion), 'Actualizado:', formatFecha(data.fechaActualizacion)]
     ];
@@ -337,7 +383,7 @@ const exportarPDF = () => {
     autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 15,
         body: [
-            ['Total Productos:', data.totalItems || 0, 'Surtidos:', data.itemsSurtidos || 0],
+            ['Total Productos:', data.totalItems || 0, 'Productos Surtidos:', data.itemsSurtidos || 0],
             ['Total Unidades:', totalUnidades, 'Progreso:', `${progresoOrden(data)}%`]
         ],
         theme: 'grid',
@@ -353,7 +399,7 @@ const exportarPDF = () => {
         item.nombreProducto,
         item.departamento || '—',
         item.cantidad,
-        item.estadoItem === 'SURTIDO' ? 'Surtido' : 'Pendiente'
+        item.estadoItem
     ]);
     
     autoTable(doc, {
@@ -374,7 +420,7 @@ const exportarPDF = () => {
         doc.text(`Página ${i} de ${pageCount}`, 196, 285, { align: 'right' });
     }
     
-    doc.save(`PreOrden_${data.numeroOrden || data.id}.pdf`);
+    doc.save(`Doc_${data.numeroOrden || data.id}.pdf`);
 };
 </script>
 
@@ -432,8 +478,16 @@ const exportarPDF = () => {
                         :loading="store.isLoading"
                         @click="cargarDatos"
                     />
+                    <Button
+                        icon="pi pi-filter-slash"
+                        severity="secondary"
+                        outlined
+                        v-tooltip.top="'Limpiar filtros'"
+                        @click="clearFilters"
+                        class="ml-2"
+                    />
                 </template>
-                <!-- <template #end>
+                <template #end>
                     <div class="toolbar-end">
                         <Select
                             v-model="filtroEstado"
@@ -443,16 +497,24 @@ const exportarPDF = () => {
                             placeholder="Todos los estados"
                             class="filter-select"
                         />
+                        <Calendar 
+                            v-model="filtroFecha" 
+                            dateFormat="yy-mm-dd" 
+                            placeholder="Fecha de consulta" 
+                            :showIcon="true"
+                            style="width: 160px"
+                            class="date-filter"
+                        />
                         <IconField>
                             <InputIcon><i class="pi pi-search" /></InputIcon>
                             <InputText
                                 v-model="searchQuery"
-                                placeholder="Buscar orden o departamento..."
+                                placeholder="Buscar N° Documento o departamento..."
                                 style="width: clamp(200px, 28vw, 360px)"
                             />
                         </IconField>
                     </div>
-                </template> -->
+                </template>
             </Toolbar>
 
             <!-- Tabla -->
@@ -472,13 +534,13 @@ const exportarPDF = () => {
                 <template #empty>
                     <div class="empty-state">
                         <i class="pi pi-inbox" style="font-size: 3rem; color: var(--text-color-secondary)" />
-                        <p>No hay órdenes de operaciones</p>
+                        <p>No hay preordenes</p>
                     </div>
                 </template>
                 <template #loading>
                     <div class="loading-state">
                         <i class="pi pi-spin pi-spinner" style="font-size: 2rem" />
-                        <p>Cargando órdenes...</p>
+                        <p>Cargando preordenes...</p>
                     </div>
                 </template>
 
@@ -488,7 +550,7 @@ const exportarPDF = () => {
                     </template>
                 </Column>
 
-                <Column field="numeroOrden" header="N° Orden" :sortable="true" style="min-width: 12rem">
+                <Column field="numeroOrden" header="N° Documento" :sortable="true" style="min-width: 12rem">
                     <template #body="{ data }">
                         <span class="font-semibold text-primary">{{ data.numeroOrden }}</span>
                     </template>
@@ -606,7 +668,7 @@ const exportarPDF = () => {
             <div v-if="preOrdenSeleccionada">
                 <div class="detail-grid">
                     <div class="detail-field">
-                        <label>N° Orden</label>
+                        <label>N° Documento</label>
                         <span>{{ preOrdenSeleccionada.numeroOrden }}</span>
                     </div>
                     <div class="detail-field">
@@ -657,9 +719,9 @@ const exportarPDF = () => {
                     <Column field="cantidad" header="Cant." style="min-width: 5rem" />
                     <Column field="estadoItem" header="Estado" style="min-width: 8rem">
                         <template #body="{ data }">
-                            <span :class="['item-estado', data.estadoItem === 'SURTIDO' ? 'surtido' : 'pendiente']">
-                                <i :class="data.estadoItem === 'SURTIDO' ? 'pi pi-check' : 'pi pi-clock'" />
-                                {{ data.estadoItem === 'SURTIDO' ? 'Surtido' : 'Pendiente' }}
+                            <span :class="['item-estado', itemEstadoConfig[data.estadoItem]?.class]">
+                                <i :class="itemEstadoConfig[data.estadoItem]?.icon" />
+                                {{ itemEstadoConfig[data.estadoItem]?.label }}
                             </span>
                         </template>
                     </Column>
@@ -1163,6 +1225,7 @@ const exportarPDF = () => {
 
     &.surtido { color: var(--green-500); }
     &.pendiente { color: var(--orange-400); }
+    &.no-surtido { color: var(--red-500); }
 }
 
 /* Detail Dialog */

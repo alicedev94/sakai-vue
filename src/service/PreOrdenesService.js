@@ -3,9 +3,14 @@ import apiClient from '@/service/apiClient';
 const BASE = '/operaciones';
 
 class PreOrdenesService {
-    static async listarTodas() {
+    static async listarTodas(params = {}) {
         try {
-            const { data } = await apiClient.get(`${BASE}?tipoDocumento=PreOrden`);
+            const { data } = await apiClient.get(`${BASE}`, {
+                params: {
+                    tipoDocumento: 'PreOrden',
+                    ...params
+                }
+            });
             return data;
         } catch (error) {
             this.handleError(error, 'listar operaciones');

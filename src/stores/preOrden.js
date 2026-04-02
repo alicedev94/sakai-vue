@@ -13,11 +13,11 @@ export const usePreOrdenStore = defineStore('preOrden', () => {
     const preOrdenesEnProceso = computed(() => preOrdenes.value.filter((o) => o.estado === 'EN_PROCESO'));
     const preOrdenesListas = computed(() => preOrdenes.value.filter((o) => o.estado === 'LISTA'));
 
-    async function fetchPreOrdenes() {
+    async function fetchPreOrdenes(params = {}) {
         isLoading.value = true;
         error.value = null;
         try {
-            const data = await PreOrdenesService.listarTodas();
+            const data = await PreOrdenesService.listarTodas(params);
             preOrdenes.value = Array.isArray(data) ? data : [];
         } catch (err) {
             error.value = err.userMessage || 'Error al cargar las pre ordenes';
@@ -79,11 +79,11 @@ export const usePreOrdenStore = defineStore('preOrden', () => {
         }
     }
 
-    async function crearPreOrden(payload) {
+    async function crearPreOrden(payload, params = {}) {
         isLoading.value = true;
         try {
             const data = await PreOrdenesService.crearPreOrden(payload);
-            await fetchPreOrdenes(); // Refresh the list
+            await fetchPreOrdenes(params);
             return data;
         } catch (err) {
             error.value = err.userMessage || 'Error al crear la pre-orden';
@@ -97,11 +97,11 @@ export const usePreOrdenStore = defineStore('preOrden', () => {
         preOrdenActiva.value = null;
     }
 
-    async function actualizarPreOrden(id, payload) {
+    async function actualizarPreOrden(id, payload, params = {}) {
         isLoading.value = true;
         try {
             const data = await PreOrdenesService.actualizarPreOrden(id, payload);
-            await fetchPreOrdenes();
+            await fetchPreOrdenes(params);
             return data;
         } catch (err) {
             error.value = err.userMessage || 'Error al actualizar la pre-orden';
@@ -111,11 +111,11 @@ export const usePreOrdenStore = defineStore('preOrden', () => {
         }
     }
 
-    async function eliminarPreOrden(id) {
+    async function eliminarPreOrden(id, params = {}) {
         isLoading.value = true;
         try {
             await PreOrdenesService.eliminarPreOrden(id);
-            await fetchPreOrdenes();
+            await fetchPreOrdenes(params);
         } catch (err) {
             error.value = err.userMessage || 'Error al eliminar la pre-orden';
             throw err;
@@ -124,11 +124,11 @@ export const usePreOrdenStore = defineStore('preOrden', () => {
         }
     }
 
-    async function aprobarPreOrden(id) {
+    async function aprobarPreOrden(id, params = {}) {
         isLoading.value = true;
         try {
             const data = await PreOrdenesService.aprobarPreOrden(id);
-            await fetchPreOrdenes();
+            await fetchPreOrdenes(params);
             return data;
         } catch (err) {
             error.value = err.userMessage || 'Error al aprobar la pre-orden';
