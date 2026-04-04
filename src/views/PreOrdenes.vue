@@ -1,6 +1,7 @@
 <script setup>
 import { preOrdenesService } from '@/service/PreOrdenesService';
 import { usePreOrdenStore } from '@/stores/preOrden';
+import { useAuthStore } from '@/stores/auth';
 import { FilterMatchMode } from '@primevue/core/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -11,6 +12,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 const toast = useToast();
 const confirm = useConfirm();
 const store = usePreOrdenStore();
+const authStore = useAuthStore();
 
 const searchQuery = ref('');
 const filtroFecha = ref(new Date());
@@ -126,7 +128,11 @@ const productosList = ref([]);
 const nuevoProducto = ref({ producto: null, cantidad: 1 });
 
 async function openCreateDialog() {
-    newPreOrden.value = { departamento: null, usuarioSurtidor: '', items: [] };
+    newPreOrden.value = { 
+        departamento: null, 
+        usuarioSurtidor: authStore.user?.email || '', 
+        items: [] 
+    };
     nuevoProducto.value = { producto: null, cantidad: 1 };
     productosList.value = [];
     
@@ -760,6 +766,7 @@ const exportarPDF = () => {
                         v-model="newPreOrden.usuarioSurtidor"
                         placeholder="Nombre o ID del surtidor"
                         class="w-full mt-2"
+                        disabled
                     />
                 </div>
                 
@@ -778,6 +785,7 @@ const exportarPDF = () => {
                                 placeholder="Seleccione un producto"
                                 class="w-full mt-2"
                                 :filter="true"
+                                :virtualScrollerOptions="{ itemSize: 38 }"
                                 :disabled="!newPreOrden.departamento"
                             />
                         </div>
