@@ -58,9 +58,9 @@ export const useOperacionesStore = defineStore('operaciones', () => {
         }
     }
 
-    async function escanear(ordenId, codigoBarra) {
+    async function escanear(ordenId, codigoBarra, cantidad = 1) {
         try {
-            const resultado = await OperacionesService.escanearProducto(ordenId, codigoBarra);
+            const resultado = await OperacionesService.escanearProducto(ordenId, codigoBarra, cantidad);
             if (resultado.orden) {
                 _actualizarEnLista(resultado.orden);
                 ordenActiva.value = resultado.orden;
@@ -98,6 +98,16 @@ export const useOperacionesStore = defineStore('operaciones', () => {
         }
     }
 
+    async function obtenerInventarioFinal(codigoBarra) {
+        try {
+            return await OperacionesService.obtenerInventarioFinal(codigoBarra);
+        } catch (err) {
+            console.error('Error al consultar inventario:', err);
+            return 0; // O un fallback apropiado
+        }
+    }
+
+
     return {
         ordenes,
         ordenActiva,
@@ -112,6 +122,7 @@ export const useOperacionesStore = defineStore('operaciones', () => {
         iniciarOrden,
         escanear,
         limpiarOrdenActiva,
-        finalizarOrden
+        finalizarOrden,
+        obtenerInventarioFinal
     };
 });

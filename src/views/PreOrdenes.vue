@@ -1,7 +1,7 @@
 <script setup>
 import { preOrdenesService } from '@/service/PreOrdenesService';
-import { usePreOrdenStore } from '@/stores/preOrden';
 import { useAuthStore } from '@/stores/auth';
+import { usePreOrdenStore } from '@/stores/preOrden';
 import { FilterMatchMode } from '@primevue/core/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -46,6 +46,23 @@ const preOrdenesFiltradas = computed(() => {
     }
     return lista;
 });
+
+// Paginado móvil
+const mobileCurrentPage = ref(0);
+const mobileRowsPerPage = 6;
+
+const mobilePagedOrdenes = computed(() => {
+    const start = mobileCurrentPage.value * mobileRowsPerPage;
+    return preOrdenesFiltradas.value.slice(start, start + mobileRowsPerPage);
+});
+
+const mobileTotalPages = computed(() =>
+    Math.ceil(preOrdenesFiltradas.value.length / mobileRowsPerPage)
+);
+
+function resetMobilePage() {
+    mobileCurrentPage.value = 0;
+}
 
 const progresoOrden = (orden) => {
     if (!orden.totalItems) return 0;
@@ -198,13 +215,21 @@ function agregarProducto() {
     if (existing) {
         existing.cantidad += nuevoProducto.value.cantidad;
     } else {
+
         newPreOrden.value.items.push({
             idProducto: p.id || p.codigoBarra,
             codigoBarra: p.codigoBarra,
             nombreProducto: p.nombreProducto,
             cantidad: nuevoProducto.value.cantidad,
             cantidadSurtida: 0,
-            departamento: p.c_Departamento || newPreOrden.value.departamento?.descripcion || newPreOrden.value.departamento?.codigo || newPreOrden.value.departamento
+            departamento: p.c_Departamento || newPreOrden.value.departamento?.descripcion || newPreOrden.value.departamento?.codigo || newPreOrden.value.departamento,
+            barra1: p.barra1,
+            barra2: p.barra2,
+            barra3: p.barra3,
+            barra4: p.barra4,
+            barra5: p.barra5,
+            barra6: p.barra6,
+            barra7: p.barra7
         });
     }
     nuevoProducto.value = { producto: null, cantidad: 1 };
@@ -437,7 +462,7 @@ const exportarPDF = () => {
             <div class="card-header">
                 <div>
                     <h2 class="title">
-                        <i class="pi pi-box ops-icon" />
+                        <!-- <i class="pi pi-box ops-icon" /> -->
                         Módulo de PreOrdenes
                     </h2>
                     <p class="subtitle">Gestión de pre ordenes</p>
@@ -467,31 +492,18 @@ const exportarPDF = () => {
                 </div>
             </div>
 
-            <Toolbar class="mb-5">
+            <Toolbar class="mb-5 toolbar-responsive">
                 <template #start>
-                    <Button
-                        label="Nueva PreOrden"
-                        icon="pi pi-plus"
-                        severity="primary"
-                        class="mr-2"
-                        @click="openCreateDialog"
-                    />
-                    <Button
-                        icon="pi pi-refresh"
-                        severity="secondary"
-                        outlined
-                        v-tooltip.top="'Actualizar'"
-                        :loading="store.isLoading"
-                        @click="cargarDatos"
-                    />
-                    <Button
-                        icon="pi pi-filter-slash"
-                        severity="secondary"
-                        outlined
-                        v-tooltip.top="'Limpiar filtros'"
-                        @click="clearFilters"
-                        class="ml-2"
-                    />
+                    <!-- Desktop: botones de acción -->
+                    <div class="hidden md:flex gap-2">
+                        <Button label="Nueva PreOrden" icon="pi pi-plus" severity="primary" @click="openCreateDialog" />
+                        <Button icon="pi pi-refresh" severity="secondary" outlined v-tooltip.top="'Actualizar'" :loading="store.isLoading" @click="cargarDatos" />
+                        <Button icon="pi pi-filter-slash" severity="secondary" outlined v-tooltip.top="'Limpiar filtros'" @click="() => { clearFilters(); resetMobilePage(); }" />
+                    </div>
+                    <!-- Mobile: botón Nueva PreOrden -->
+                    <div class="block md:hidden w-full">
+                        <Button label="Nueva PreOrden" icon="pi pi-plus" severity="primary" class="w-full" @click="openCreateDialog" />
+                    </div>
                 </template>
                 <template #end>
                     <div class="toolbar-end">
@@ -501,30 +513,34 @@ const exportarPDF = () => {
                             optionLabel="label"
                             optionValue="value"
                             placeholder="Todos los estados"
-                            class="filter-select"
+                            class="filter-select w-full md:w-auto"
+                            @change="resetMobilePage"
                         />
-                        <Calendar 
-                            v-model="filtroFecha" 
-                            dateFormat="yy-mm-dd" 
-                            placeholder="Fecha de consulta" 
+                        <Calendar
+                            v-model="filtroFecha"
+                            dateFormat="yy-mm-dd"
+                            placeholder="Fecha de consulta"
                             :showIcon="true"
-                            style="width: 160px"
-                            class="date-filter"
+                            class="w-full md:w-auto"
+                            style="min-width: 160px"
                         />
-                        <IconField>
+                        <IconField class="w-full md:w-auto">
                             <InputIcon><i class="pi pi-search" /></InputIcon>
                             <InputText
                                 v-model="searchQuery"
                                 placeholder="Buscar N° Documento o departamento..."
-                                style="width: clamp(200px, 28vw, 360px)"
+                                class="w-full"
+                                style="min-width: 0;"
+                                @input="resetMobilePage"
                             />
                         </IconField>
                     </div>
                 </template>
             </Toolbar>
 
-            <!-- Tabla -->
+            <!-- Tabla (Desktop) -->
             <DataTable
+                class="hidden md:block"
                 :value="preOrdenesFiltradas"
                 :loading="store.isLoading"
                 dataKey="id"
@@ -659,6 +675,88 @@ const exportarPDF = () => {
                     </template>
                 </Column>
             </DataTable>
+
+            <!-- Vista Cards (Mobile) -->
+            <div class="block md:hidden">
+                <!-- Botones secundarios mobile -->
+                <div class="mobile-actions">
+                    <Button icon="pi pi-refresh" severity="secondary" outlined size="small" :loading="store.isLoading" @click="cargarDatos" label="Actualizar" />
+                    <Button icon="pi pi-filter-slash" severity="secondary" outlined size="small" @click="() => { clearFilters(); resetMobilePage(); }" label="Limpiar" />
+                </div>
+
+                <div v-if="store.isLoading && preOrdenesFiltradas.length === 0" class="loading-state">
+                    <i class="pi pi-spin pi-spinner" style="font-size: 2rem; color: var(--primary-color)" />
+                    <p>Cargando preordenes...</p>
+                </div>
+                <div v-else-if="!store.isLoading && preOrdenesFiltradas.length === 0" class="empty-state">
+                    <i class="pi pi-inbox" style="font-size: 3rem; color: var(--text-color-secondary)" />
+                    <p>No hay preordenes</p>
+                </div>
+                <div v-else class="flex flex-col gap-4 mt-4 relative">
+                    <div v-if="store.isLoading" class="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-black/60 backdrop-blur-sm rounded-xl">
+                        <i class="pi pi-spin pi-spinner" style="font-size: 3rem; color: var(--primary-color)" />
+                    </div>
+
+                    <div v-for="data in mobilePagedOrdenes" :key="data.id" class="preorden-card">
+                        <!-- Header -->
+                        <div class="preorden-card-header">
+                            <div class="preorden-card-header-left">
+                                <span class="font-semibold text-primary" style="font-size: 0.95rem;">{{ data.numeroOrden }}</span>
+                                <span class="id-badge">#{{ data.id }}</span>
+                            </div>
+                            <span :class="['estado-badge', estadoConfig[data.estado]?.class]">
+                                <i :class="estadoConfig[data.estado]?.icon" />
+                                {{ estadoConfig[data.estado]?.label }}
+                            </span>
+                        </div>
+
+                        <!-- Body -->
+                        <div class="preorden-card-body">
+                            <div class="preorden-card-row">
+                                <span class="preorden-label">Departamento</span>
+                                <div class="dept-info" v-if="data.departamento">
+                                    <Avatar :label="data.departamento?.charAt(0).toUpperCase()" shape="circle" class="dept-avatar" style="width:1.6rem!important;height:1.6rem!important;font-size:0.72rem!important" />
+                                    <span style="font-size:0.9rem">{{ data.departamento }}</span>
+                                </div>
+                                <span v-else class="text-secondary">—</span>
+                            </div>
+                            <div class="preorden-card-row">
+                                <span class="preorden-label">Surtidor</span>
+                                <span class="preorden-value">{{ data.usuarioSurtidor || '—' }}</span>
+                            </div>
+                            <div class="preorden-card-row">
+                                <span class="preorden-label">Creado</span>
+                                <span class="preorden-value">{{ formatFecha(data.fechaCreacion) }}</span>
+                            </div>
+                            <!-- Progreso -->
+                            <div class="preorden-progress">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem;">
+                                    <span class="preorden-label">Progreso</span>
+                                    <span class="progress-text">{{ data.itemsSurtidos ?? 0 }} / {{ data.totalItems ?? 0 }} productos</span>
+                                </div>
+                                <ProgressBar :value="progresoOrden(data)" style="height: 6px" :showValue="false" />
+                            </div>
+                        </div>
+
+                        <!-- Footer acciones -->
+                        <div class="preorden-card-footer">
+                            <Button icon="pi pi-eye" outlined rounded severity="secondary" size="small" v-tooltip.top="'Ver detalle'" @click="verDetalle(data)" />
+                            <Button v-if="data.estado !== 'LISTA' && data.estado !== 'EN_PROCESO'" icon="pi pi-pencil" outlined rounded severity="info" size="small" v-tooltip.top="'Editar'" @click="abrirEditar(data)" />
+                            <Button v-if="data.estado === 'PENDIENTE'" icon="pi pi-check" outlined rounded severity="success" size="small" v-tooltip.top="'Aprobar'" @click="confirmarAprobar(data)" />
+                            <Button v-if="data.estado === 'PENDIENTE'" icon="pi pi-trash" outlined rounded severity="danger" size="small" v-tooltip.top="'Eliminar'" @click="confirmarEliminar(data)" />
+                        </div>
+                    </div>
+
+                    <!-- Paginador móvil -->
+                    <div v-if="mobileTotalPages > 1" class="flex justify-center items-center gap-3 mt-2">
+                        <Button icon="pi pi-chevron-left" outlined rounded size="small" :disabled="mobileCurrentPage === 0" @click="mobileCurrentPage--" />
+                        <span class="text-sm" style="color: var(--text-color-secondary)">
+                            Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }}
+                        </span>
+                        <Button icon="pi pi-chevron-right" outlined rounded size="small" :disabled="mobileCurrentPage >= mobileTotalPages - 1" @click="mobileCurrentPage++" />
+                    </div>
+                </div>
+            </div>
         </div>
 
     
@@ -901,6 +999,53 @@ const exportarPDF = () => {
     flex-wrap: wrap;
 }
 
+@media screen and (max-width: 768px) {
+    .card-header {
+        justify-content: center;
+    }
+    .card-header > div {
+        text-align: center;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .title {
+        justify-content: center;
+        gap: 0.35rem; 
+    }
+    .subtitle {
+        margin: 0.3rem 0 0 0;
+    }
+
+    .stats-banner {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        width: 100%;
+        padding: 1.2rem;
+        margin: 0 auto 1.5rem;
+        gap: 1.5rem 1rem;
+        justify-content: center;
+    }
+
+    .stat-item {
+        width: 100%;
+    }
+
+    .stat-divider {
+        display: none;
+    }
+
+    .stat-value {
+        font-size: 1.4rem;
+    }
+    
+    .stat-label {
+        font-size: 0.7rem;
+        text-align: center;
+    }
+}
+
 .stat-item {
     display: flex;
     flex-direction: column;
@@ -938,6 +1083,26 @@ const exportarPDF = () => {
     border: 1px solid var(--surface-200);
     border-radius: 8px;
     padding: 0.75rem 1.25rem;
+}
+
+/* Toolbar responsive */
+@media screen and (max-width: 767px) {
+    :deep(.toolbar-responsive.p-toolbar) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        padding: 1rem;
+    }
+    :deep(.toolbar-responsive .p-toolbar-start),
+    :deep(.toolbar-responsive .p-toolbar-end) {
+        width: 100%;
+        justify-content: center;
+    }
+    :deep(.toolbar-responsive .p-toolbar-end .toolbar-end) {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
 }
 
 .toolbar-end {
@@ -1279,4 +1444,82 @@ const exportarPDF = () => {
 
 .ml-2 { margin-left: 0.5rem; }
 .text-primary { color: var(--primary-color); }
+
+/* Mobile actions bar */
+.mobile-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+/* PreOrden Cards mobile */
+.preorden-card {
+    background: var(--surface-card);
+    border-radius: 12px;
+    border: 1px solid var(--surface-200);
+    overflow: hidden;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+
+.preorden-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--surface-200);
+    background: color-mix(in srgb, var(--primary-color) 4%, var(--surface-card));
+    gap: 0.5rem;
+}
+
+.preorden-card-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.preorden-card-body {
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.preorden-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.88rem;
+    gap: 0.5rem;
+}
+
+.preorden-label {
+    font-weight: 600;
+    color: var(--text-color-secondary);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+
+.preorden-value {
+    color: var(--text-color);
+    font-size: 0.88rem;
+    text-align: right;
+    word-break: break-word;
+}
+
+.preorden-progress {
+    margin-top: 0.25rem;
+}
+
+.preorden-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0.65rem 1rem;
+    border-top: 1px solid var(--surface-200);
+    background: var(--surface-50);
+}
 </style>

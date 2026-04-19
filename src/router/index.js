@@ -56,6 +56,11 @@ const router = createRouter({
                     component: () => import('@/views/PreOrdenes.vue')
                 },
                 {
+                    path: '/v1/ubicaciones',
+                    name: 'ubicaciones',
+                    component: () => import('@/views/Ubications.vue')
+                },
+                {
                     path: '/uikit/formlayout',
                     name: 'formlayout',
                     component: () => import('@/views/uikit/FormLayout.vue')

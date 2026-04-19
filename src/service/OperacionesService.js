@@ -48,9 +48,9 @@ class OperacionesService {
         }
     }
 
-    static async escanearProducto(ordenId, codigoBarra) {
+    static async escanearProducto(ordenId, codigoBarra, cantidad = 1) {
         try {
-            const { data } = await apiClient.post(`${BASE}/${ordenId}/escanear`, { codigoBarra });
+            const { data } = await apiClient.post(`${BASE}/${ordenId}/escanear`, { codigoBarra, cantidad });
             return data;
         } catch (error) {
             this.handleError(error, 'escanear producto');
@@ -82,6 +82,16 @@ class OperacionesService {
             throw error;
         }
     }
+
+    static async obtenerInventarioFinal(codigoBarra) {
+        try {
+            const { data } = await apiClient.get(`${BASE}/${codigoBarra}/inventarioFinal`);
+            return data;
+        } catch (error) {
+            this.handleError(error, 'consultar inventario');
+            throw error;
+        }
+    }
 }
 
 export default OperacionesService;
@@ -91,5 +101,6 @@ export const operacionesService = {
     listarPorEstado: (estado) => OperacionesService.listarPorEstado(estado),
     obtenerPorId: (id) => OperacionesService.obtenerPorId(id),
     iniciarOrden: (id) => OperacionesService.iniciarOrden(id),
-    escanearProducto: (ordenId, codigoBarra) => OperacionesService.escanearProducto(ordenId, codigoBarra)
+    escanearProducto: (ordenId, codigoBarra, cantidad) => OperacionesService.escanearProducto(ordenId, codigoBarra, cantidad),
+    obtenerInventarioFinal: (codigoBarra) => OperacionesService.obtenerInventarioFinal(codigoBarra)
 };

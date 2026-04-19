@@ -1,5 +1,6 @@
 <script setup>
 import { useOperacionesStore } from '@/stores/operaciones';
+import { useUbicationsStore } from '@/stores/ubications';
 import { FilterMatchMode } from '@primevue/core/api';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import jsPDF from 'jspdf';
@@ -10,6 +11,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const toast = useToast();
 const store = useOperacionesStore();
+const ubiStore = useUbicationsStore();
 const confirm = useConfirm();
 
 const searchQuery = ref('');
@@ -23,6 +25,16 @@ const codigoEscaneado = ref('');
 const scanInput = ref(null);
 const isScanning = ref(false);
 const lastScanResult = ref(null);
+
+const cantidadSurtir = ref(1);
+const cantidadMax = ref(1);
+const itemEncontrado = ref(null);
+const mostrarCantidad = ref(false);
+const codigoPendiente = ref('');
+const origenFueCamara = ref(false);
+const cantidadInput = ref(null);
+const cantidadInventario = ref(null);
+const ubicacionItem = ref('');
 
 const cameraActiva = ref(false);
 const cameraLoading = ref(false);
@@ -68,8 +80,12 @@ const ordenesFiltradas = computed(() => {
 });
 
 const progresoOrden = (orden) => {
-    if (!orden.totalItems) return 0;
-    return Math.round((orden.itemsSurtidos / orden.totalItems) * 100);
+    const items = orden.items || [];
+    if (!items.length) return 0;
+    const totalCantidad = items.reduce((acc, i) => acc + (i.cantidad || 0), 0);
+    if (totalCantidad === 0) return 0;
+    const totalSurtida = items.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0);
+    return Math.round((totalSurtida / totalCantidad) * 100);
 };
 
 const estadoConfig = {
@@ -160,9 +176,112 @@ async function procesarEscaneo(codigoDesdeCamara) {
             : codigoEscaneado.value?.trim();
     if (!codigo || !ordenSeleccionada.value) return;
 
-    isScanning.value = true;
+    // Buscar el item en la orden que coincida con el código escaneado
+    const items = ordenSeleccionada.value.items || [];
+
+    // DEBUG - revisar en consola del navegador (F12)
+    console.log('🔍 Código escaneado:', JSON.stringify(codigo));
+    console.log('📦 Items en orden:', items.map(i => ({ codigo: i.codigoBarra, estado: i.estadoItem, cantidad: i.cantidad, cantidadSurtida: i.cantidadSurtida })));
+
+    const item = items.find(
+        (i) => (
+            i.codigoBarra === codigo ||
+            i.barra1 === codigo ||
+            i.barra2 === codigo ||
+            i.barra3 === codigo ||
+            i.barra4 === codigo ||
+            i.barra5 === codigo ||
+            i.barra6 === codigo ||
+            i.barra7 === codigo
+        ) && i.estadoItem === 'PENDIENTE'
+    );
+    console.log('✅ Item encontrado:', item ? item.nombreProducto : 'NINGUNO');
+
+    if (!item) {
+        // Si no hay coincidencia pendiente, dejamos que el backend responda
+        // (puede ser un código no válido o ya surtido)
+        isScanning.value = true;
+        try {
+            const resultado = await store.escanear(ordenSeleccionada.value.id, codigo, 1);
+            lastScanResult.value = resultado;
+            ordenSeleccionada.value = store.ordenActiva;
+
+            if (!resultado.encontrado) {
+                toast.add({ severity: 'warn', summary: 'No encontrado', detail: resultado.mensaje, life: 3000 });
+            } else if (resultado.ordenCompleta) {
+                toast.add({ severity: 'success', summary: '¡Orden lista!', detail: resultado.mensaje, life: 4000 });
+                scanDialog.value = false;
+            } else {
+                toast.add({ severity: 'success', summary: 'Surtido', detail: resultado.itemActualizado?.nombreProducto || resultado.mensaje, life: 2000 });
+            }
+        } catch (err) {
+            toast.add({ severity: 'error', summary: 'Error', detail: err.userMessage || 'Error en el escaneo', life: 4000 });
+        } finally {
+            isScanning.value = false;
+            codigoEscaneado.value = '';
+        }
+        return;
+    }
+
+    // Item encontrado: calcular restante y mostrar panel de cantidad
+    const cantidadRestante = item.cantidad - (item.cantidadSurtida || 0);
+    if (cantidadRestante <= 0) {
+        toast.add({ severity: 'info', summary: 'Ya surtido', detail: `${item.nombreProducto} ya fue surtido completamente`, life: 3000 });
+        codigoEscaneado.value = '';
+        return;
+    }
+
+    itemEncontrado.value = item;
+    codigoPendiente.value = codigo;
+    cantidadMax.value = cantidadRestante;
+    cantidadSurtir.value = cantidadRestante; // Por defecto la cantidad máxima
+    origenFueCamara.value = ultimoEscaneoFueCamara.value;
+    mostrarCantidad.value = true;
+    codigoEscaneado.value = '';
+    
+    // Consulta dinámica del inventario en base de datos al abrir
+    cantidadInventario.value = 'Calculando...';
     try {
-        const resultado = await store.escanear(ordenSeleccionada.value.id, codigo);
+        const inv = await store.obtenerInventarioFinal(item.codigoBarra);
+        console.log('Inventario final:', inv);
+        // Si el endpoint retorna el entero directo, lo seteamos. Si retorna objeto, accede a la property.
+        cantidadInventario.value = inv; 
+    } catch (e) {
+        console.error('Error al consultar inventario:', e);
+        cantidadInventario.value = 'Error';
+    }
+
+    // Consulta dinámica de la ubicación en base de datos al abrir
+    ubicacionItem.value = 'Calculando...';
+    try {
+        const ubicaciones = await ubiStore.getUbicacionesByBarcode(item.codigoBarra);
+        console.log('Ubicaciones:', ubicaciones);
+        if (Array.isArray(ubicaciones) && ubicaciones.length > 0) {
+            // Formato: "Bodega A - Estante 3 (CD01), ..."
+            ubicacionItem.value = ubicaciones
+                .map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion)
+                .join(', ');
+        } else {
+            ubicacionItem.value = 'Sin ubicación registrada';
+        }
+    } catch (e) {
+        console.error('Error al consultar ubicacion:', e);
+        ubicacionItem.value = 'No encontrada';
+    }
+
+    await nextTick();
+    cantidadInput.value?.$el?.querySelector('input')?.focus();
+}
+
+async function confirmarSurtido() {
+    if (!codigoPendiente.value || !ordenSeleccionada.value) return;
+
+    const cantidad = Math.max(1, Math.min(cantidadSurtir.value, cantidadMax.value));
+
+    isScanning.value = true;
+    mostrarCantidad.value = false;
+    try {
+        const resultado = await store.escanear(ordenSeleccionada.value.id, codigoPendiente.value, cantidad);
         lastScanResult.value = resultado;
         ordenSeleccionada.value = store.ordenActiva;
 
@@ -172,14 +291,18 @@ async function procesarEscaneo(codigoDesdeCamara) {
             toast.add({ severity: 'success', summary: '¡Orden lista!', detail: resultado.mensaje, life: 4000 });
             scanDialog.value = false;
         } else {
-            toast.add({ severity: 'success', summary: 'Surtido', detail: resultado.itemActualizado?.nombreProducto || resultado.mensaje, life: 2000 });
+            toast.add({ severity: 'success', summary: 'Surtido', detail: `${itemEncontrado.value?.nombreProducto || 'Producto'} x${cantidad}`, life: 2000 });
         }
     } catch (err) {
         toast.add({ severity: 'error', summary: 'Error', detail: err.userMessage || 'Error en el escaneo', life: 4000 });
     } finally {
         isScanning.value = false;
-        codigoEscaneado.value = '';
-        const fueCamara = ultimoEscaneoFueCamara.value;
+        codigoPendiente.value = '';
+        itemEncontrado.value = null;
+        cantidadSurtir.value = 1;
+        cantidadMax.value = 1;
+        const fueCamara = origenFueCamara.value;
+        origenFueCamara.value = false;
         ultimoEscaneoFueCamara.value = false;
         await nextTick();
         if (!scanDialog.value || ordenSeleccionada.value?.estado === 'LISTA') return;
@@ -189,6 +312,18 @@ async function procesarEscaneo(codigoDesdeCamara) {
             scanInput.value?.$el?.focus();
         }
     }
+}
+
+function cancelarSurtido() {
+    mostrarCantidad.value = false;
+    codigoPendiente.value = '';
+    itemEncontrado.value = null;
+    cantidadSurtir.value = 1;
+    cantidadMax.value = 1;
+    origenFueCamara.value = false;
+    nextTick(() => {
+        scanInput.value?.$el?.focus();
+    });
 }
 
 function mensajeFalloCamara(err) {
@@ -346,6 +481,12 @@ watch(scanDialog, async (abierto) => {
         store.limpiarOrdenActiva();
         ordenSeleccionada.value = null;
         lastScanResult.value = null;
+        mostrarCantidad.value = false;
+        itemEncontrado.value = null;
+        codigoPendiente.value = '';
+        cantidadSurtir.value = 1;
+        cantidadMax.value = 1;
+        origenFueCamara.value = false;
     }
 });
 
@@ -356,6 +497,7 @@ onUnmounted(detenerCamara);
 const exportarPDF = () => {
     const doc = new jsPDF();
     const data = ordenSeleccionada.value;
+    console.log(data);
     
     const primaryColor = [22, 163, 74]; // Verde PrimeVue (green-600)
     
@@ -399,7 +541,8 @@ const exportarPDF = () => {
         startY: doc.lastAutoTable.finalY + 15,
         body: [
             ['Total Productos:', data.totalItems || 0, 'Productos Surtidos:', data.itemsSurtidos || 0],
-            ['Total Unidades:', totalUnidades, 'Progreso:', `${progresoOrden(data)}%`]
+            ['Total Unidades:', totalUnidades, 'Progreso:', `${progresoOrden(data)}%`],
+            ['Total Unidades Surtidas:', data.items?.reduce((acc, item) => acc + item.cantidadSurtida, 0) || 0, 'Total Unidades Pendientes:', data.items?.reduce((acc, item) => acc + item.cantidad - item.cantidadSurtida, 0) || 0],
         ],
         theme: 'grid',
         headStyles: { fillColor: primaryColor },
@@ -413,16 +556,22 @@ const exportarPDF = () => {
         item.nombreProducto,
         item.departamento || '—',
         item.cantidad,
-        item.estadoItem
+        item.estadoItem,
+        item.cantidadSurtida
     ]);
     
     autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 15,
-        head: [['Código', 'Producto', 'Dpto.', 'Cant.', 'Estado']],
+        head: [['Código', 'Producto', 'Dpto.', 'Cantidad', 'Estado', 'Cantidad Surtida']],
         body: tableData,
         headStyles: { fillColor: primaryColor },
         alternateRowStyles: { fillColor: [245, 245, 245] },
-        styles: { fontSize: 9 }
+        styles: { fontSize: 9 },
+        columnStyles: {
+            3: { halign: 'right' },
+            4: { halign: 'right' },
+            5: { halign: 'right' }
+        }
     });
     
     const pageCount = doc.internal.getNumberOfPages();
@@ -466,10 +615,10 @@ const finalizarOrden = async () => {
             <div class="card-header">
                 <div>
                     <h2 class="title">
-                        <i class="pi pi-box ops-icon" />
+                        <!-- <i class="pi pi-box ops-icon" /> -->
                         Módulo de Operaciones
                     </h2>
-                    <p class="subtitle">Gestión de surtido y escaneo de órdenes</p>
+                    <p class="subtitle">Gestión de surtido de órdenes</p>
                 </div>
             </div>
 
@@ -497,57 +646,60 @@ const finalizarOrden = async () => {
             </div>
 
             <!-- Toolbar -->
-            <Toolbar class="mb-5">
+            <Toolbar class="mb-5 flex flex-col md:flex-row gap-4">
                 <template #start>
-                    <Button
-                        icon="pi pi-refresh"
-                        severity="secondary"
-                        outlined
-                        v-tooltip.top="'Actualizar'"
-                        :loading="store.isLoading"
-                        @click="cargarDatos"
-                    />
-                    <Button
-                        icon="pi pi-filter-slash"
-                        severity="secondary"
-                        outlined
-                        v-tooltip.top="'Limpiar filtros'"
-                        @click="clearFilters"
-                        class="ml-2"
-                    />
+                    <div class="flex items-center gap-2 w-full md:w-auto">
+                        <Button
+                            icon="pi pi-refresh"
+                            severity="secondary"
+                            outlined
+                            v-tooltip.top="'Actualizar'"
+                            :loading="store.isLoading"
+                            @click="cargarDatos"
+                            class="flex-1 md:flex-none"
+                        />
+                        <Button
+                            icon="pi pi-filter-slash"
+                            severity="secondary"
+                            outlined
+                            v-tooltip.top="'Limpiar filtros'"
+                            @click="clearFilters"
+                            class="flex-1 md:flex-none"
+                        />
+                    </div>
                 </template>
                 <template #end>
-                    <div class="toolbar-end">
+                    <div class="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto mt-3 md:mt-0">
                         <Select
                             v-model="filtroEstado"
                             :options="ESTADOS"
                             optionLabel="label"
                             optionValue="value"
                             placeholder="Todos los estados"
-                            class="filter-select"
+                            class="w-full md:w-44"
                         />
                         <Calendar 
                             v-model="filtroFecha" 
                             dateFormat="yy-mm-dd" 
                             placeholder="Fecha de consulta" 
                             :showIcon="true"
-                            style="width: 160px"
-                            class="date-filter"
+                            class="w-full md:w-44"
                         />
-                        <IconField>
+                        <IconField class="w-full md:w-auto">
                             <InputIcon><i class="pi pi-search" /></InputIcon>
                             <InputText
                                 v-model="searchQuery"
-                                placeholder="Buscar orden o departamento..."
-                                style="width: clamp(200px, 28vw, 360px)"
+                                placeholder="Orden o Dep..."
+                                class="w-full md:w-[20rem]"
                             />
                         </IconField>
                     </div>
                 </template>
             </Toolbar>
 
-            <!-- Tabla -->
+            <!-- Tabla (Escritorio) -->
             <DataTable
+                class="hidden md:block"
                 :value="ordenesFiltradas"
                 :loading="store.isLoading"
                 dataKey="id"
@@ -573,11 +725,11 @@ const finalizarOrden = async () => {
                     </div>
                 </template>
 
-                <Column field="id" header="ID" :sortable="true" style="min-width: 5rem">
+                <!-- <Column field="id" header="ID" :sortable="true" style="min-width: 5rem">
                     <template #body="{ data }">
                         <span class="id-badge">#{{ data.id }}</span>
                     </template>
-                </Column>
+                </Column> -->
 
                 <Column field="numeroOrden" header="N° Orden" :sortable="true" style="min-width: 12rem">
                     <template #body="{ data }">
@@ -677,6 +829,76 @@ const finalizarOrden = async () => {
                     </template>
                 </Column>
             </DataTable>
+
+            <!-- Vista de Tarjetas (Móvil) -->
+            <div class="block md:hidden">
+                <div v-if="store.isLoading && (!ordenesFiltradas || ordenesFiltradas.length === 0)" class="loading-state flex flex-col items-center p-5 card mt-4">
+                    <i class="pi pi-spin pi-spinner text-primary mb-3" style="font-size: 2rem" />
+                    <p class="text-secondary m-0">Cargando órdenes...</p>
+                </div>
+                <div v-else-if="!store.isLoading && (!ordenesFiltradas || ordenesFiltradas.length === 0)" class="empty-state flex flex-col items-center p-5 card mt-4">
+                    <i class="pi pi-inbox mb-3" style="font-size: 3rem; color: var(--text-color-secondary)" />
+                    <p class="text-secondary m-0">No hay órdenes de operaciones</p>
+                </div>
+                <div v-else class="flex flex-col gap-4 mt-4 relative">
+                    <div v-if="store.isLoading" class="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-black/60 backdrop-blur-sm rounded-xl">
+                        <i class="pi pi-spin pi-spinner text-primary" style="font-size: 3rem" />
+                    </div>
+                    <div v-for="data in ordenesFiltradas" :key="data.id" class="card p-4 mb-0 flex flex-col gap-3">
+                        <div class="flex justify-between items-center border-b border-surface-200 dark:border-surface-700 pb-3">
+                            <span class="font-semibold text-primary text-lg">{{ data.numeroOrden }}</span>
+                            <span :class="['estado-badge', estadoConfig[data.estado]?.class]">
+                                <i :class="estadoConfig[data.estado]?.icon" />
+                                {{ estadoConfig[data.estado]?.label }}
+                            </span>
+                        </div>
+                        
+                        <div class="flex flex-col gap-2 text-sm text-surface-700 dark:text-surface-0">
+                            <!-- <div class="flex justify-between">
+                                <span class="font-medium text-surface-500 dark:text-surface-400">ID:</span>
+                                <span>#{{ data.id }}</span>
+                            </div> -->
+                            <div class="flex justify-between">
+                                <span class="font-medium text-surface-500 dark:text-surface-400">Tipo Documento:</span>
+                                <span class="font-semibold">{{ data.tipoDocumento }}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="font-medium text-surface-500 dark:text-surface-400">Departamento:</span>
+                                <div class="dept-info m-0" v-if="data.departamento">
+                                    <!-- <Avatar :label="data.departamento?.charAt(0).toUpperCase()" shape="circle" class="w-1rem h-1rem text-xs mr-2 bg-primary text-white" /> -->
+                                    <span>{{ data.departamento }}</span>
+                                </div>
+                                <span v-else class="text-surface-500 dark:text-surface-400">—</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="font-medium text-surface-500 dark:text-surface-400">Productos:</span>
+                                <div class="progress-cell m-0 items-center">
+                                    <span class="progress-text mr-2">{{ data.itemsSurtidos ?? 0 }} / {{ data.totalItems ?? 0 }}</span>
+                                    <ProgressBar :value="progresoOrden(data)" style="height: 6px; width: 60px" :showValue="false" />
+                                </div>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="font-medium text-surface-500 dark:text-surface-400">Fecha Creación:</span>
+                                <span class="fecha-text">{{ formatFecha(data.fechaCreacion) }}</span>
+                            </div>
+                            <div class="flex justify-between" v-if="data.fechaFinalizacion">
+                                <span class="font-medium text-surface-500 dark:text-surface-400">Fecha Finalización:</span>
+                                <span class="fecha-text">{{ formatFecha(data.fechaFinalizacion) }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="font-medium text-surface-500 dark:text-surface-400">Surtidor:</span>
+                                <span class="fecha-text">{{ data.usuarioSurtidor || '—' }}</span>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end gap-2 pt-3 border-t border-surface-200 dark:border-surface-700">
+                            <Button icon="pi pi-eye" outlined rounded severity="secondary" v-tooltip.top="'Ver detalle'" @click="verDetalle(data)" />
+                            <Button v-if="data.estado !== 'LISTA'" icon="pi pi-barcode" outlined rounded v-tooltip.top="data.estado === 'PENDIENTE' ? 'Iniciar surtido' : 'Continuar surtido'" @click="abrirSurtido(data)" />
+                            <Button v-else icon="pi pi-check-circle" outlined rounded severity="success" disabled />
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Dialog: Surtido / Escaneo -->
@@ -697,7 +919,7 @@ const finalizarOrden = async () => {
                         </span>
                     </div>
                     <span class="scan-progress-label">
-                        {{ ordenSeleccionada.itemsSurtidos }}/{{ ordenSeleccionada.totalItems }} surtidos
+                        {{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0) || 0 }}/{{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidad || 0), 0) || 0 }} surtidos
                     </span>
                 </div>
 
@@ -717,17 +939,82 @@ const finalizarOrden = async () => {
                             placeholder="Escanea o escribe el código..."
                             class="scan-input"
                             @keyup.enter="procesarEscaneo"
-                            :disabled="isScanning || (ordenSeleccionada && ordenSeleccionada.estado === 'LISTA')"
+                            :disabled="isScanning || mostrarCantidad || (ordenSeleccionada && ordenSeleccionada.estado === 'LISTA')"
                         />
                         <Button
                             icon="pi pi-send"
                             :loading="isScanning"
                             @click="procesarEscaneo"
-                            :disabled="!codigoEscaneado || ordenSeleccionada.estado === 'LISTA'"
+                            :disabled="!codigoEscaneado || mostrarCantidad || ordenSeleccionada.estado === 'LISTA'"
                         />
                     </div>
                     <small class="scan-hint">Teclado: Enter o el botón. Pistola USB suele escribir aquí y enviar Enter.</small>
                 </div>
+
+                <!-- Panel de cantidad a surtir -->
+                <transition name="cantidad-fade">
+                    <div v-if="mostrarCantidad && itemEncontrado" class="cantidad-panel">
+                        <div class="cantidad-header">
+                            <i class="pi pi-box" />
+                            <span class="cantidad-title">Confirmar cantidad a surtir</span>
+                        </div>
+                        <div class="cantidad-producto">
+                            <div class="cantidad-producto-info">
+                                <span class="cantidad-producto-nombre">{{ itemEncontrado.nombreProducto }}</span>
+                                <span class="cantidad-producto-codigo">{{ itemEncontrado.codigoBarra }}</span>
+                            </div>
+                            <span class="cantidad-producto-solicitado">
+                                Solicitado: <strong>{{ itemEncontrado.cantidad }}</strong>
+                                <template v-if="itemEncontrado.cantidadSurtida"> · Surtido: <strong>{{ itemEncontrado.cantidadSurtida }}</strong></template>
+                                · Restante: <strong>{{ cantidadMax }}</strong>
+                            </span>
+                        </div>
+                        <div class="cantidad-input-row">
+                            <label class="cantidad-input-label">Cantidad:</label>
+                            <InputNumber
+                                ref="cantidadInput"
+                                v-model="cantidadSurtir"
+                                :min="1"
+                                :max="cantidadMax"
+                                showButtons
+                                buttonLayout="horizontal"
+                                :step="1"
+                                incrementButtonIcon="pi pi-plus"
+                                decrementButtonIcon="pi pi-minus"
+                                class="cantidad-input-number"
+                                @keyup.enter="confirmarSurtido"
+                            />
+                            <span class="cantidad-max-hint">máx. {{ cantidadMax }}</span>
+                        </div>
+                        <div class="cantidad-info-row">
+                            <span class="cantidad-info-label">Inventario actual: </span>
+                            <span class="cantidad-info-value">{{ cantidadInventario }}</span>
+                        </div>
+                        <div class="cantidad-info-row">
+                            <span class="cantidad-info-label">Ubicación: </span>
+                            <span class="cantidad-info-value">{{ ubicacionItem }}</span>
+                        </div>
+
+                        <div class="cantidad-acciones">
+                            <Button
+                                label="Cancelar"
+                                icon="pi pi-times"
+                                severity="secondary"
+                                outlined
+                                size="small"
+                                @click="cancelarSurtido"
+                            />
+                            <Button
+                                label="Confirmar surtido"
+                                icon="pi pi-check"
+                                size="small"
+                                :loading="isScanning"
+                                @click="confirmarSurtido"
+                                :disabled="cantidadSurtir < 1 || cantidadSurtir > cantidadMax"
+                            />
+                        </div>
+                    </div>
+                </transition>
 
                 <div class="camara-panel">
                     <div class="camara-acciones">
@@ -774,27 +1061,36 @@ const finalizarOrden = async () => {
                     <span>{{ lastScanResult.mensaje }}</span>
                 </div>
 
-                <!-- Lista de ítems -->
-                <div class="items-list">
-                    <div
-                        v-for="item in ordenSeleccionada.items"
-                        :key="item.id"
-                        :class="['item-row', item.estadoItem === 'SURTIDO' ? 'item-surtido' : 'item-pendiente']"
-                    >
-                        <div class="item-info">
-                            <span class="item-name">{{ item.nombreProducto || 'Producto' }}</span>
-                            <span class="item-dept">{{ item.departamento }}</span>
-                        </div>
-                        <div class="item-right">
-                            <span class="item-barcode">{{ item.codigoBarra }}</span>
-                            <span class="item-qty">x{{ item.cantidad }}</span>
-                            <span :class="['item-estado', itemEstadoConfig[item.estadoItem]?.class]">
-                                <i :class="itemEstadoConfig[item.estadoItem]?.icon" />
-                                {{ itemEstadoConfig[item.estadoItem]?.label }}
+                <!-- Lista de ítems (Tabla con scroll horizontal) -->
+                <DataTable 
+                    :value="ordenSeleccionada.items" 
+                    :rows="10" 
+                    :paginator="ordenSeleccionada.items?.length > 10" 
+                    size="small" 
+                    stripedRows 
+                    responsiveLayout="scroll"
+                >
+                    <Column field="codigoBarra" header="Código" />
+                    <Column field="barra1" header="Barra 1" />
+                    <Column field="barra2" header="Barra 2" />
+                    <Column field="barra3" header="Barra 3" />
+                    <Column field="barra4" header="Barra 4" />
+                    <Column field="barra5" header="Barra 5" />
+                    <Column field="barra6" header="Barra 6" />
+                    <Column field="barra7" header="Barra 7" />
+                    <Column field="nombreProducto" header="Producto" />
+                    <Column field="departamento" header="Dpto." />
+                    <Column field="cantidad" header="Cant." style="min-width: 5rem" />
+                    <Column field="cantidadSurtida" header="Cant. Surtida" style="min-width: 5rem" />
+                    <Column field="estadoItem" header="Estado" style="min-width: 8rem">
+                        <template #body="{ data }">
+                            <span :class="['item-estado', itemEstadoConfig[data.estadoItem]?.class]">
+                                <i :class="itemEstadoConfig[data.estadoItem]?.icon" />
+                                {{ itemEstadoConfig[data.estadoItem]?.label }}
                             </span>
-                        </div>
-                    </div>
-                </div>
+                        </template>
+                    </Column>
+                </DataTable>
             </div>
 
             <template #footer>
@@ -846,7 +1142,7 @@ const finalizarOrden = async () => {
                     <div class="detail-field full">
                         <label>Progreso</label>
                         <div class="progress-detail">
-                            <span>{{ ordenSeleccionada.itemsSurtidos }}/{{ ordenSeleccionada.totalItems }} productos surtidos</span>
+                            <span>{{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0) || 0 }}/{{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidad || 0), 0) || 0 }} articulos surtidos</span>
                             <ProgressBar :value="progresoOrden(ordenSeleccionada)" style="height: 8px; margin-top: 0.5rem" />
                         </div>
                     </div>
@@ -863,9 +1159,17 @@ const finalizarOrden = async () => {
 
                 <DataTable :value="ordenSeleccionada.items" :rows="10" :paginator="ordenSeleccionada.items?.length > 10" size="small" stripedRows>
                     <Column field="codigoBarra" header="Código" />
+                    <Column field="barra1" header="Barra 1" />
+                    <Column field="barra2" header="Barra 2" />
+                    <Column field="barra3" header="Barra 3" />
+                    <Column field="barra4" header="Barra 4" />
+                    <Column field="barra5" header="Barra 5" />
+                    <Column field="barra6" header="Barra 6" />
+                    <Column field="barra7" header="Barra 7" />
                     <Column field="nombreProducto" header="Producto" />
                     <Column field="departamento" header="Dpto." />
                     <Column field="cantidad" header="Cant." style="min-width: 5rem" />
+                    <Column field="cantidadSurtida" header="Cant. Surtida" style="min-width: 5rem" />
                     <Column field="estadoItem" header="Estado" style="min-width: 8rem">
                         <template #body="{ data }">
                             <span :class="['item-estado', itemEstadoConfig[data.estadoItem]?.class]">
@@ -934,6 +1238,8 @@ const finalizarOrden = async () => {
 .ops-icon {
     color: var(--primary-color);
     font-size: 1.5rem;
+    flex-shrink: 0;
+    line-height: 1;
 }
 
 .subtitle {
@@ -954,6 +1260,7 @@ const finalizarOrden = async () => {
     gap: 1.5rem;
     width: fit-content;
     flex-wrap: wrap;
+    justify-content: center;
 }
 
 .stat-item {
@@ -985,6 +1292,51 @@ const finalizarOrden = async () => {
     width: 1px;
     height: 2.5rem;
     background: var(--surface-300);
+}
+
+@media screen and (max-width: 768px) {
+    .card-header {
+        justify-content: center;
+    }
+    .card-header > div {
+        text-align: center;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .title {
+        justify-content: center;
+        gap: 0.35rem; 
+    }
+    .subtitle {
+        margin: 0.3rem 0 0 0;
+    }
+
+    .stats-banner {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        width: 100%;
+        padding: 1.2rem;
+        gap: 1.5rem 1rem;
+    }
+
+    .stat-item {
+        width: 100%;
+    }
+
+    .stat-divider {
+        display: none;
+    }
+
+    .stat-value {
+        font-size: 1.4rem;
+    }
+    
+    .stat-label {
+        font-size: 0.7rem;
+        text-align: center;
+    }
 }
 
 /* Toolbar */
@@ -1265,12 +1617,29 @@ const finalizarOrden = async () => {
     align-items: center;
     gap: 0.75rem;
     flex-shrink: 0;
+    max-width: 65vw;
+}
+
+.barcodes-wrapper {
+    display: flex;
+    gap: 0.4rem;
+    overflow-x: auto;
+    max-width: 130px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.barcodes-wrapper::-webkit-scrollbar {
+    display: none;
 }
 
 .item-barcode {
     font-family: monospace;
     font-size: 0.82rem;
-    color: var(--text-color-secondary);
+    color: var(--text-color-primary);
+    background: var(--surface-100);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    white-space: nowrap;
 }
 
 .item-qty {
@@ -1334,4 +1703,134 @@ const finalizarOrden = async () => {
 
 .ml-2 { margin-left: 0.5rem; }
 .text-primary { color: var(--primary-color); }
+
+/* Cantidad Panel */
+.cantidad-panel {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 6%, var(--surface-0)), var(--surface-50));
+    border: 1px solid color-mix(in srgb, var(--primary-color) 25%, var(--surface-200));
+    border-radius: 12px;
+    padding: 1.15rem 1.35rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.cantidad-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+    color: var(--primary-color);
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+.cantidad-producto {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin-bottom: 1rem;
+    padding: 0.65rem 0.85rem;
+    background: var(--surface-0);
+    border-radius: 8px;
+    border: 1px solid var(--surface-200);
+}
+
+.cantidad-producto-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.cantidad-producto-nombre {
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: var(--text-color);
+}
+
+.cantidad-producto-codigo {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--text-color-secondary);
+    background: var(--surface-100);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+}
+
+.cantidad-producto-solicitado {
+    font-size: 0.82rem;
+    color: var(--text-color-secondary);
+    strong {
+        color: var(--text-color);
+        font-weight: 700;
+    }
+}
+
+.cantidad-input-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.cantidad-input-label {
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.cantidad-input-number {
+    width: 150px;
+    :deep(.p-inputtext) {
+        text-align: center;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+}
+
+.cantidad-max-hint {
+    font-size: 0.78rem;
+    color: var(--text-color-secondary);
+    white-space: nowrap;
+}
+
+.cantidad-info-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.5rem 0.85rem;
+    background: var(--surface-100);
+    border-radius: 6px;
+}
+
+.cantidad-info-label {
+    font-size: 0.85rem;
+    color: var(--text-color-secondary);
+    font-weight: 600;
+}
+
+.cantidad-info-value {
+    font-size: 0.95rem;
+    color: var(--primary-color);
+    font-weight: 700;
+}
+
+.cantidad-acciones {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+/* Transition */
+.cantidad-fade-enter-active,
+.cantidad-fade-leave-active {
+    transition: all 0.25s ease;
+}
+.cantidad-fade-enter-from,
+.cantidad-fade-leave-to {
+    opacity: 0;
+    transform: translateY(-8px);
+}
 </style>

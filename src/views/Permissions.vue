@@ -12,11 +12,29 @@ const submitted = ref(false);
 const selectedPermissions = ref([]);
 const searchQuery = ref('');
 
+// Paginado móvil
+const mobileCurrentPage = ref(0);
+const mobileRowsPerPage = 8;
+
 const activePermissions = computed(() => {
     return permissionStore.permissions.filter(p => !p.deletedAt && p.status !== false &&
-        (!searchQuery.value || p.name?.toLowerCase().includes(searchQuery.value.toLowerCase()) || p.code?.toLowerCase().includes(searchQuery.value.toLowerCase()) || p.url?.toLowerCase().includes(searchQuery.value.toLowerCase()))
+        (!searchQuery.value ||
+            p.name?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+            p.code?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+            p.url?.toLowerCase().includes(searchQuery.value.toLowerCase()))
     );
 });
+
+const mobilePagedPermissions = computed(() => {
+    const start = mobileCurrentPage.value * mobileRowsPerPage;
+    return activePermissions.value.slice(start, start + mobileRowsPerPage);
+});
+
+const mobileTotalPages = computed(() => Math.ceil(activePermissions.value.length / mobileRowsPerPage));
+
+function resetMobilePage() {
+    mobileCurrentPage.value = 0;
+}
 
 const loadPermissions = async () => {
     try {
@@ -92,63 +110,78 @@ onMounted(() => {
 <template>
     <div class="permissions-container">
         <div class="card">
+            <!-- Header -->
             <div class="card-header">
                 <div>
                     <h2 class="title">Gestión de Permisos</h2>
                     <p class="subtitle">Administra los permisos del sistema</p>
                 </div>
-                <Button label="Nuevo Permiso" icon="pi pi-plus" class="p-button-success" @click="openNew" />
+                <!-- Solo visible en desktop -->
+                <div class="hidden md:block">
+                    <Button label="Nuevo Permiso" icon="pi pi-plus" class="p-button-success" @click="openNew" />
+                </div>
             </div>
-            <Toolbar class="mb-6">
+
+            <!-- Toolbar -->
+            <Toolbar class="mb-6 toolbar-responsive">
+                <template #start>
+                    <!-- Mobile: botón Nuevo Permiso centrado -->
+                    <div class="block md:hidden w-full">
+                        <Button label="Nuevo Permiso" icon="pi pi-plus" class="w-full" @click="openNew" />
+                    </div>
+                </template>
                 <template #end>
-                    <InputText v-model="searchQuery" placeholder="Buscar por nombre, código o URL..." style="width: clamp(200px, 30vw, 400px);" />
+                    <IconField class="w-full md:w-auto">
+                        <InputIcon><i class="pi pi-search" /></InputIcon>
+                        <InputText
+                            v-model="searchQuery"
+                            placeholder="Buscar por nombre, código o URL..."
+                            class="w-full"
+                            style="min-width: 0;"
+                            @input="resetMobilePage"
+                        />
+                    </IconField>
                 </template>
             </Toolbar>
-            <DataTable :value="activePermissions" :loading="permissionStore.loading" dataKey="id" :paginator="true" :rows="10" :rowsPerPageOptions="[5, 10, 25, 50]" responsiveLayout="scroll" class="permissions-table">
+
+            <!-- Tabla (Desktop) -->
+            <DataTable
+                class="hidden md:block permissions-table"
+                :value="activePermissions"
+                :loading="permissionStore.loading"
+                dataKey="id"
+                :paginator="true"
+                :rows="10"
+                :rowsPerPageOptions="[5, 10, 25, 50]"
+                paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+                currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} permisos"
+                responsiveLayout="scroll"
+            >
                 <template #empty>
                     <div class="empty-state">
                         <i class="pi pi-lock" style="font-size: 3rem; color: var(--text-color-secondary)"></i>
                         <p>No hay permisos disponibles</p>
                     </div>
                 </template>
+
                 <Column field="id" header="ID" :sortable="true" style="min-width: 4rem">
                     <template #body="{ data }">
                         <span class="id-badge">{{ data.id }}</span>
                     </template>
                 </Column>
-                <Column field="name" header="be_Nombre" :sortable="true" style="min-width: 10rem">
-                    <template #body="{ data }">
-                        <span class="font-semibold">{{ data.name }}</span>
-                    </template>
-                </Column>
-                <Column field="code" header="be_Código" :sortable="true" style="min-width: 8rem">
-                    <template #body="{ data }">
-                        <span>{{ data.code }}</span>
-                    </template>
-                </Column>
-                <Column field="url" header="be_URL" :sortable="true" style="min-width: 14rem">
-                    <template #body="{ data }">
-                        <span class="perm-url">{{ data.url }}</span>
-                    </template>
-                </Column>
-                <Column field="categoryLabel" header="fe_Categoría" :sortable="true" style="min-width: 10rem">
+                <Column field="categoryLabel" header="Categoría" :sortable="true" style="min-width: 10rem">
                     <template #body="{ data }">
                         <span>{{ data.categoryLabel }}</span>
                     </template>
                 </Column>
-                <Column field="label" header="fe_Etiqueta" :sortable="true" style="min-width: 10rem">
+                <Column field="label" header="Etiqueta" :sortable="true" style="min-width: 10rem">
                     <template #body="{ data }">
-                        <span>{{ data.label }}</span>
+                        <span class="font-semibold">{{ data.label }}</span>
                     </template>
                 </Column>
-                <Column field="icon" header="fe_Ícono" :sortable="true" style="min-width: 8rem">
+                <Column field="to" header="Destino" :sortable="true" style="min-width: 8rem">
                     <template #body="{ data }">
-                        <span>{{ data.icon }}</span>
-                    </template>
-                </Column>
-                <Column field="to" header="fe_Destino" :sortable="true" style="min-width: 8rem">
-                    <template #body="{ data }">
-                        <span>{{ data.to }}</span>
+                        <span class="dest-badge">{{ data.to }}</span>
                     </template>
                 </Column>
                 <Column :exportable="false" style="min-width: 10rem">
@@ -160,7 +193,75 @@ onMounted(() => {
                     </template>
                 </Column>
             </DataTable>
+
+            <!-- Vista Cards (Mobile) -->
+            <div class="block md:hidden">
+                <div v-if="permissionStore.loading && activePermissions.length === 0" class="loading-state">
+                    <i class="pi pi-spin pi-spinner" style="font-size: 2rem; color: var(--primary-color)" />
+                    <p>Cargando permisos...</p>
+                </div>
+                <div v-else-if="!permissionStore.loading && activePermissions.length === 0" class="empty-state">
+                    <i class="pi pi-lock" style="font-size: 3rem; color: var(--text-color-secondary)" />
+                    <p>No hay permisos disponibles</p>
+                </div>
+                <div v-else class="flex flex-col gap-4 mt-4 relative">
+                    <div v-if="permissionStore.loading" class="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-black/60 backdrop-blur-sm rounded-xl">
+                        <i class="pi pi-spin pi-spinner" style="font-size: 3rem; color: var(--primary-color)" />
+                    </div>
+
+                    <div v-for="data in mobilePagedPermissions" :key="data.id" class="perm-card">
+                        <!-- Cabecera -->
+                        <div class="perm-card-header">
+                            <div class="perm-card-title-wrap">
+                                <div class="perm-card-icon-label">
+                                    <i :class="data.icon" class="perm-card-icon" />
+                                    <span class="perm-card-label-text">{{ data.label }}</span>
+                                </div>
+                                <span class="perm-card-category">{{ data.categoryLabel }}</span>
+                            </div>
+                            <span class="id-badge">{{ data.id }}</span>
+                        </div>
+
+                        <!-- Body -->
+                        <div class="perm-card-body">
+                            <div class="perm-card-row">
+                                <span class="perm-card-field-label">Nombre</span>
+                                <span class="perm-card-value">{{ data.name || '—' }}</span>
+                            </div>
+                            <div class="perm-card-row">
+                                <span class="perm-card-field-label">Código</span>
+                                <span class="id-badge code-badge">{{ data.code }}</span>
+                            </div>
+                            <div class="perm-card-row">
+                                <span class="perm-card-field-label">Destino</span>
+                                <span class="dest-badge">{{ data.to }}</span>
+                            </div>
+                            <div class="perm-card-row perm-card-row--col">
+                                <span class="perm-card-field-label">URL</span>
+                                <span class="perm-url">{{ data.url }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Acciones -->
+                        <div class="perm-card-footer">
+                            <Button icon="pi pi-pencil" outlined rounded severity="info" v-tooltip.top="'Editar'" @click="editPermission(data)" />
+                            <Button icon="pi pi-trash" outlined rounded severity="danger" v-tooltip.top="'Eliminar'" @click="confirmDeletePermission(data)" />
+                        </div>
+                    </div>
+
+                    <!-- Paginador móvil -->
+                    <div v-if="mobileTotalPages > 1" class="flex justify-center items-center gap-3 mt-2">
+                        <Button icon="pi pi-chevron-left" outlined rounded size="small" :disabled="mobileCurrentPage === 0" @click="mobileCurrentPage--" />
+                        <span class="text-sm" style="color: var(--text-color-secondary)">
+                            Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }}
+                        </span>
+                        <Button icon="pi pi-chevron-right" outlined rounded size="small" :disabled="mobileCurrentPage >= mobileTotalPages - 1" @click="mobileCurrentPage++" />
+                    </div>
+                </div>
+            </div>
         </div>
+
+        <!-- Dialog: Crear/Editar Permiso -->
         <Dialog v-model:visible="permissionDialog" :style="{ width: '650px' }" :breakpoints="{ '1199px': '75vw', '575px': '90vw' }" header="Información del Permiso" :modal="true" class="p-fluid">
             <div class="formgrid grid">
                 <div class="field col-12 md:col-6">
@@ -204,6 +305,8 @@ onMounted(() => {
                 <Button label="Guardar" icon="pi pi-check" @click="savePermission" :disabled="isSaveDisabled" />
             </template>
         </Dialog>
+
+        <!-- Dialog: Confirmar eliminación -->
         <Dialog v-model:visible="deletePermissionDialog" :style="{ width: '450px' }" header="Confirmar" :modal="true">
             <div class="confirmation-content">
                 <i class="pi pi-exclamation-triangle mr-3" style="font-size: 2rem; color: var(--red-500)" />
@@ -222,12 +325,14 @@ onMounted(() => {
     padding: 1rem;
     @media (min-width: 768px) { padding: 1.5rem; }
 }
+
 .card {
     background: var(--surface-card);
     border-radius: 12px;
     padding: 2rem;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
+
 .card-header {
     display: flex;
     justify-content: space-between;
@@ -236,20 +341,53 @@ onMounted(() => {
     gap: 1rem;
     flex-wrap: wrap;
 }
+
 .title {
     font-size: 1.75rem;
     font-weight: 700;
     margin: 0;
     color: var(--text-color);
 }
+
 .subtitle {
     font-size: 0.95rem;
     color: var(--text-color-secondary);
     margin: 0.25rem 0 0 0;
 }
+
+/* Toolbar responsive */
+:deep(.p-toolbar) {
+    background: var(--surface-50);
+    border: 1px solid var(--surface-200);
+    border-radius: 8px;
+    padding: 0.75rem 1.25rem;
+}
+
+@media screen and (max-width: 767px) {
+    :deep(.toolbar-responsive.p-toolbar) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        padding: 1rem;
+    }
+    :deep(.toolbar-responsive .p-toolbar-start),
+    :deep(.toolbar-responsive .p-toolbar-end) {
+        width: 100%;
+        justify-content: center;
+    }
+    :deep(.toolbar-responsive .p-toolbar-end .p-iconfield) {
+        width: 100%;
+    }
+    :deep(.toolbar-responsive .p-toolbar-end .p-iconfield input) {
+        width: 100%;
+    }
+}
+
 .permissions-table {
     :deep(.p-datatable-header) { background: transparent; border: none; }
 }
+
+/* Badges */
 .id-badge {
     background: var(--surface-100);
     color: var(--text-color);
@@ -257,17 +395,42 @@ onMounted(() => {
     border-radius: 20px;
     font-weight: 600;
     font-size: 0.85rem;
+    white-space: nowrap;
 }
+
+.code-badge {
+    background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+    color: var(--primary-color);
+    border: 1px solid color-mix(in srgb, var(--primary-color) 25%, transparent);
+    font-family: monospace;
+    letter-spacing: 0.04em;
+}
+
+.dest-badge {
+    background: color-mix(in srgb, var(--green-500) 12%, transparent);
+    color: var(--green-700);
+    border: 1px solid color-mix(in srgb, var(--green-500) 25%, transparent);
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
 .action-buttons {
     display: flex;
     gap: 0.5rem;
 }
-.empty-state {
+
+/* Empty / Loading */
+.empty-state,
+.loading-state {
     text-align: center;
     padding: 3rem 1rem;
     color: var(--text-color-secondary);
     p { margin-top: 1rem; font-size: 1.1rem; }
 }
+
 .confirmation-content {
     display: flex;
     align-items: center;
@@ -275,10 +438,117 @@ onMounted(() => {
     padding: 1rem;
     span { line-height: 1.6; }
 }
-.field { margin-bottom: 1.5rem; label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-color); } }
-.perm-url { color: var(--text-color-secondary); font-size: 0.95em; }
 
-/* Clases para el grid a 2 columnas del formulario */
+/* Cards mobile */
+.perm-card {
+    background: var(--surface-card);
+    border-radius: 12px;
+    border: 1px solid var(--surface-200);
+    overflow: hidden;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+
+.perm-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 1rem;
+    border-bottom: 1px solid var(--surface-200);
+    gap: 0.5rem;
+    background: color-mix(in srgb, var(--primary-color) 4%, var(--surface-card));
+}
+
+.perm-card-title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
+}
+
+.perm-card-icon-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.perm-card-icon {
+    color: var(--primary-color);
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.perm-card-label-text {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text-color);
+    word-break: break-word;
+}
+
+.perm-card-category {
+    font-size: 0.78rem;
+    color: var(--text-color-secondary);
+    font-style: italic;
+    padding-left: 1.5rem; /* alinea con el texto después del ícono */
+}
+
+.perm-card-body {
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.perm-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.88rem;
+
+    &--col {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+}
+
+.perm-card-field-label {
+    font-weight: 600;
+    color: var(--text-color-secondary);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+
+.perm-card-value {
+    color: var(--text-color);
+    font-size: 0.9rem;
+    text-align: right;
+    word-break: break-all;
+}
+
+.perm-url {
+    color: var(--text-color-secondary);
+    font-size: 0.82rem;
+    font-family: monospace;
+    word-break: break-all;
+}
+
+.perm-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--surface-200);
+    background: var(--surface-50);
+}
+
+/* Form grid */
+.field {
+    margin-bottom: 1.5rem;
+    label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-color); }
+}
 .formgrid {
     display: flex;
     flex-wrap: wrap;
@@ -292,17 +562,9 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
 }
-.formgrid .field input {
-    width: 100%;
-}
-.col-12 {
-    flex: 0 0 auto;
-    width: 100%;
-}
+.formgrid .field input { width: 100%; }
+.col-12 { flex: 0 0 auto; width: 100%; }
 @media (min-width: 768px) {
-    .md\:col-6 {
-        flex: 0 0 auto;
-        width: 50%;
-    }
+    .md\:col-6 { flex: 0 0 auto; width: 50%; }
 }
 </style>

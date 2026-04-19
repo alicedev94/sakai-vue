@@ -52,17 +52,21 @@ apiClient.interceptors.response.use(
 
         // Backend caído (sin respuesta)
         if (!error.response) {
-            console.error('❌ Backend no disponible:', error.message);
-            try {
-                const authStore = useAuthStore();
-                if (authStore.token && typeof window !== 'undefined') {
-                    console.warn('⚠️ Backend no responde. Limpiando sesión...');
-                    authStore.logout();
-                    if (!window.location.pathname.includes('/auth/login')) {
-                        window.location.href = '/auth/login?error=backend_unavailable';
+            console.error('❌ Backend no disponible o timeout:', error.message);
+            
+            // 🔥 EVITAMOS cerrar sesión si es un simple Timeout de una consulta pesada
+            if (error.code !== 'ECONNABORTED') {
+                try {
+                    const authStore = useAuthStore();
+                    if (authStore.token && typeof window !== 'undefined') {
+                        console.warn('⚠️ Backend no responde. Limpiando sesión...');
+                        authStore.logout();
+                        if (!window.location.pathname.includes('/auth/login')) {
+                            window.location.href = '/auth/login?error=backend_unavailable';
+                        }
                     }
-                }
-            } catch { /* store no disponible */ }
+                } catch { /* store no disponible */ }
+            }
             return Promise.reject(error);
         }
 

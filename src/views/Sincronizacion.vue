@@ -18,6 +18,10 @@ const submitted = ref(false);
 const selectedItem = ref({});
 const searchQuery = ref('');
 
+// ─── Paginado móvil ──────────────────────────────────────────────────────────
+const mobileCurrentPage = ref(0);
+const mobileRowsPerPage = 6;
+
 // ─── Departamentos ────────────────────────────────────────────────────────────
 const departamentos = ref([]);
 const isDepartamentosLoading = ref(false);
@@ -70,6 +74,19 @@ const configuracionesFiltradas = computed(() => {
     const q = searchQuery.value.toLowerCase();
     return store.configuraciones.filter((c) => c.departamento?.toLowerCase().includes(q));
 });
+
+const mobilePagedConfiguraciones = computed(() => {
+    const start = mobileCurrentPage.value * mobileRowsPerPage;
+    return configuracionesFiltradas.value.slice(start, start + mobileRowsPerPage);
+});
+
+const mobileTotalPages = computed(() =>
+    Math.ceil(configuracionesFiltradas.value.length / mobileRowsPerPage)
+);
+
+function resetMobilePage() {
+    mobileCurrentPage.value = 0;
+}
 
 const isEditing = computed(() => !!selectedItem.value.id);
 
@@ -302,18 +319,18 @@ onMounted(() => {
             <div class="card-header">
                 <div>
                     <h2 class="title">
-                        <i class="pi pi-sync sinc-icon" />
+                        <!-- <i class="pi pi-sync sinc-icon" /> -->
                         Panel de Automatización
                     </h2>
                     <p class="subtitle">Gestión de la sincronización de departamentos</p>
                 </div>
-                <Button
+                <!-- <Button
                     id="btn-nueva-configuracion"
                     label="Nueva Configuración"
                     icon="pi pi-plus"
-                    class="p-button-success"
+                    class="p-button-success hidden md:flex"
                     @click="abrirNuevo"
-                />
+                /> -->
             </div>
 
             <!-- ── Stats banner ────────────────────────────────────────────── -->
@@ -335,34 +352,47 @@ onMounted(() => {
             </div>
 
             <!-- ── Toolbar de búsqueda ─────────────────────────────────────── -->
-            <Toolbar class="mb-5">
+            <Toolbar class="mb-5 toolbar-responsive">
                 <template #start>
-                    <Button
-                        id="btn-refrescar"
-                        icon="pi pi-refresh"
-                        severity="secondary"
-                        outlined
-                        v-tooltip.top="'Actualizar'"
-                        :loading="store.isLoading"
-                        @click="cargarDatos"
-                    />
+                    <div class="hidden md:flex gap-2">
+                        <Button
+                            id="btn-refrescar"
+                            icon="pi pi-refresh"
+                            severity="secondary"
+                            outlined
+                            v-tooltip.top="'Actualizar'"
+                            :loading="store.isLoading"
+                            @click="cargarDatos"
+                        />
+                    </div>
+                    <div class="block md:hidden w-full">
+                        <Button
+                            label="Nueva Configuración"
+                            icon="pi pi-plus"
+                            class="p-button-success w-full"
+                            @click="abrirNuevo"
+                        />
+                    </div>
                 </template>
                 <template #end>
-                    <IconField>
-                        <InputIcon>
-                            <i class="pi pi-search" />
-                        </InputIcon>
-                        <InputText
-                            id="sinc-search"
-                            v-model="searchQuery"
-                            placeholder="Buscar departamento..."
-                            style="width: clamp(200px, 28vw, 380px)"
-                        />
-                    </IconField>
+                    <div class="toolbar-end w-full md:w-auto">
+                        <IconField class="w-full md:w-auto">
+                            <InputIcon>
+                                <i class="pi pi-search" />
+                            </InputIcon>
+                            <InputText
+                                id="sinc-search"
+                                v-model="searchQuery"
+                                placeholder="Buscar departamento..."
+                                class="w-full"
+                                @input="resetMobilePage"
+                            />
+                        </IconField>
+                    </div>
                 </template>
             </Toolbar>
 
-            <!-- ── Tabla principal ─────────────────────────────────────────── -->
+            <!-- ── Tabla principal (Desktop) ─────────────────────────────────── -->
             <DataTable
                 :value="configuracionesFiltradas"
                 :loading="store.isLoading"
@@ -374,7 +404,7 @@ onMounted(() => {
                 currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} configuraciones"
                 responsiveLayout="scroll"
                 stripedRows
-                class="sinc-table"
+                class="sinc-table hidden md:block"
                 v-model:filters="filters"
             >
                 <!-- Empty state -->
@@ -515,6 +545,97 @@ onMounted(() => {
                     </template>
                 </Column>
             </DataTable>
+
+            <!-- ── Vista Cards (Mobile) ────────────────────────────────────── -->
+            <div class="block md:hidden">
+                <div class="mobile-actions">
+                    <Button
+                        icon="pi pi-refresh"
+                        severity="secondary"
+                        outlined
+                        size="small"
+                        :loading="store.isLoading"
+                        @click="cargarDatos"
+                        label="Actualizar"
+                    />
+                </div>
+
+                <div v-if="store.isLoading && configuracionesFiltradas.length === 0" class="loading-state">
+                    <i class="pi pi-spin pi-spinner" style="font-size: 2rem; color: var(--primary-color)" />
+                    <p>Cargando configuraciones...</p>
+                </div>
+                <div v-else-if="!store.isLoading && configuracionesFiltradas.length === 0" class="empty-state">
+                    <i class="pi pi-inbox" style="font-size: 3rem; color: var(--text-color-secondary)" />
+                    <p>No hay configuraciones</p>
+                </div>
+                <div v-else class="flex flex-col gap-4 mt-4 relative">
+                    <div v-if="store.isLoading" class="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-black/60 backdrop-blur-sm rounded-xl">
+                        <i class="pi pi-spin pi-spinner" style="font-size: 3rem; color: var(--primary-color)" />
+                    </div>
+
+                    <div v-for="data in mobilePagedConfiguraciones" :key="data.id" class="sinc-card">
+                        <div class="sinc-card-header">
+                            <div class="sinc-card-header-left">
+                                <span class="font-semibold text-primary">{{ data.departamento }}</span>
+                                <span class="id-badge">#{{ data.id }}</span>
+                            </div>
+                            <div class="toggle-cell">
+                                <ToggleSwitch
+                                    :modelValue="data.esActivo"
+                                    @update:modelValue="() => toggleActivo(data)"
+                                    :disabled="store.isLoading"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="sinc-card-body">
+                            <div class="sinc-card-row">
+                                <span class="sinc-label">Tipo Docto</span>
+                                <span class="sinc-value">{{ data.tipoDocumento?.nombre || '-' }}</span>
+                            </div>
+                            <div class="sinc-card-row">
+                                <span class="sinc-label">Intervalo</span>
+                                <div class="interval-cell">
+                                    <i class="pi pi-clock interval-icon" />
+                                    <span>{{ data.intervaloMinutos }} min</span>
+                                </div>
+                            </div>
+                            <div class="sinc-card-row">
+                                <span class="sinc-label">Prioridad</span>
+                                <span :class="['prioridad-badge', `prioridad-${data.prioridad?.toLowerCase()}`]">
+                                    <i :class="prioridadIcono(data.prioridad)" />
+                                    {{ data.prioridad }}
+                                </span>
+                            </div>
+                            <div class="sinc-card-row">
+                                <span class="sinc-label">Ejecución</span>
+                                <span :class="['ejecucion-badge', data.enEjecucion ? 'running' : 'idle']">
+                                    <i :class="data.enEjecucion ? 'pi pi-spin pi-spinner' : 'pi pi-pause-circle'" />
+                                    {{ data.enEjecucion ? 'Corriendo' : 'En espera' }}
+                                </span>
+                            </div>
+                            <div class="sinc-card-row">
+                                <span class="sinc-label">Última Ejec.</span>
+                                <span class="preorden-value">{{ formatFecha(data.ultimaEjecucion) }}</span>
+                            </div>
+                        </div>
+
+                        <div class="sinc-card-footer">
+                            <Button icon="pi pi-pencil" outlined rounded severity="info" size="small" @click="editarItem(data)" />
+                            <Button icon="pi pi-trash" outlined rounded severity="danger" size="small" @click="confirmarEliminar(data)" />
+                        </div>
+                    </div>
+
+                    <!-- Paginador móvil -->
+                    <div v-if="mobileTotalPages > 1" class="flex justify-center items-center gap-3 mt-2">
+                        <Button icon="pi pi-chevron-left" outlined rounded size="small" :disabled="mobileCurrentPage === 0" @click="mobileCurrentPage--" />
+                        <span class="text-sm" style="color: var(--text-color-secondary)">
+                            Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }}
+                        </span>
+                        <Button icon="pi pi-chevron-right" outlined rounded size="small" :disabled="mobileCurrentPage >= mobileTotalPages - 1" @click="mobileCurrentPage++" />
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- ── Dialog Crear / Editar ───────────────────────────────────────── -->
@@ -744,6 +865,66 @@ onMounted(() => {
     margin-bottom: 1.5rem;
     gap: 1rem;
     flex-wrap: wrap;
+}
+
+@media screen and (max-width: 768px) {
+    .card-header {
+        justify-content: center;
+    }
+    .card-header > div {
+        text-align: center;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .title {
+        justify-content: center;
+        gap: 0.35rem;
+    }
+    .subtitle {
+        margin: 0.3rem 0 0 0;
+    }
+
+    .stats-banner {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        width: 100% !important;
+        padding: 1.2rem;
+        margin: 0 auto 1.5rem;
+        gap: 1.5rem 1rem;
+        justify-content: center;
+    }
+
+    .stat-item {
+        width: 100%;
+    }
+
+    .stat-divider {
+        display: none;
+    }
+
+    .stat-value {
+        font-size: 1.4rem;
+    }
+
+    .stat-label {
+        font-size: 0.7rem;
+        text-align: center;
+    }
+
+    /* Toolbar responsive */
+    :deep(.toolbar-responsive.p-toolbar) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        padding: 1rem;
+    }
+    :deep(.toolbar-responsive .p-toolbar-start),
+    :deep(.toolbar-responsive .p-toolbar-end) {
+        width: 100%;
+        justify-content: center;
+    }
 }
 
 .title {
@@ -1106,6 +1287,82 @@ onMounted(() => {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+}
+.ml-2 { margin-left: 0.5rem; }
+.text-primary { color: var(--primary-color); }
+
+/* Mobile actions bar */
+.mobile-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+/* Sinc Card mobile */
+.sinc-card {
+    background: var(--surface-card);
+    border-radius: 12px;
+    border: 1px solid var(--surface-200);
+    overflow: hidden;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+
+.sinc-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--surface-200);
+    background: color-mix(in srgb, var(--primary-color) 4%, var(--surface-card));
+    gap: 0.5rem;
+}
+
+.sinc-card-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.sinc-card-body {
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.sinc-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.88rem;
+    gap: 0.5rem;
+}
+
+.sinc-label {
+    font-weight: 600;
+    color: var(--text-color-secondary);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+
+.sinc-value {
+    color: var(--text-color);
+    font-size: 0.88rem;
+    text-align: right;
+    word-break: break-word;
+}
+
+.sinc-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0.65rem 1rem;
+    border-top: 1px solid var(--surface-200);
+    background: var(--surface-50);
 }
 </style>
 

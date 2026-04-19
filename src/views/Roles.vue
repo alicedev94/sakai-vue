@@ -14,11 +14,26 @@ const submitted = ref(false);
 const selectedRoles = ref([]);
 const searchQuery = ref('');
 
+// Paginado móvil
+const mobileCurrentPage = ref(0);
+const mobileRowsPerPage = 8;
+
 const activeRoles = computed(() => {
     return roleStore.roles.filter(r => !r.deletedAt && r.status !== false &&
         (!searchQuery.value || r.name?.toLowerCase().includes(searchQuery.value.toLowerCase()) || r.code?.toLowerCase().includes(searchQuery.value.toLowerCase()))
     );
 });
+
+const mobilePagedRoles = computed(() => {
+    const start = mobileCurrentPage.value * mobileRowsPerPage;
+    return activeRoles.value.slice(start, start + mobileRowsPerPage);
+});
+
+const mobileTotalPages = computed(() => Math.ceil(activeRoles.value.length / mobileRowsPerPage));
+
+function resetMobilePage() {
+    mobileCurrentPage.value = 0;
+}
 
 const loadRoles = async () => {
     try {
@@ -109,25 +124,60 @@ onMounted(() => {
 <template>
     <div class="roles-container">
         <div class="card">
+            <!-- Header -->
             <div class="card-header">
                 <div>
                     <h2 class="title">Gestión de Roles</h2>
                     <p class="subtitle">Administra los roles y permisos del sistema</p>
                 </div>
-                <Button label="Nuevo Rol" icon="pi pi-plus" class="p-button-success" @click="openNew" />
+                <!-- Botón solo visible en desktop -->
+                <div class="hidden md:block">
+                    <Button label="Nuevo Rol" icon="pi pi-plus" class="p-button-success" @click="openNew" />
+                </div>
             </div>
-            <Toolbar class="mb-6">
+
+            <!-- Toolbar -->
+            <Toolbar class="mb-6 toolbar-responsive">
+                <template #start>
+                    <!-- Mobile: botón Nuevo Rol centrado -->
+                    <div class="block md:hidden w-full">
+                        <Button label="Nuevo Rol" icon="pi pi-plus" class="w-full" @click="openNew" />
+                    </div>
+                </template>
                 <template #end>
-                    <InputText v-model="searchQuery" placeholder="Buscar por nombre o código..." style="width: clamp(200px, 30vw, 400px);" />
+                    <IconField class="w-full md:w-auto">
+                        <InputIcon><i class="pi pi-search" /></InputIcon>
+                        <InputText
+                            v-model="searchQuery"
+                            placeholder="Buscar por nombre o código..."
+                            class="w-full"
+                            style="min-width: 0;"
+                            @input="resetMobilePage"
+                        />
+                    </IconField>
                 </template>
             </Toolbar>
-            <DataTable :value="activeRoles" :loading="roleStore.loading" dataKey="id" :paginator="true" :rows="10" :rowsPerPageOptions="[5, 10, 25, 50]" responsiveLayout="scroll" class="roles-table">
+
+            <!-- Tabla (Desktop) -->
+            <DataTable
+                class="hidden md:block roles-table"
+                :value="activeRoles"
+                :loading="roleStore.loading"
+                dataKey="id"
+                :paginator="true"
+                :rows="10"
+                :rowsPerPageOptions="[5, 10, 25, 50]"
+                paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+                currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} roles"
+                responsiveLayout="scroll"
+            >
                 <template #empty>
                     <div class="empty-state">
                         <i class="pi pi-id-card" style="font-size: 3rem; color: var(--text-color-secondary)"></i>
                         <p>No hay roles disponibles</p>
                     </div>
                 </template>
+
                 <Column field="id" header="ID" :sortable="true" style="min-width: 4rem">
                     <template #body="{ data }">
                         <span class="id-badge">{{ data.id }}</span>
@@ -140,12 +190,12 @@ onMounted(() => {
                 </Column>
                 <Column field="code" header="Código" :sortable="true" style="min-width: 8rem">
                     <template #body="{ data }">
-                        <span>{{ data.code }}</span>
+                        <span class="id-badge code-badge">{{ data.code }}</span>
                     </template>
                 </Column>
                 <Column field="permissions" header="Permisos" style="min-width: 16rem">
                     <template #body="{ data }">
-                        <ul v-if="data.permissions && data.permissions.length">
+                        <ul v-if="data.permissions && data.permissions.length" class="perms-list">
                             <li v-for="perm in data.permissions" :key="perm.id || perm.code">
                                 <span class="perm-name">{{ perm.name }}</span>
                                 <span class="perm-code">({{ perm.code }})</span>
@@ -164,7 +214,63 @@ onMounted(() => {
                     </template>
                 </Column>
             </DataTable>
+
+            <!-- Vista Cards (Mobile) -->
+            <div class="block md:hidden">
+                <div v-if="roleStore.loading && activeRoles.length === 0" class="loading-state flex flex-col items-center p-5 card mt-4">
+                    <i class="pi pi-spin pi-spinner text-primary mb-3" style="font-size: 2rem" />
+                    <p class="text-secondary m-0">Cargando roles...</p>
+                </div>
+                <div v-else-if="!roleStore.loading && activeRoles.length === 0" class="empty-state flex flex-col items-center p-5 card mt-4">
+                    <i class="pi pi-id-card mb-3" style="font-size: 3rem; color: var(--text-color-secondary)" />
+                    <p class="text-secondary m-0">No hay roles disponibles</p>
+                </div>
+                <div v-else class="flex flex-col gap-4 mt-4 relative">
+                    <div v-if="roleStore.loading" class="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-black/60 backdrop-blur-sm rounded-xl">
+                        <i class="pi pi-spin pi-spinner text-primary" style="font-size: 3rem" />
+                    </div>
+
+                    <div v-for="data in mobilePagedRoles" :key="data.id" class="role-card">
+                        <!-- Cabecera -->
+                        <div class="role-card-header">
+                            <div class="role-card-title-wrap">
+                                <span class="role-card-name">{{ data.name }}</span>
+                                <span class="id-badge code-badge mt-1">{{ data.code }}</span>
+                            </div>
+                            <span class="id-badge">{{ data.id }}</span>
+                        </div>
+
+                        <!-- Permisos -->
+                        <div class="role-card-body">
+                            <span class="role-card-label">Permisos</span>
+                            <div v-if="data.permissions && data.permissions.length" class="perms-chips">
+                                <span v-for="perm in data.permissions" :key="perm.id" class="perm-chip">
+                                    {{ perm.name }}
+                                </span>
+                            </div>
+                            <span v-else class="role-card-empty">Sin permisos asignados</span>
+                        </div>
+
+                        <!-- Acciones -->
+                        <div class="role-card-footer">
+                            <Button icon="pi pi-pencil" outlined rounded severity="info" v-tooltip.top="'Editar'" @click="editRole(data)" />
+                            <Button icon="pi pi-trash" outlined rounded severity="danger" v-tooltip.top="'Eliminar'" @click="confirmDeleteRole(data)" />
+                        </div>
+                    </div>
+
+                    <!-- Paginador móvil -->
+                    <div v-if="mobileTotalPages > 1" class="flex justify-center items-center gap-3 mt-2">
+                        <Button icon="pi pi-chevron-left" outlined rounded size="small" :disabled="mobileCurrentPage === 0" @click="mobileCurrentPage--" />
+                        <span class="text-sm" style="color: var(--text-color-secondary)">
+                            Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }}
+                        </span>
+                        <Button icon="pi pi-chevron-right" outlined rounded size="small" :disabled="mobileCurrentPage >= mobileTotalPages - 1" @click="mobileCurrentPage++" />
+                    </div>
+                </div>
+            </div>
         </div>
+
+        <!-- Dialog: Crear/Editar Rol -->
         <Dialog v-model:visible="roleDialog" :style="{ width: '650px' }" :breakpoints="{ '1199px': '75vw', '575px': '90vw' }" header="Información del Rol" :modal="true" class="p-fluid">
             <div class="formgrid grid">
                 <div class="field col-12 md:col-6">
@@ -206,6 +312,8 @@ onMounted(() => {
                 <Button label="Guardar" icon="pi pi-check" @click="saveRole" :disabled="isSaveDisabled" />
             </template>
         </Dialog>
+
+        <!-- Dialog: Confirmar eliminación -->
         <Dialog v-model:visible="deleteRoleDialog" :style="{ width: '450px' }" header="Confirmar" :modal="true">
             <div class="confirmation-content">
                 <i class="pi pi-exclamation-triangle mr-3" style="font-size: 2rem; color: var(--red-500)" />
@@ -224,12 +332,14 @@ onMounted(() => {
     padding: 1rem;
     @media (min-width: 768px) { padding: 1.5rem; }
 }
+
 .card {
     background: var(--surface-card);
     border-radius: 12px;
     padding: 2rem;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
+
 .card-header {
     display: flex;
     justify-content: space-between;
@@ -238,20 +348,53 @@ onMounted(() => {
     gap: 1rem;
     flex-wrap: wrap;
 }
+
 .title {
     font-size: 1.75rem;
     font-weight: 700;
     margin: 0;
     color: var(--text-color);
 }
+
 .subtitle {
     font-size: 0.95rem;
     color: var(--text-color-secondary);
     margin: 0.25rem 0 0 0;
 }
+
+/* Toolbar responsive */
+:deep(.p-toolbar) {
+    background: var(--surface-50);
+    border: 1px solid var(--surface-200);
+    border-radius: 8px;
+    padding: 0.75rem 1.25rem;
+}
+
+@media screen and (max-width: 767px) {
+    :deep(.toolbar-responsive.p-toolbar) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        padding: 1rem;
+    }
+    :deep(.toolbar-responsive .p-toolbar-start),
+    :deep(.toolbar-responsive .p-toolbar-end) {
+        width: 100%;
+        justify-content: center;
+    }
+    :deep(.toolbar-responsive .p-toolbar-end .p-iconfield) {
+        width: 100%;
+    }
+    :deep(.toolbar-responsive .p-toolbar-end .p-iconfield input) {
+        width: 100%;
+    }
+}
+
 .roles-table {
     :deep(.p-datatable-header) { background: transparent; border: none; }
 }
+
+/* Badges */
 .id-badge {
     background: var(--surface-100);
     color: var(--text-color);
@@ -260,16 +403,43 @@ onMounted(() => {
     font-weight: 600;
     font-size: 0.85rem;
 }
+
+.code-badge {
+    background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+    color: var(--primary-color);
+    border: 1px solid color-mix(in srgb, var(--primary-color) 25%, transparent);
+    font-family: monospace;
+    letter-spacing: 0.04em;
+}
+
 .action-buttons {
     display: flex;
     gap: 0.5rem;
 }
-.empty-state {
+
+/* Permisos en tabla */
+.perms-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.perm-name { font-weight: 500; }
+.perm-code { color: var(--primary-color); margin-left: 0.4rem; font-size: 0.88em; }
+.perm-url  { color: var(--text-color-secondary); margin-left: 0.4rem; font-size: 0.88em; }
+
+/* Empty / Loading */
+.empty-state,
+.loading-state {
     text-align: center;
     padding: 3rem 1rem;
     color: var(--text-color-secondary);
     p { margin-top: 1rem; font-size: 1.1rem; }
 }
+
 .confirmation-content {
     display: flex;
     align-items: center;
@@ -277,14 +447,90 @@ onMounted(() => {
     padding: 1rem;
     span { line-height: 1.6; }
 }
-.field { margin-bottom: 1.5rem; label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-color); } }
-.perm-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; }
-.perm-input { width: 120px; }
-.perm-name { font-weight: 500; }
-.perm-code { color: var(--primary-color); margin-left: 0.5rem; }
-.perm-url { color: var(--text-color-secondary); margin-left: 0.5rem; font-size: 0.95em; }
 
-/* Clases para el grid a 2 columnas del formulario */
+/* Cards mobile */
+.role-card {
+    background: var(--surface-card);
+    border-radius: 12px;
+    border: 1px solid var(--surface-200);
+    overflow: hidden;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+}
+
+.role-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 1rem;
+    border-bottom: 1px solid var(--surface-200);
+    gap: 0.5rem;
+}
+
+.role-card-title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.role-card-name {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text-color);
+    word-break: break-word;
+}
+
+.role-card-body {
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.role-card-label {
+    font-weight: 600;
+    color: var(--text-color-secondary);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.role-card-empty {
+    font-size: 0.88rem;
+    color: var(--text-color-secondary);
+    font-style: italic;
+}
+
+.perms-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.perm-chip {
+    background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+    color: var(--primary-color);
+    border: 1px solid color-mix(in srgb, var(--primary-color) 25%, transparent);
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.role-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--surface-200);
+    background: var(--surface-50);
+}
+
+/* Form grid */
+.field {
+    margin-bottom: 1.5rem;
+    label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-color); }
+}
 .formgrid {
     display: flex;
     flex-wrap: wrap;
@@ -298,17 +544,9 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
 }
-.formgrid .field input {
-    width: 100%;
-}
-.col-12 {
-    flex: 0 0 auto;
-    width: 100%;
-}
+.formgrid .field input { width: 100%; }
+.col-12 { flex: 0 0 auto; width: 100%; }
 @media (min-width: 768px) {
-    .md\:col-6 {
-        flex: 0 0 auto;
-        width: 50%;
-    }
+    .md\:col-6 { flex: 0 0 auto; width: 50%; }
 }
 </style>

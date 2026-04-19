@@ -28,13 +28,14 @@ const filters = ref({
 
 const searchQuery = ref('');
 
+// Paginado móvil
+const mobileCurrentPage = ref(0);
+const mobileRowsPerPage = 8;
+
 // Usuarios filtrados (excluye los eliminados lógicamente)
 const activeUsers = computed(() => {
     return userStore.users.filter(user => {
-        // Filtra por usuarios activos (no eliminados)
         const isActive = user.status !== false && !user.deletedAt;
-
-        // Si hay búsqueda, filtra también por nombre o email
         if (searchQuery.value) {
             const search = searchQuery.value.toLowerCase();
             const matchesSearch =
@@ -42,10 +43,20 @@ const activeUsers = computed(() => {
                 (user.email?.toLowerCase().includes(search));
             return isActive && matchesSearch;
         }
-
         return isActive;
     });
 });
+
+const mobilePagedUsers = computed(() => {
+    const start = mobileCurrentPage.value * mobileRowsPerPage;
+    return activeUsers.value.slice(start, start + mobileRowsPerPage);
+});
+
+const mobileTotalPages = computed(() => Math.ceil(activeUsers.value.length / mobileRowsPerPage));
+
+function resetMobilePage() {
+    mobileCurrentPage.value = 0;
+}
 
 // Cargar usuarios
 const loadUsers = async () => {
@@ -323,36 +334,53 @@ onMounted(() => {
                     <h2 class="title">Gestión de Usuarios</h2>
                     <p class="subtitle">Administra los usuarios del sistema</p>
                 </div>
-                <Button label="Nuevo Usuario" icon="pi pi-plus" class="p-button-success" @click="openNew" />
+                <div class="hidden md:block">
+                    <Button label="Nuevo Usuario" icon="pi pi-plus" class="p-button-success" @click="openNew" />
+                </div>
             </div>
 
             <!-- Toolbar de búsqueda y acciones -->
-            <Toolbar class="mb-6">
+            <Toolbar class="mb-6 toolbar-responsive">
                 <template #start>
-                    <Button
-                        label="Eliminar"
-                        icon="pi pi-trash"
-                        severity="danger"
-                        @click="confirmDeleteSelected"
-                        :disabled="!selectedUsers || !selectedUsers.length"
-                    />
+                    <!-- Desktop: solo botón eliminar -->
+                    <div class="hidden md:block">
+                        <Button
+                            label="Eliminar"
+                            icon="pi pi-trash"
+                            severity="danger"
+                            @click="confirmDeleteSelected"
+                            :disabled="!selectedUsers || !selectedUsers.length"
+                        />
+                    </div>
+                    <!-- Mobile: botón Nuevo Usuario -->
+                    <div class="block md:hidden w-full">
+                        <Button
+                            label="Nuevo Usuario"
+                            icon="pi pi-plus"
+                            class="w-full"
+                            @click="openNew"
+                        />
+                    </div>
                 </template>
                 <template #end>
-                    <IconField>
+                    <IconField class="w-full md:w-auto">
                         <InputIcon>
                             <i class="pi pi-search" />
                         </InputIcon>
                         <InputText
                             v-model="searchQuery"
                             placeholder="Buscar por nombre o email..."
-                            style="width: clamp(200px, 30vw, 400px);"
+                            class="w-full"
+                            style="min-width: 0;"
+                            @input="resetMobilePage"
                         />
                     </IconField>
                 </template>
             </Toolbar>
 
-            <!-- Tabla de usuarios -->
+            <!-- Tabla de usuarios (Desktop) -->
             <DataTable
+                class="hidden md:block users-table"
                 v-model:selection="selectedUsers"
                 :value="activeUsers"
                 :loading="userStore.loading || loading"
@@ -363,7 +391,6 @@ onMounted(() => {
                 paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                 currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} usuarios"
                 responsiveLayout="scroll"
-                class="users-table"
             >
                 <template #empty>
                     <div class="empty-state">
@@ -438,6 +465,103 @@ onMounted(() => {
                     </template>
                 </Column>
             </DataTable>
+
+            <!-- Vista Cards (Mobile) -->
+            <div class="block md:hidden">
+                <div v-if="(userStore.loading || loading) && activeUsers.length === 0" class="loading-state flex flex-col items-center p-5 card mt-4">
+                    <i class="pi pi-spin pi-spinner text-primary mb-3" style="font-size: 2rem" />
+                    <p class="text-secondary m-0">Cargando usuarios...</p>
+                </div>
+                <div v-else-if="!(userStore.loading || loading) && activeUsers.length === 0" class="empty-state flex flex-col items-center p-5 card mt-4">
+                    <i class="pi pi-users mb-3" style="font-size: 3rem; color: var(--text-color-secondary)" />
+                    <p class="text-secondary m-0">No hay usuarios disponibles</p>
+                </div>
+                <div v-else class="flex flex-col gap-4 mt-4 relative">
+                    <div v-if="userStore.loading || loading" class="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-black/60 backdrop-blur-sm rounded-xl">
+                        <i class="pi pi-spin pi-spinner text-primary" style="font-size: 3rem" />
+                    </div>
+
+                    <div v-for="data in mobilePagedUsers" :key="data.id" class="user-card">
+                        <!-- Cabecera de la card -->
+                        <div class="user-card-header">
+                            <div class="user-card-avatar-info">
+                                <Avatar
+                                    :label="data.username?.charAt(0).toUpperCase()"
+                                    shape="circle"
+                                    class="user-card-avatar"
+                                />
+                                <div>
+                                    <span class="user-card-name">{{ data.username }}</span>
+                                    <span class="user-card-email">{{ data.email }}</span>
+                                </div>
+                            </div>
+                            <Tag
+                                :value="data.status?.name"
+                                :severity="data.status?.name === 'Activo' ? 'success' : 'danger'"
+                            />
+                        </div>
+
+                        <!-- Datos adicionales -->
+                        <div class="user-card-body">
+                            <div class="user-card-row">
+                                <span class="user-card-label">ID:</span>
+                                <span class="id-badge">{{ data.id }}</span>
+                            </div>
+                            <div class="user-card-row">
+                                <span class="user-card-label">Rol:</span>
+                                <span class="user-card-value">{{ data.role?.name || '—' }}</span>
+                            </div>
+                            <div class="user-card-row">
+                                <span class="user-card-label">Registro:</span>
+                                <span class="user-card-value">{{ formatDate(data.createdAt) }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Acciones -->
+                        <div class="user-card-footer">
+                            <Button
+                                icon="pi pi-pencil"
+                                outlined
+                                rounded
+                                severity="info"
+                                v-tooltip.top="'Editar'"
+                                @click="editUser(data)"
+                            />
+                            <Button
+                                icon="pi pi-trash"
+                                outlined
+                                rounded
+                                severity="danger"
+                                v-tooltip.top="'Eliminar'"
+                                @click="confirmDeleteUser(data)"
+                            />
+                        </div>
+                    </div>
+
+                    <!-- Paginador móvil -->
+                    <div v-if="mobileTotalPages > 1" class="flex justify-center items-center gap-3 mt-2">
+                        <Button
+                            icon="pi pi-chevron-left"
+                            outlined
+                            rounded
+                            size="small"
+                            :disabled="mobileCurrentPage === 0"
+                            @click="mobileCurrentPage--"
+                        />
+                        <span class="text-sm" style="color: var(--text-color-secondary)">
+                            Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }}
+                        </span>
+                        <Button
+                            icon="pi pi-chevron-right"
+                            outlined
+                            rounded
+                            size="small"
+                            :disabled="mobileCurrentPage >= mobileTotalPages - 1"
+                            @click="mobileCurrentPage++"
+                        />
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Dialog para crear/editar usuario -->
@@ -598,6 +722,35 @@ onMounted(() => {
     }
 }
 
+/* Toolbar responsive */
+:deep(.p-toolbar) {
+    background: var(--surface-50);
+    border: 1px solid var(--surface-200);
+    border-radius: 8px;
+    padding: 0.75rem 1.25rem;
+}
+
+@media screen and (max-width: 767px) {
+    :deep(.toolbar-responsive.p-toolbar) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        padding: 1rem;
+    }
+    :deep(.toolbar-responsive .p-toolbar-start),
+    :deep(.toolbar-responsive .p-toolbar-end) {
+        width: 100%;
+        justify-content: center;
+    }
+    :deep(.toolbar-responsive .p-toolbar-start .p-button),
+    :deep(.toolbar-responsive .p-toolbar-end .p-iconfield) {
+        width: 100%;
+    }
+    :deep(.toolbar-responsive .p-toolbar-end .p-iconfield input) {
+        width: 100%;
+    }
+}
+
 .user-info {
     display: flex;
     align-items: center;
@@ -663,34 +816,102 @@ onMounted(() => {
     padding: 1rem 1.5rem;
 }
 
-/* Clases para el grid a 2 columnas del formulario */
-.formgrid {
-    display: flex;
-    flex-wrap: wrap;
-    margin-right: -0.5rem;
-    margin-left: -0.5rem;
-    margin-top: -0.5rem;
+/* Mobile cards */
+.user-card {
+    background: var(--surface-card);
+    border-radius: 12px;
+    border: 1px solid var(--surface-200);
+    overflow: hidden;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
 }
-.formgrid > .field {
-    padding: 0.5rem;
-    margin-bottom: 1rem;
+
+.user-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid var(--surface-200);
+    gap: 0.5rem;
+}
+
+.user-card-avatar-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.user-card-avatar {
+    background-color: var(--primary-color) !important;
+    color: white !important;
+    font-weight: 700;
+    flex-shrink: 0;
+    width: 2.4rem !important;
+    height: 2.4rem !important;
+}
+
+.user-card-name {
+    display: block;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+
+.user-card-email {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-color-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+
+.user-card-body {
     display: flex;
     flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.85rem 1rem;
 }
-.formgrid .field input,
-.formgrid .field .p-dropdown,
-.formgrid .field .p-password,
-:deep(.formgrid .field .p-password input) {
-    width: 100%;
+
+.user-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.88rem;
 }
-.col-12 {
-    flex: 0 0 auto;
-    width: 100%;
+
+.user-card-label {
+    font-weight: 600;
+    color: var(--text-color-secondary);
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
-@media (min-width: 768px) {
-    .md\:col-6 {
-        flex: 0 0 auto;
-        width: 50%;
-    }
+
+.user-card-value {
+    color: var(--text-color);
+    font-size: 0.9rem;
+}
+
+.user-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--surface-200);
+    background: var(--surface-50);
+}
+
+.loading-state,
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-color-secondary);
+    p { margin: 0.75rem 0; font-size: 1rem; }
 }
 </style>
