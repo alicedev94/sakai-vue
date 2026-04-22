@@ -3,11 +3,12 @@ import { preOrdenesService } from '@/service/PreOrdenesService';
 import { useAuthStore } from '@/stores/auth';
 import { usePreOrdenStore } from '@/stores/preOrden';
 import { FilterMatchMode } from '@primevue/core/api';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const toast = useToast();
 const confirm = useConfirm();
@@ -144,6 +145,146 @@ const departamentosList = ref([]);
 const productosList = ref([]);
 const nuevoProducto = ref({ producto: null, cantidad: 1 });
 
+// ── Barcode scan (texto / pistola) ───────────────────────────────────────────
+const codigoScan = ref('');
+const scanInputRef = ref(null);
+const scanLoading = ref(false);
+
+// ── Barcode scan (cámara) ─────────────────────────────────────────────────────
+const cameraActiva = ref(false);
+const cameraLoading = ref(false);
+const cameraError = ref(null);
+let html5Scanner = null;
+let decodeLock = false;
+
+const CAMARA_PREORDEN_ID = 'camara-preorden-host';
+
+const FORMATOS_BARRAS = [
+    Html5QrcodeSupportedFormats.EAN_13,
+    Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.UPC_A,
+    Html5QrcodeSupportedFormats.UPC_E,
+    Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.QR_CODE
+];
+
+function mensajeFalloCamara(err) {
+    if (typeof window !== 'undefined' && !window.isSecureContext) {
+        return 'La cámara no funciona con HTTP desde la IP de tu red. Usa HTTPS (npm run dev con --https o ngrok).';
+    }
+    const name = err?.name || '';
+    const msg = String(err?.message || err || '');
+    if (name === 'NotAllowedError' || /denied|Permission|permi/i.test(msg))
+        return 'Permiso de cámara denegado. Permite el acceso en el navegador.';
+    if (name === 'NotFoundError') return 'No se encontró ninguna cámara.';
+    if (name === 'NotReadableError' || name === 'TrackStartError')
+        return 'La cámara está en uso por otra app.';
+    if (name === 'OverconstrainedError')
+        return 'La cámara no admite el modo solicitado.';
+    if (name === 'SecurityError')
+        return 'El navegador bloqueó la cámara por seguridad. Usa HTTPS.';
+    if (name === 'AbortError') return 'Acceso a la cámara cancelado.';
+    return msg ? `No se pudo usar la cámara: ${msg}` : 'No se pudo usar la cámara.';
+}
+
+async function detenerCamara() {
+    cameraError.value = null;
+    if (!html5Scanner) {
+        cameraActiva.value = false;
+        cameraLoading.value = false;
+        return;
+    }
+    const scanner = html5Scanner;
+    html5Scanner = null;
+    try { await scanner.stop(); } catch { /* ya detenido */ }
+    try { scanner.clear(); } catch { /* */ }
+    cameraActiva.value = false;
+    cameraLoading.value = false;
+}
+
+async function iniciarCamara() {
+    if (!newPreOrden.value.departamento) return;
+    if (html5Scanner) await detenerCamara();
+    cameraError.value = null;
+
+    if (typeof window !== 'undefined' && !window.isSecureContext) {
+        cameraActiva.value = false;
+        cameraError.value = mensajeFalloCamara({});
+        toast.add({ severity: 'warn', summary: 'Cámara', detail: cameraError.value, life: 9000 });
+        return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+        cameraActiva.value = false;
+        cameraError.value = 'Tu navegador no permite acceder a la cámara desde esta página.';
+        toast.add({ severity: 'warn', summary: 'Cámara', detail: cameraError.value, life: 6000 });
+        return;
+    }
+
+    cameraLoading.value = true;
+    decodeLock = false;
+    cameraActiva.value = true;
+
+    try {
+        await nextTick();
+
+        const qrbox = (vw, vh) => {
+            const edge = Math.min(vw, vh);
+            const w = Math.floor(edge * 0.92);
+            return { width: w, height: Math.max(100, Math.floor(w * 0.42)) };
+        };
+
+        const configFull = { fps: 10, qrbox, formatsToSupport: [...FORMATOS_BARRAS] };
+        const configLite = { fps: 10, qrbox };
+
+        const onDecode = async (texto) => {
+            const codigo = texto?.trim();
+            if (!codigo || decodeLock || scanLoading.value) return;
+            decodeLock = true;
+            try {
+                await detenerCamara();
+                codigoScan.value = codigo;
+                await buscarProductoPorCodigo();
+            } finally {
+                setTimeout(() => { decodeLock = false; }, 600);
+            }
+        };
+
+        const attempts = [
+            [{ facingMode: 'environment' }, configFull],
+            [{ facingMode: 'user' }, configFull],
+            [{ facingMode: 'environment' }, configLite],
+            [{ facingMode: 'user' }, configLite],
+            [{}, configLite]
+        ];
+
+        let lastErr = null;
+        for (const [cam, cfg] of attempts) {
+            try {
+                if (html5Scanner) {
+                    try { await html5Scanner.stop(); } catch { /* */ }
+                    try { html5Scanner.clear(); } catch { /* */ }
+                    html5Scanner = null;
+                }
+                html5Scanner = new Html5Qrcode(CAMARA_PREORDEN_ID);
+                await html5Scanner.start(cam, cfg, onDecode, () => {});
+                lastErr = null;
+                break;
+            } catch (e) {
+                lastErr = e;
+                html5Scanner = null;
+            }
+        }
+        if (lastErr) throw lastErr;
+    } catch (e) {
+        await detenerCamara();
+        cameraError.value = mensajeFalloCamara(e);
+        toast.add({ severity: 'warn', summary: 'Cámara', detail: cameraError.value, life: 8000 });
+    } finally {
+        cameraLoading.value = false;
+    }
+}
+
 async function openCreateDialog() {
     newPreOrden.value = { 
         departamento: null, 
@@ -239,6 +380,63 @@ function removerProducto(index) {
     newPreOrden.value.items.splice(index, 1);
 }
 
+/** Busca el código escaneado en cualquiera de los 7 campos de barra */
+async function buscarProductoPorCodigo() {
+    const codigo = codigoScan.value?.trim();
+    if (!codigo) return;
+
+    scanLoading.value = true;
+    try {
+        // Asegurarse de que haya productos cargados
+        if (productosList.value.length === 0 && newPreOrden.value.departamento) {
+            await cargarProductos(newPreOrden.value.departamento);
+        }
+
+        const normalizar = (v) => (v ?? '').toString().trim();
+
+        const encontrado = productosList.value.find((p) =>
+            normalizar(p.barra1) === codigo ||
+            normalizar(p.barra2) === codigo ||
+            normalizar(p.barra3) === codigo ||
+            normalizar(p.barra4) === codigo ||
+            normalizar(p.barra5) === codigo ||
+            normalizar(p.barra6) === codigo ||
+            normalizar(p.barra7) === codigo ||
+            normalizar(p.codigoBarra) === codigo
+        );
+
+        if (!encontrado) {
+            toast.add({ severity: 'warn', summary: 'No encontrado', detail: `Código "${codigo}" no coincide con ningún producto del departamento seleccionado`, life: 4000 });
+            codigoScan.value = '';
+            return;
+        }
+
+        // Pre-seleccionar en el Select y agregar directamente con la cantidad actual
+        nuevoProducto.value.producto = encontrado;
+        codigoScan.value = '';
+
+        // Si la cantidad ya está definida, agregar directamente
+        agregarProducto();
+
+        toast.add({ severity: 'success', summary: 'Producto agregado', detail: encontrado.nombreProducto, life: 2000 });
+
+        await nextTick();
+        scanInputRef.value?.focus();
+    } finally {
+        scanLoading.value = false;
+    }
+}
+
+
+// Detener cámara al cerrar el dialog
+watch(createDialog, async (abierto) => {
+    if (!abierto) {
+        await detenerCamara();
+        codigoScan.value = '';
+    }
+});
+
+onUnmounted(detenerCamara);
 
 async function abrirEditar(orden) {
     skipItemsClear = true;
@@ -872,10 +1070,64 @@ const exportarPDF = () => {
                     <Divider align="left">
                         <b>Productos</b>
                     </Divider>
-                    
+
+                    <!-- Scan de código de barras -->
+                    <div class="scan-row mb-3">
+                        <label class="scan-label">
+                            <i class="pi pi-barcode" style="margin-right: 0.4rem;"></i>
+                            Escanear código de barras
+                        </label>
+                        <div class="scan-input-group">
+                            <IconField class="flex-grow-1">
+                                <InputIcon><i class="pi pi-qrcode" /></InputIcon>
+                                <InputText
+                                    ref="scanInputRef"
+                                    v-model="codigoScan"
+                                    placeholder="Escanea o escribe el código..."
+                                    class="w-full"
+                                    :disabled="!newPreOrden.departamento || scanLoading"
+                                    @keydown.enter.prevent="buscarProductoPorCodigo"
+                                />
+                            </IconField>
+                            <Button
+                                icon="pi pi-search"
+                                :loading="scanLoading"
+                                :disabled="!codigoScan || !newPreOrden.departamento"
+                                @click="buscarProductoPorCodigo"
+                                v-tooltip.top="'Buscar por código'"
+                            />
+                            <!-- Botón cámara -->
+                            <Button
+                                v-if="!cameraActiva"
+                                icon="pi pi-camera"
+                                :loading="cameraLoading"
+                                :disabled="!newPreOrden.departamento"
+                                @click="iniciarCamara"
+                                v-tooltip.top="'Escanear con cámara'"
+                                severity="secondary"
+                                outlined
+                            />
+                            <Button
+                                v-else
+                                icon="pi pi-stop"
+                                severity="danger"
+                                outlined
+                                @click="detenerCamara"
+                                v-tooltip.top="'Detener cámara'"
+                            />
+                        </div>
+                        <small class="scan-hint" v-if="!newPreOrden.departamento">Seleccione un departamento primero</small>
+                        <small class="scan-hint" v-else>Presione <kbd>Enter</kbd>, haga clic en buscar o use la <kbd>📷</kbd> cámara</small>
+
+                        <!-- Host del escáner de cámara -->
+                        <div v-show="cameraActiva || cameraLoading" :id="CAMARA_PREORDEN_ID" class="camara-host mt-2" />
+                        <p v-if="cameraError" class="camara-error"><i class="pi pi-exclamation-circle" /> {{ cameraError }}</p>
+                    </div>
+
+                    <!-- Selector manual -->
                     <div class="flex gap-2 mb-3" style="align-items: flex-end;">
                         <div style="flex-grow: 1;">
-                            <label>Producto</label>
+                            <label>Producto <small class="text-secondary">(selección manual)</small></label>
                             <Select
                                 v-model="nuevoProducto.producto"
                                 :options="productosList"
@@ -946,6 +1198,64 @@ const exportarPDF = () => {
 .ops-container {
     padding: 1rem;
     @media (min-width: 768px) { padding: 1.5rem; }
+}
+
+/* ── Scan row ──────────────────────────────────────────────────────────────── */
+.scan-row {
+    background: var(--surface-50);
+    border: 1px solid var(--surface-200);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.scan-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+}
+
+.scan-input-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+
+    .flex-grow-1 { flex: 1; }
+}
+
+.scan-hint {
+    font-size: 0.78rem;
+    color: var(--text-color-secondary);
+
+    kbd {
+        background: var(--surface-200);
+        border: 1px solid var(--surface-300);
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 0.75rem;
+        font-family: monospace;
+    }
+}
+
+.camara-host {
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #000;
+    min-height: 220px;
+}
+
+.camara-error {
+    color: var(--red-500);
+    font-size: 0.85rem;
+    margin-top: 0.4rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
 }
 
 .card {
