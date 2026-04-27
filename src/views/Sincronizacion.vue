@@ -317,20 +317,22 @@ onMounted(() => {
         <div class="card">
             <!-- ── Header ──────────────────────────────────────────────────── -->
             <div class="card-header">
-                <div>
+                <div class="header-text">
                     <h2 class="title">
                         <!-- <i class="pi pi-sync sinc-icon" /> -->
                         Panel de Automatización
                     </h2>
                     <p class="subtitle">Gestión de la sincronización de departamentos</p>
                 </div>
-                <!-- <Button
-                    id="btn-nueva-configuracion"
-                    label="Nueva Configuración"
-                    icon="pi pi-plus"
-                    class="p-button-success hidden md:flex"
-                    @click="abrirNuevo"
-                /> -->
+                <div class="hidden md:block">
+                    <Button
+                        id="btn-nueva-configuracion"
+                        label="Nueva Configuración"
+                        icon="pi pi-plus"
+                        class="p-button-success"
+                        @click="abrirNuevo"
+                    />
+                </div>
             </div>
 
             <!-- ── Stats banner ────────────────────────────────────────────── -->
@@ -871,7 +873,7 @@ onMounted(() => {
     .card-header {
         justify-content: center;
     }
-    .card-header > div {
+    .card-header > .header-text {
         text-align: center;
         width: 100%;
         display: flex;
