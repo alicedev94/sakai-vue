@@ -1,6 +1,4 @@
 <script setup>
-import { sincronizacionService } from '@/service/SincronizacionService';
-import { useSincronizacionStore } from '@/stores/sincronizacion';
 import { useSincronizacionGroupStore } from '@/stores/sincronizacionGroup';
 import { FilterMatchMode } from '@primevue/core/api';
 import { useConfirm } from 'primevue/useconfirm';
@@ -10,8 +8,7 @@ import { computed, onMounted, ref } from 'vue';
 // ─── Composables ──────────────────────────────────────────────────────────────
 const toast = useToast();
 const confirm = useConfirm();
-const store = useSincronizacionStore();
-const groupStore = useSincronizacionGroupStore();
+const store = useSincronizacionGroupStore();
 
 // ─── State de la vista ────────────────────────────────────────────────────────
 const configDialog = ref(false);
@@ -19,66 +16,15 @@ const deleteDialog = ref(false);
 const submitted = ref(false);
 const selectedItem = ref({});
 const searchQuery = ref('');
-const searchGroupQuery = ref('');
 
 // ─── Paginado móvil ──────────────────────────────────────────────────────────
 const mobileCurrentPage = ref(0);
 const mobileRowsPerPage = 6;
 
-// ─── Departamentos ────────────────────────────────────────────────────────────
-const departamentos = ref([]);
-const isDepartamentosLoading = ref(false);
-
-const fetchDepartamentos = async () => {
-    if (departamentos.value.length > 0) return; // ya cargados
-    isDepartamentosLoading.value = true;
-    try {
-        const { data } = await sincronizacionService.getDepartamentos();
-        departamentos.value = data;
-    } catch (err) {
-        toast.add({
-            severity: 'warn',
-            summary: 'Advertencia',
-            detail: 'No se pudieron cargar los departamentos',
-            life: 4000
-        });
-    } finally {
-        isDepartamentosLoading.value = false;
-    }
-};
-
-const fetchGrupos = async () => {
-    if (groupStore.grupos.length > 0) return;
-    try {
-        await groupStore.fetchGrupos();
-    } catch (err) {
-        toast.add({
-            severity: 'warn',
-            summary: 'Advertencia',
-            detail: 'No se pudieron cargar los grupos de sincronización',
-            life: 4000
-        });
-    }
-};
-
-const PRIORIDADES = [
-    { label: 'Alta', value: 'ALTA' },
-    { label: 'Media', value: 'MEDIA' },
-    { label: 'Baja', value: 'BAJA' }
-];
-
-const TIPOS_DOCUMENTO = [
-    { id: 1, nombre: 'Orden' },
-    { id: 2, nombre: 'PreOrden' }
-];
-
 const FORM_DEFAULTS = {
-    departamento: null,
-    intervaloMinutos: 5,
-    esActivo: true,
-    prioridad: 'MEDIA',
-    tipoDocumento: null,
-    sincronizacionGroup: null
+    nombre: '',
+    descripcion: '',
+    esActivo: true
 };
 
 // ─── Filtros de búsqueda ─────────────────────────────────────────────────────
@@ -87,26 +33,22 @@ const filters = ref({
 });
 
 // ─── Computed ─────────────────────────────────────────────────────────────────
-const configuracionesFiltradas = computed(() => {
-    let result = store.configuraciones;
+const gruposFiltrados = computed(() => {
+    let result = store.grupos;
     if (searchQuery.value) {
         const q = searchQuery.value.toLowerCase();
-        result = result.filter((c) => c.departamento?.toLowerCase().includes(q));
-    }
-    if (searchGroupQuery.value) {
-        const qg = searchGroupQuery.value.toLowerCase();
-        result = result.filter((c) => c.sincronizacionGroup?.nombre?.toLowerCase().includes(qg));
+        result = result.filter((g) => g.nombre?.toLowerCase().includes(q) || g.descripcion?.toLowerCase().includes(q));
     }
     return result;
 });
 
-const mobilePagedConfiguraciones = computed(() => {
+const mobilePagedGrupos = computed(() => {
     const start = mobileCurrentPage.value * mobileRowsPerPage;
-    return configuracionesFiltradas.value.slice(start, start + mobileRowsPerPage);
+    return gruposFiltrados.value.slice(start, start + mobileRowsPerPage);
 });
 
 const mobileTotalPages = computed(() =>
-    Math.ceil(configuracionesFiltradas.value.length / mobileRowsPerPage)
+    Math.ceil(gruposFiltrados.value.length / mobileRowsPerPage)
 );
 
 function resetMobilePage() {
@@ -116,15 +58,10 @@ function resetMobilePage() {
 const isEditing = computed(() => !!selectedItem.value.id);
 
 const dialogHeader = computed(() =>
-    isEditing.value ? 'Editar Configuración' : 'Nueva Configuración'
+    isEditing.value ? 'Editar Grupo' : 'Nuevo Grupo'
 );
 
 // ─── Helpers de formato ───────────────────────────────────────────────────────
-/**
- * Formatea una fecha ISO a DD/MM/YYYY HH:mm
- * @param {string|null} value
- * @returns {string}
- */
 const formatFecha = (value) => {
     if (!value) return '-';
     const d = new Date(value);
@@ -137,29 +74,15 @@ const formatFecha = (value) => {
     return `${day}/${month}/${year} ${hours}:${mins}`;
 };
 
-/**
- * Retorna el icono de PrimeIcons según el nivel de prioridad.
- * @param {'ALTA'|'MEDIA'|'BAJA'|string} prioridad
- * @returns {string}
- */
-const prioridadIcono = (prioridad) => {
-    const map = {
-        ALTA: 'pi pi-arrow-up-right',
-        MEDIA: 'pi pi-minus',
-        BAJA: 'pi pi-arrow-down-right'
-    };
-    return map[prioridad] ?? 'pi pi-minus';
-};
-
 // ─── Acciones CRUD ────────────────────────────────────────────────────────────
 const cargarDatos = async () => {
     try {
-        await store.fetchConfiguraciones();
+        await store.fetchGrupos();
     } catch (err) {
         toast.add({
             severity: 'error',
             summary: 'Error de conexión',
-            detail: err.userMessage || 'No se pudieron cargar las configuraciones',
+            detail: err.userMessage || 'No se pudieron cargar los grupos',
             life: 5000
         });
     }
@@ -168,24 +91,11 @@ const cargarDatos = async () => {
 const abrirNuevo = () => {
     selectedItem.value = { ...FORM_DEFAULTS };
     submitted.value = false;
-    fetchDepartamentos();
-    fetchGrupos();
     configDialog.value = true;
 };
 
 const editarItem = (item) => {
-    // Recuperar el objeto departamento si ya están cargados, o usar la descripcion como fallback
-    fetchDepartamentos().then(() => {
-        const deptObj = departamentos.value.find((d) => d.descripcion === item.departamento);
-        selectedItem.value = {
-            ...item,
-            departamento: deptObj ?? item.departamento,
-            prioridad: item.prioridad ?? 'MEDIA',
-            tipoDocumento: item.tipoDocumento ?? null,
-            sincronizacionGroup: item.sincronizacionGroup ?? null
-        };
-    });
-    fetchGrupos();
+    selectedItem.value = { ...item };
     submitted.value = false;
     configDialog.value = true;
 };
@@ -196,68 +106,22 @@ const cerrarDialog = () => {
     selectedItem.value = {};
 };
 
-const guardar = async () => {
-    submitted.value = true;
-
-    // departamento puede ser un objeto {descripcion} o un string (fallback edición)
-    const deptValor = typeof selectedItem.value.departamento === 'object'
-        ? selectedItem.value.departamento?.descripcion
-        : selectedItem.value.departamento;
-
-    if (!deptValor?.trim()) {
-        toast.add({
-            severity: 'warn',
-            summary: 'Campo requerido',
-            detail: 'Debes seleccionar un departamento',
-            life: 3000
-        });
-        return;
-    }
-
-    if (!selectedItem.value.intervaloMinutos || selectedItem.value.intervaloMinutos < 1) {
-        toast.add({
-            severity: 'warn',
-            summary: 'Campo inválido',
-            detail: 'El intervalo debe ser al menos 1 minuto',
-            life: 3000
-        });
-        return;
-    }
-
-    if (!selectedItem.value.tipoDocumento) {
-        toast.add({
-            severity: 'warn',
-            summary: 'Campo requerido',
-            detail: 'Debes seleccionar un tipo de documento',
-            life: 3000
-        });
-        return;
-    }
-
-    const payload = {
-        departamento: deptValor.trim(),
-        intervaloMinutos: Number(selectedItem.value.intervaloMinutos),
-        esActivo: selectedItem.value.esActivo ?? true,
-        prioridad: selectedItem.value.prioridad ?? 'MEDIA',
-        tipoDocumento: selectedItem.value.tipoDocumento,
-        sincronizacionGroup: selectedItem.value.sincronizacionGroup
-    };
-
+const ejecutarGuardar = async (payload) => {
     try {
         if (isEditing.value) {
-            await store.actualizarConfiguracion(selectedItem.value.id, payload);
+            await store.actualizarGrupo(selectedItem.value.id, payload);
             toast.add({
                 severity: 'success',
                 summary: 'Actualizado',
-                detail: `La configuración de "${payload.departamento}" fue actualizada`,
+                detail: `El grupo "${payload.nombre}" fue actualizado`,
                 life: 3000
             });
         } else {
-            await store.crearConfiguracion(payload);
+            await store.crearGrupo(payload);
             toast.add({
                 severity: 'success',
                 summary: 'Creado',
-                detail: `La configuración de "${payload.departamento}" fue creada`,
+                detail: `El grupo "${payload.nombre}" fue creado`,
                 life: 3000
             });
         }
@@ -266,10 +130,32 @@ const guardar = async () => {
         toast.add({
             severity: 'error',
             summary: 'Error',
-            detail: err.userMessage || 'No se pudo guardar la configuración',
+            detail: err.userMessage || 'No se pudo guardar el grupo',
             life: 5000
         });
     }
+};
+
+const guardar = async () => {
+    submitted.value = true;
+
+    if (!selectedItem.value.nombre?.trim()) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Campo requerido',
+            detail: 'El nombre es obligatorio',
+            life: 3000
+        });
+        return;
+    }
+
+    const payload = {
+        nombre: selectedItem.value.nombre.trim(),
+        descripcion: selectedItem.value.descripcion?.trim() || '',
+        esActivo: selectedItem.value.esActivo ?? true
+    };
+
+    await ejecutarGuardar(payload);
 };
 
 const confirmarEliminar = (item) => {
@@ -279,53 +165,68 @@ const confirmarEliminar = (item) => {
 
 const eliminar = async () => {
     try {
-        await store.eliminarConfiguracion(selectedItem.value.id);
+        await store.eliminarGrupo(selectedItem.value.id);
         deleteDialog.value = false;
         selectedItem.value = {};
         toast.add({
             severity: 'success',
             summary: 'Eliminado',
-            detail: 'La configuración fue eliminada correctamente',
+            detail: 'El grupo fue eliminado correctamente',
             life: 3000
         });
     } catch (err) {
         toast.add({
             severity: 'error',
             summary: 'Error',
-            detail: err.userMessage || 'No se pudo eliminar la configuración',
+            detail: err.userMessage || 'No se pudo eliminar el grupo',
             life: 5000
         });
     }
 };
 
-/**
- * Toggle optimista del estado activo/inactivo de una configuración.
- * Actualiza el estado local de inmediato y luego hace la petición al backend.
- * Si falla, revierte el cambio visualmente.
- * @param {Object} item
- */
 const toggleActivo = async (item) => {
     const nuevoEstado = !item.esActivo;
+
+    // Cambiar estado visualmente de inmediato
     store.toggleActivoOptimista(item.id, nuevoEstado);
 
+    if (!nuevoEstado) {
+        confirm.require({
+            message: `¿Está seguro de que deseas inactivar todos los registros del grupo "${item.nombre}"?`,
+            header: 'Confirmar inactivación',
+            icon: 'pi pi-exclamation-triangle',
+            acceptLabel: 'Sí, inactivar',
+            rejectLabel: 'Cancelar',
+            acceptClass: 'p-button-danger',
+            accept: async () => {
+                await ejecutarPeticionToggle(item, false);
+            },
+            reject: () => {
+                // Revertir el estado visual si el usuario cancela la confirmación
+                store.toggleActivoOptimista(item.id, true);
+            }
+        });
+    } else {
+        await ejecutarPeticionToggle(item, true);
+    }
+};
+
+const ejecutarPeticionToggle = async (item, nuevoEstado) => {
     try {
-        await store.actualizarConfiguracion(item.id, {
-            departamento: item.departamento,
-            intervaloMinutos: item.intervaloMinutos,
-            esActivo: nuevoEstado,
-            prioridad: item.prioridad ?? 'MEDIA',
-            tipoDocumento: item.tipoDocumento ?? null,
-            sincronizacionGroup: item.sincronizacionGroup ?? null
+        await store.actualizarGrupo(item.id, {
+            nombre: item.nombre,
+            descripcion: item.descripcion,
+            esActivo: nuevoEstado
         });
         toast.add({
             severity: 'info',
             summary: nuevoEstado ? 'Activado' : 'Desactivado',
-            detail: `Sincronización de "${item.departamento}" ${nuevoEstado ? 'activada' : 'pausada'}`,
+            detail: `Grupo "${item.nombre}" ${nuevoEstado ? 'activado' : 'desactivado'}`,
             life: 2500
         });
     } catch (err) {
-        // Revertir cambio optimista
-        store.toggleActivoOptimista(item.id, item.esActivo);
+        // Revertir si la petición falla
+        store.toggleActivoOptimista(item.id, !nuevoEstado);
         toast.add({
             severity: 'error',
             summary: 'Error',
@@ -338,8 +239,6 @@ const toggleActivo = async (item) => {
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 onMounted(() => {
     cargarDatos();
-    fetchDepartamentos();
-    fetchGrupos();
 });
 </script>
 
@@ -349,16 +248,13 @@ onMounted(() => {
             <!-- ── Header ──────────────────────────────────────────────────── -->
             <div class="card-header">
                 <div class="header-text">
-                    <h2 class="title">
-                        <!-- <i class="pi pi-sync sinc-icon" /> -->
-                        Panel de Automatización
-                    </h2>
-                    <p class="subtitle">Gestión de la sincronización de departamentos</p>
+                    <h2 class="title">Grupos de Sincronización</h2>
+                    <p class="subtitle">Gestión de grupos para sincronizaciones</p>
                 </div>
                 <div class="hidden md:block">
                     <Button
-                        id="btn-nueva-configuracion"
-                        label="Nueva Configuración"
+                        id="btn-nuevo-grupo"
+                        label="Nuevo Grupo"
                         icon="pi pi-plus"
                         class="p-button-success"
                         @click="abrirNuevo"
@@ -369,18 +265,18 @@ onMounted(() => {
             <!-- ── Stats banner ────────────────────────────────────────────── -->
             <div class="stats-banner">
                 <div class="stat-item">
-                    <span class="stat-value">{{ store.totalConfiguraciones }}</span>
+                    <span class="stat-value">{{ store.totalGrupos }}</span>
                     <span class="stat-label">Total</span>
                 </div>
                 <div class="stat-divider" />
                 <div class="stat-item">
-                    <span class="stat-value stat-activa">{{ store.configuracionesActivas.length }}</span>
-                    <span class="stat-label">Activas</span>
+                    <span class="stat-value stat-activa">{{ store.gruposActivos.length }}</span>
+                    <span class="stat-label">Activos</span>
                 </div>
                 <div class="stat-divider" />
                 <div class="stat-item">
-                    <span class="stat-value stat-inactiva">{{ store.totalConfiguraciones - store.configuracionesActivas.length }}</span>
-                    <span class="stat-label">Inactivas</span>
+                    <span class="stat-value stat-inactiva">{{ store.totalGrupos - store.gruposActivos.length }}</span>
+                    <span class="stat-label">Inactivos</span>
                 </div>
             </div>
 
@@ -398,27 +294,27 @@ onMounted(() => {
                             @click="cargarDatos"
                         />
                         <Button
-                            label="Ver Grupos"
-                            icon="pi pi-folder"
-                            severity="info"
+                            label="Regresar"
+                            icon="pi pi-arrow-left"
+                            severity="secondary"
                             outlined
-                            @click="$router.push('/v1/sincronizacion/groups')"
+                            @click="$router.push('/v1/sincronizacion')"
                         />
                     </div>
                     <div class="block md:hidden w-full flex flex-col gap-2">
                         <Button
-                            label="Nueva Configuración"
+                            label="Nuevo Grupo"
                             icon="pi pi-plus"
                             class="p-button-success w-full"
                             @click="abrirNuevo"
                         />
                         <Button
-                            label="Grupos de Sincronización"
-                            icon="pi pi-folder"
-                            severity="info"
+                            label="Regresar"
+                            icon="pi pi-arrow-left"
+                            severity="secondary"
                             class="w-full"
                             outlined
-                            @click="$router.push('/v1/sincronizacion/groups')"
+                            @click="$router.push('/v1/sincronizacion')"
                         />
                     </div>
                 </template>
@@ -431,18 +327,6 @@ onMounted(() => {
                             <InputText
                                 id="sinc-search"
                                 v-model="searchQuery"
-                                placeholder="Buscar departamento..."
-                                class="w-full"
-                                @input="resetMobilePage"
-                            />
-                        </IconField>
-                        <IconField class="w-full md:w-auto">
-                            <InputIcon>
-                                <i class="pi pi-search" />
-                            </InputIcon>
-                            <InputText
-                                id="sinc-group-search"
-                                v-model="searchGroupQuery"
                                 placeholder="Buscar grupo..."
                                 class="w-full"
                                 @input="resetMobilePage"
@@ -454,110 +338,66 @@ onMounted(() => {
 
             <!-- ── Tabla principal (Desktop) ─────────────────────────────────── -->
             <DataTable
-                :value="configuracionesFiltradas"
+                :value="gruposFiltrados"
                 :loading="store.isLoading"
                 dataKey="id"
                 :paginator="true"
                 :rows="10"
                 :rowsPerPageOptions="[5, 10, 25, 50]"
                 paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-                currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} configuraciones"
+                currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} grupos"
                 responsiveLayout="scroll"
                 stripedRows
                 class="sinc-table hidden md:block"
                 v-model:filters="filters"
             >
-                <!-- Empty state -->
                 <template #empty>
                     <div class="empty-state">
                         <i class="pi pi-inbox" style="font-size: 3rem; color: var(--text-color-secondary)" />
-                        <p>No hay configuraciones de sincronización</p>
-                        <Button label="Crear primera configuración" icon="pi pi-plus" text @click="abrirNuevo" />
+                        <p>No hay grupos de sincronización</p>
+                        <Button label="Crear primer grupo" icon="pi pi-plus" text @click="abrirNuevo" />
                     </div>
                 </template>
 
-                <!-- Loading overlay -->
                 <template #loading>
                     <div class="loading-state">
                         <i class="pi pi-spin pi-spinner" style="font-size: 2rem" />
-                        <p>Cargando configuraciones...</p>
+                        <p>Cargando grupos...</p>
                     </div>
                 </template>
 
-                <!-- ID -->
                 <Column field="id" header="ID" :sortable="true" style="min-width: 5rem">
                     <template #body="{ data }">
                         <span class="id-badge">#{{ data.id }}</span>
                     </template>
                 </Column>
 
-                <!-- Departamento -->
-                <Column field="departamento" header="Departamento" :sortable="true" style="min-width: 12rem">
+                <Column field="nombre" header="Nombre" :sortable="true" style="min-width: 12rem">
                     <template #body="{ data }">
-                        <div class="dept-info">
-                            <Avatar
-                                :label="data.departamento?.charAt(3).toUpperCase()"
-                                shape="circle"
-                                class="dept-avatar"
-                            />
-                            <span class="font-semibold">{{ data.departamento }}</span>
-                        </div>
+                        <span class="font-semibold">{{ data.nombre }}</span>
                     </template>
                 </Column>
 
-                <!-- Tipo Documento -->
-                <Column field="tipoDocumento.nombre" header="Tipo Documento" :sortable="true" style="min-width: 11rem">
+                <Column field="descripcion" header="Descripción" :sortable="true" style="min-width: 15rem">
                     <template #body="{ data }">
-                        <span class="font-semibold">{{ data.tipoDocumento?.nombre || '-' }}</span>
+                        <span>{{ data.descripcion }}</span>
                     </template>
                 </Column>
 
-                <!-- Grupo Sincronización -->
-                <Column field="sincronizacionGroup.nombre" header="Grupo" :sortable="true" style="min-width: 11rem">
-                    <template #body="{ data }">
-                        <span class="font-semibold">{{ data.sincronizacionGroup?.nombre || '-' }}</span>
-                    </template>
-                </Column>
-
-                <!-- Intervalo -->
-                <Column field="intervaloMinutos" header="Intervalo (min)" :sortable="true" style="min-width: 9rem">
-                    <template #body="{ data }">
-                        <div class="interval-cell">
-                            <i class="pi pi-clock interval-icon" />
-                            <span>{{ data.intervaloMinutos }} min</span>
-                        </div>
-                    </template>
-                </Column>
-
-                <!-- Última Ejecución -->
-                <Column field="ultimaEjecucion" header="Última Ejecución" :sortable="true" style="min-width: 12rem">
-                    <template #body="{ data }">
-                        <span class="fecha-text">{{ formatFecha(data.ultimaEjecucion) }}</span>
-                    </template>
-                </Column>
-
-                <!-- Fecha Creación -->
                 <Column field="fechaCreacion" header="Creado" :sortable="true" style="min-width: 11rem">
                     <template #body="{ data }">
                         <span class="fecha-text text-secondary">{{ formatFecha(data.fechaCreacion) }}</span>
                     </template>
                 </Column>
 
-                <!-- Usuario Modificación -->
-                <Column field="usuarioModificacion" header="Modificado por" :sortable="true" style="min-width: 11rem">
-                    <template #body="{ data }">
-                        <span class="fecha-text text-secondary">{{ data.usuarioModificacion }}</span>
-                    </template>
-                </Column>
-
-                <!-- Estado (Toggle Switch) -->
                 <Column field="esActivo" header="Estado" :sortable="true" style="min-width: 9rem">
                     <template #body="{ data }">
                         <div class="toggle-cell">
                             <ToggleSwitch
                                 :id="`toggle-sinc-${data.id}`"
                                 :modelValue="data.esActivo"
-                                readonly
+                                @update:modelValue="() => toggleActivo(data)"
+                                :disabled="store.isLoading"
                             />
                             <span :class="['estado-label', data.esActivo ? 'activo' : 'inactivo']">
                                 {{ data.esActivo ? 'Activo' : 'Inactivo' }}
@@ -566,27 +406,6 @@ onMounted(() => {
                     </template>
                 </Column>
 
-                <!-- Prioridad -->
-                <Column field="prioridad" header="Prioridad" :sortable="true" style="min-width: 8rem">
-                    <template #body="{ data }">
-                        <span :class="['prioridad-badge', `prioridad-${data.prioridad?.toLowerCase()}`]">
-                            <i :class="prioridadIcono(data.prioridad)" />
-                            {{ data.prioridad }}
-                        </span>
-                    </template>
-                </Column>
-
-                <!-- En Ejecución -->
-                <Column field="enEjecucion" header="Ejecución" :sortable="true" style="min-width: 8rem">
-                    <template #body="{ data }">
-                        <span :class="['ejecucion-badge', data.enEjecucion ? 'running' : 'idle']">
-                            <i :class="data.enEjecucion ? 'pi pi-spin pi-spinner' : 'pi pi-pause-circle'" />
-                            {{ data.enEjecucion ? 'Corriendo' : 'En espera' }}
-                        </span>
-                    </template>
-                </Column>
-
-                <!-- Acciones -->
                 <Column :exportable="false" style="min-width: 9rem" header="Acciones">
                     <template #body="{ data }">
                         <div class="action-buttons">
@@ -626,66 +445,42 @@ onMounted(() => {
                     />
                 </div>
 
-                <div v-if="store.isLoading && configuracionesFiltradas.length === 0" class="loading-state">
+                <div v-if="store.isLoading && gruposFiltrados.length === 0" class="loading-state">
                     <i class="pi pi-spin pi-spinner" style="font-size: 2rem; color: var(--primary-color)" />
-                    <p>Cargando configuraciones...</p>
+                    <p>Cargando grupos...</p>
                 </div>
-                <div v-else-if="!store.isLoading && configuracionesFiltradas.length === 0" class="empty-state">
+                <div v-else-if="!store.isLoading && gruposFiltrados.length === 0" class="empty-state">
                     <i class="pi pi-inbox" style="font-size: 3rem; color: var(--text-color-secondary)" />
-                    <p>No hay configuraciones</p>
+                    <p>No hay grupos</p>
                 </div>
                 <div v-else class="flex flex-col gap-4 mt-4 relative">
                     <div v-if="store.isLoading" class="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-black/60 backdrop-blur-sm rounded-xl">
                         <i class="pi pi-spin pi-spinner" style="font-size: 3rem; color: var(--primary-color)" />
                     </div>
 
-                    <div v-for="data in mobilePagedConfiguraciones" :key="data.id" class="sinc-card">
+                    <div v-for="data in mobilePagedGrupos" :key="data.id" class="sinc-card">
                         <div class="sinc-card-header">
                             <div class="sinc-card-header-left">
-                                <span class="font-semibold text-primary">{{ data.departamento }}</span>
+                                <span class="font-semibold text-primary">{{ data.nombre }}</span>
                                 <span class="id-badge">#{{ data.id }}</span>
                             </div>
                             <div class="toggle-cell">
                                 <ToggleSwitch
                                     :modelValue="data.esActivo"
-                                    readonly
+                                    @update:modelValue="() => toggleActivo(data)"
+                                    :disabled="store.isLoading"
                                 />
                             </div>
                         </div>
 
                         <div class="sinc-card-body">
-                            <div class="sinc-card-row">
-                                <span class="sinc-label">Tipo Docto</span>
-                                <span class="sinc-value">{{ data.tipoDocumento?.nombre || '-' }}</span>
+                            <div class="sinc-card-row" style="flex-direction: column; align-items: flex-start; text-align: left;">
+                                <span class="sinc-label">Descripción</span>
+                                <span class="sinc-value" style="text-align: left;">{{ data.descripcion }}</span>
                             </div>
                             <div class="sinc-card-row">
-                                <span class="sinc-label">Grupo</span>
-                                <span class="sinc-value">{{ data.sincronizacionGroup?.nombre || '-' }}</span>
-                            </div>
-                            <div class="sinc-card-row">
-                                <span class="sinc-label">Intervalo</span>
-                                <div class="interval-cell">
-                                    <i class="pi pi-clock interval-icon" />
-                                    <span>{{ data.intervaloMinutos }} min</span>
-                                </div>
-                            </div>
-                            <div class="sinc-card-row">
-                                <span class="sinc-label">Prioridad</span>
-                                <span :class="['prioridad-badge', `prioridad-${data.prioridad?.toLowerCase()}`]">
-                                    <i :class="prioridadIcono(data.prioridad)" />
-                                    {{ data.prioridad }}
-                                </span>
-                            </div>
-                            <div class="sinc-card-row">
-                                <span class="sinc-label">Ejecución</span>
-                                <span :class="['ejecucion-badge', data.enEjecucion ? 'running' : 'idle']">
-                                    <i :class="data.enEjecucion ? 'pi pi-spin pi-spinner' : 'pi pi-pause-circle'" />
-                                    {{ data.enEjecucion ? 'Corriendo' : 'En espera' }}
-                                </span>
-                            </div>
-                            <div class="sinc-card-row">
-                                <span class="sinc-label">Última Ejec.</span>
-                                <span class="preorden-value">{{ formatFecha(data.ultimaEjecucion) }}</span>
+                                <span class="sinc-label">Creado</span>
+                                <span class="sinc-value">{{ formatFecha(data.fechaCreacion) }}</span>
                             </div>
                         </div>
 
@@ -695,7 +490,6 @@ onMounted(() => {
                         </div>
                     </div>
 
-                    <!-- Paginador móvil -->
                     <div v-if="mobileTotalPages > 1" class="flex justify-center items-center gap-3 mt-2">
                         <Button icon="pi pi-chevron-left" outlined rounded size="small" :disabled="mobileCurrentPage === 0" @click="mobileCurrentPage--" />
                         <span class="text-sm" style="color: var(--text-color-secondary)">
@@ -718,123 +512,38 @@ onMounted(() => {
             @hide="cerrarDialog"
         >
             <div class="formgrid grid">
-                <!-- Departamento -->
                 <div class="field col-12">
-                    <label for="departamento">Departamento *</label>
-                    <Select
-                        id="departamento"
-                        v-model="selectedItem.departamento"
-                        :options="departamentos"
-                        optionLabel="descripcion"
-                        placeholder="Selecciona un departamento..."
-                        :loading="isDepartamentosLoading"
-                        :filter="true"
-                        filterPlaceholder="Buscar departamento..."
-                        :invalid="submitted && !selectedItem.departamento"
+                    <label for="nombre">Nombre *</label>
+                    <InputText
+                        id="nombre"
+                        v-model="selectedItem.nombre"
+                        placeholder="Ingresa el nombre del grupo..."
+                        :invalid="submitted && !selectedItem.nombre"
                         class="w-full"
                         autofocus
                     />
-                    <small class="p-error" v-if="submitted && !selectedItem.departamento">
-                        Debes seleccionar un departamento.
+                    <small class="p-error" v-if="submitted && !selectedItem.nombre">
+                        El nombre es obligatorio.
                     </small>
                 </div>
 
-                <!-- Tipo Documento -->
                 <div class="field col-12">
-                    <label for="tipoDocumento">Tipo Documento *</label>
-                    <Select
-                        id="tipoDocumento"
-                        v-model="selectedItem.tipoDocumento"
-                        :options="TIPOS_DOCUMENTO"
-                        optionLabel="nombre"
-                        dataKey="id"
-                        placeholder="Selecciona el tipo de documento..."
-                        :invalid="submitted && !selectedItem.tipoDocumento"
+                    <label for="descripcion">Descripción</label>
+                    <Textarea
+                        id="descripcion"
+                        v-model="selectedItem.descripcion"
+                        rows="3"
+                        placeholder="Descripción opcional..."
                         class="w-full"
                     />
-                    <small class="p-error" v-if="submitted && !selectedItem.tipoDocumento">
-                        Debes seleccionar un tipo de documento.
-                    </small>
                 </div>
 
-                <!-- Grupo de Sincronización -->
-                <div class="field col-12">
-                    <label for="sincronizacionGroup">Grupo de Sincronización</label>
-                    <Select
-                        id="sincronizacionGroup"
-                        v-model="selectedItem.sincronizacionGroup"
-                        :options="groupStore.grupos"
-                        optionLabel="nombre"
-                        dataKey="id"
-                        placeholder="Selecciona un grupo..."
-                        :loading="groupStore.isLoading"
-                        class="w-full"
-                        showClear
-                    />
-                </div>
 
-                <!-- Intervalo -->
-                <div class="field col-12">
-                    <label for="intervalo">Intervalo de sincronización (minutos) *</label>
-                    <InputNumber
-                        id="intervalo"
-                        v-model="selectedItem.intervaloMinutos"
-                        :min="1"
-                        :max="1440"
-                        showButtons
-                        suffix=" min"
-                        :invalid="submitted && (!selectedItem.intervaloMinutos || selectedItem.intervaloMinutos < 1)"
-                    />
-                    <small class="p-error" v-if="submitted && (!selectedItem.intervaloMinutos || selectedItem.intervaloMinutos < 1)">
-                        El intervalo debe ser mínimo 1 minuto.
-                    </small>
-                    <small class="field-hint">Rango permitido: 1 min – 1440 min (24 horas)</small>
-                </div>
 
-                <!-- Prioridad -->
-                <div class="field col-12">
-                    <label for="prioridad">Prioridad *</label>
-                    <Select
-                        id="prioridad"
-                        v-model="selectedItem.prioridad"
-                        :options="PRIORIDADES"
-                        optionLabel="label"
-                        optionValue="value"
-                        placeholder="Selecciona la prioridad..."
-                        class="w-full"
-                    >
-                        <template #option="{ option }">
-                            <div class="prioridad-option">
-                                <i :class="prioridadIcono(option.value)" />
-                                <span>{{ option.label }}</span>
-                            </div>
-                        </template>
-                        <template #value="{ value }">
-                            <div v-if="value" class="prioridad-option">
-                                <i :class="prioridadIcono(value)" />
-                                <span>{{ PRIORIDADES.find(p => p.value === value)?.label ?? value }}</span>
-                            </div>
-                            <span v-else>Selecciona la prioridad...</span>
-                        </template>
-                    </Select>
-                </div>
-
-                <!-- Estado Activo
-                <div class="field col-12">
-                    <label>Estado de la sincronización</label>
-                    <div class="toggle-form-row">
-                        <ToggleSwitch id="form-esActivo" v-model="selectedItem.esActivo" />
-                        <span :class="['estado-label-lg', selectedItem.esActivo ? 'activo' : 'inactivo']">
-                            {{ selectedItem.esActivo ? 'Sincronización Activa' : 'Sincronización Pausada' }}
-                        </span>
-                    </div>
-                </div> -->
-
-                <!-- Campos de solo lectura (solo al editar) -->
                 <template v-if="isEditing">
                     <div class="field col-12">
                         <div class="readonly-divider">
-                            <span>Información de auditoría (solo lectura)</span>
+                            <span>Información de auditoría</span>
                         </div>
                     </div>
 
@@ -849,29 +558,19 @@ onMounted(() => {
                     </div>
 
                     <div class="field col-12 md:col-6">
-                        <label>Última Modificación</label>
+                        <label>Fecha de Actualización</label>
                         <InputText
-                            :value="formatFecha(selectedItem.fechaModificacion)"
+                            :value="formatFecha(selectedItem.fechaActualizacion)"
                             readonly
                             class="p-readonly"
                             tabindex="-1"
                         />
                     </div>
 
-                    <div class="field col-12 md:col-6">
-                        <label>Última Ejecución</label>
-                        <InputText
-                            :value="formatFecha(selectedItem.ultimaEjecucion)"
-                            readonly
-                            class="p-readonly"
-                            tabindex="-1"
-                        />
-                    </div>
-
-                    <div class="field col-12 md:col-6">
+                    <div class="field col-12 md:col-12">
                         <label>Usuario Modificación</label>
                         <InputText
-                            :value="selectedItem.usuarioModificacion || 'Sin registrar'"
+                            :value="selectedItem.usuarioActualizacion || 'Sin registrar'"
                             readonly
                             class="p-readonly"
                             tabindex="-1"
@@ -902,8 +601,8 @@ onMounted(() => {
                 <i class="pi pi-exclamation-triangle" style="font-size: 2.5rem; color: var(--red-400)" />
                 <div class="confirmation-text">
                     <p>
-                        ¿Estás seguro de que deseas eliminar la configuración del departamento
-                        <strong>{{ selectedItem.departamento }}</strong>?
+                        ¿Estás seguro de que deseas eliminar el grupo
+                        <strong>{{ selectedItem.nombre }}</strong>?
                     </p>
                     <small class="text-color-secondary">Esta acción no se puede deshacer.</small>
                 </div>
@@ -920,7 +619,6 @@ onMounted(() => {
             </template>
         </Dialog>
 
-        <!-- ── Toast & ConfirmDialog globales ─────────────────────────────── -->
         <ConfirmDialog />
     </div>
 </template>
@@ -999,7 +697,6 @@ onMounted(() => {
         text-align: center;
     }
 
-    /* Toolbar responsive */
     :deep(.toolbar-responsive.p-toolbar) {
         flex-direction: column;
         align-items: stretch;
@@ -1023,15 +720,10 @@ onMounted(() => {
     gap: 0.6rem;
 }
 
-.sinc-icon {
-    color: var(--primary-color);
-    font-size: 1.5rem;
-}
-
 .subtitle {
     font-size: 0.93rem;
     color: var(--text-color-secondary);
-    margin: 0.3rem 0 0 2.1rem;
+    margin: 0.3rem 0 0 0;
 }
 
 /* ── Stats Banner ──────────────────────────────────────────────────────────── */
@@ -1091,7 +783,6 @@ onMounted(() => {
     }
 }
 
-/* ── Cells ─────────────────────────────────────────────────────────────────── */
 .id-badge {
     background: var(--surface-100);
     color: var(--text-color-secondary);
@@ -1100,34 +791,6 @@ onMounted(() => {
     font-weight: 700;
     font-size: 0.82rem;
     font-family: monospace;
-}
-
-.dept-info {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-}
-
-.dept-avatar {
-    background: var(--primary-color) !important;
-    color: white !important;
-    font-weight: 700;
-    width: 2rem !important;
-    height: 2rem !important;
-    font-size: 0.85rem !important;
-    flex-shrink: 0;
-}
-
-.interval-cell {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    color: var(--text-color);
-}
-
-.interval-icon {
-    color: var(--primary-color);
-    font-size: 0.9rem;
 }
 
 .fecha-text {
@@ -1220,13 +883,6 @@ onMounted(() => {
     }
 }
 
-.field-hint {
-    color: var(--text-color-secondary);
-    font-size: 0.78rem;
-    margin-top: 0.35rem;
-}
-
-/* Toggle dentro del formulario */
 .toggle-form-row {
     display: flex;
     align-items: center;
@@ -1250,7 +906,6 @@ onMounted(() => {
     }
 }
 
-/* Campos readonly */
 .p-readonly {
     background: var(--surface-100) !important;
     color: var(--text-color-secondary) !important;
@@ -1258,7 +913,6 @@ onMounted(() => {
     opacity: 0.85;
 }
 
-/* Separador de auditoría */
 .readonly-divider {
     display: flex;
     align-items: center;
@@ -1293,89 +947,6 @@ onMounted(() => {
         line-height: 1.5;
     }
 }
-
-/* ── Prioridad Badge ─────────────────────────────────────────────────────────── */
-.prioridad-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.28rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-
-    &.prioridad-alta {
-        background: color-mix(in srgb, var(--red-500) 12%, transparent);
-        color: var(--red-500);
-        border: 1px solid color-mix(in srgb, var(--red-500) 30%, transparent);
-    }
-
-    &.prioridad-media {
-        background: color-mix(in srgb, var(--orange-400) 12%, transparent);
-        color: var(--orange-500);
-        border: 1px solid color-mix(in srgb, var(--orange-400) 30%, transparent);
-    }
-
-    &.prioridad-baja {
-        background: color-mix(in srgb, var(--blue-400) 12%, transparent);
-        color: var(--blue-500);
-        border: 1px solid color-mix(in srgb, var(--blue-400) 30%, transparent);
-    }
-}
-
-/* ── En Ejecución Badge ──────────────────────────────────────────────────────── */
-.ejecucion-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.28rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.78rem;
-    font-weight: 600;
-
-    &.running {
-        background: color-mix(in srgb, var(--green-500) 14%, transparent);
-        color: var(--green-600);
-        border: 1px solid color-mix(in srgb, var(--green-500) 30%, transparent);
-    }
-
-    &.idle {
-        background: var(--surface-100);
-        color: var(--text-color-secondary);
-        border: 1px solid var(--surface-200);
-    }
-}
-
-/* ── Error Badges ────────────────────────────────────────────────────────────── */
-.error-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.82rem;
-    color: var(--red-500);
-    cursor: help;
-
-    i { flex-shrink: 0; }
-}
-
-.no-error-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.82rem;
-    color: var(--green-500);
-}
-
-/* ── Prioridad Option (select dropdown) ─────────────────────────────────────── */
-.prioridad-option {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-.ml-2 { margin-left: 0.5rem; }
-.text-primary { color: var(--primary-color); }
 
 /* Mobile actions bar */
 .mobile-actions {
@@ -1451,4 +1022,3 @@ onMounted(() => {
     background: var(--surface-50);
 }
 </style>
-

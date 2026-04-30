@@ -34,7 +34,6 @@ const codigoPendiente = ref('');
 const origenFueCamara = ref(false);
 const cantidadInput = ref(null);
 const cantidadInventario = ref(null);
-const ubicacionItem = ref('');
 
 const cameraActiva = ref(false);
 const cameraLoading = ref(false);
@@ -249,24 +248,6 @@ async function procesarEscaneo(codigoDesdeCamara) {
     } catch (e) {
         console.error('Error al consultar inventario:', e);
         cantidadInventario.value = 'Error';
-    }
-
-    // Consulta dinámica de la ubicación en base de datos al abrir
-    ubicacionItem.value = 'Calculando...';
-    try {
-        const ubicaciones = await ubiStore.getUbicacionesByBarcode(item.codigoBarra);
-        console.log('Ubicaciones:', ubicaciones);
-        if (Array.isArray(ubicaciones) && ubicaciones.length > 0) {
-            // Formato: "Bodega A - Estante 3 (CD01), ..."
-            ubicacionItem.value = ubicaciones
-                .map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion)
-                .join(', ');
-        } else {
-            ubicacionItem.value = 'Sin ubicación registrada';
-        }
-    } catch (e) {
-        console.error('Error al consultar ubicacion:', e);
-        ubicacionItem.value = 'No encontrada';
     }
 
     await nextTick();
@@ -990,10 +971,6 @@ const finalizarOrden = async () => {
                             <span class="cantidad-info-label">Inventario actual: </span>
                             <span class="cantidad-info-value">{{ cantidadInventario }}</span>
                         </div>
-                        <div class="cantidad-info-row">
-                            <span class="cantidad-info-label">Ubicación: </span>
-                            <span class="cantidad-info-value">{{ ubicacionItem }}</span>
-                        </div>
 
                         <div class="cantidad-acciones">
                             <Button
@@ -1080,6 +1057,16 @@ const finalizarOrden = async () => {
                     <Column field="barra7" header="Barra 7" />
                     <Column field="nombreProducto" header="Producto" />
                     <Column field="departamento" header="Dpto." />
+                    <Column header="Ubicación" style="min-width: 10rem">
+                        <template #body="{ data }">
+                            <span v-if="data.ubicaciones && data.ubicaciones.length > 0">
+                                {{ data.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ') }}
+                            </span>
+                            <span v-else class="text-surface-500 dark:text-surface-400 italic">
+                                Sin ubicación
+                            </span>
+                        </template>
+                    </Column>
                     <Column field="cantidad" header="Cant." style="min-width: 5rem" />
                     <Column field="cantidadSurtida" header="Cant. Surtida" style="min-width: 5rem" />
                     <Column field="estadoItem" header="Estado" style="min-width: 8rem">
@@ -1168,6 +1155,16 @@ const finalizarOrden = async () => {
                     <Column field="barra7" header="Barra 7" />
                     <Column field="nombreProducto" header="Producto" />
                     <Column field="departamento" header="Dpto." />
+                    <Column header="Ubicación" style="min-width: 10rem">
+                        <template #body="{ data }">
+                            <span v-if="data.ubicaciones && data.ubicaciones.length > 0">
+                                {{ data.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ') }}
+                            </span>
+                            <span v-else class="text-surface-500 dark:text-surface-400 italic">
+                                Sin ubicación
+                            </span>
+                        </template>
+                    </Column>
                     <Column field="cantidad" header="Cant." style="min-width: 5rem" />
                     <Column field="cantidadSurtida" header="Cant. Surtida" style="min-width: 5rem" />
                     <Column field="estadoItem" header="Estado" style="min-width: 8rem">

@@ -46,6 +46,11 @@ const router = createRouter({
                     component: () => import('@/views/Sincronizacion.vue')
                 },
                 {
+                    path: '/v1/sincronizacion/groups',
+                    name: 'sincronizacion-groups',
+                    component: () => import('@/views/SincronizacionGroup.vue')
+                },
+                {
                     path: '/v1/operaciones',
                     name: 'operaciones',
                     component: () => import('@/views/Operaciones.vue')
