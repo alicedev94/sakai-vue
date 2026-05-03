@@ -79,21 +79,27 @@ export async function setupOneSignalForUser(user) {
     return new Promise((resolve) => {
         window.OneSignalDeferred.push(async (OneSignal) => {
             try {
-                await initOneSignal(OneSignal);
-
                 const role = operationalRole(user);
+                console.info('[OneSignal] Iniciando setup, role calculado:', role, 'user:', user.username || user.email);
+
                 if (!role) {
+                    console.warn('[OneSignal] No se pudo determinar el role operativo. rawRole:', user?.role || user?.roleCode || '');
                     resolve({ ok: false, reason: 'missing-role' });
                     return;
                 }
 
-                await OneSignal.Notifications.requestPermission();
+                await initOneSignal(OneSignal);
+
+                const permResult = await OneSignal.Notifications.requestPermission();
+                console.info('[OneSignal] Resultado de pedir permiso:', permResult);
+
                 if (!OneSignal.User.PushSubscription.optedIn && Notification.permission === 'granted') {
+                    console.info('[OneSignal] Permiso concedido pero no optedIn, intentando optIn manual...');
                     await OneSignal.User.PushSubscription.optIn();
                 }
 
                 if (!OneSignal.User.PushSubscription.optedIn) {
-                    console.warn('OneSignal sin suscripcion activa', {
+                    console.warn('[OneSignal] Usuario NO suscrito', {
                         permission: Notification.permission,
                         optedIn: OneSignal.User.PushSubscription.optedIn,
                         subscriptionId: OneSignal.User.PushSubscription.id || null
@@ -102,26 +108,100 @@ export async function setupOneSignalForUser(user) {
                     return;
                 }
 
+                const subId = OneSignal.User.PushSubscription.id;
+                console.info('[OneSignal] Subscription exitosa, id:', subId);
+
                 await OneSignal.User.addTags({
                     role,
                     username: user.username || role,
                     email: user.email || ''
                 });
-                const tags = await getOneSignalTags(OneSignal);
+
+                const tags = await OneSignal.User.getTags();
+                console.info('[OneSignal] Tags confirmados:', tags);
 
                 const result = {
                     ok: true,
                     role,
                     permission: Notification.permission,
                     optedIn: OneSignal.User.PushSubscription.optedIn,
-                    subscriptionId: OneSignal.User.PushSubscription.id || null,
+                    subscriptionId: subId,
                     tags
                 };
-                console.info('OneSignal inicializado para usuario', result);
+                console.info('[OneSignal] Setup completo', result);
                 resolve(result);
             } catch (error) {
-                console.warn('No se pudo inicializar OneSignal:', error);
+                console.error('[OneSignal] Error inesperado:', error);
                 resolve({ ok: false, reason: 'onesignal-error' });
+            }
+        });
+    });
+}
+    await loadSdk();
+
+    return new Promise((resolve) => {
+        window.OneSignalDeferred.push(async (OneSignal) => {
+            try {
+                const role = operationalRole(user);
+                console.info('[OneSignal] Iniciando setup role=', role, 'user=', user.username || user.email);
+
+                if (!role) {
+                    console.warn('[OneSignal] No se pudo determinar el rol operativo');
+                    resolve({ ok: false, reason: 'missing-role' });
+                    return;
+                }
+
+                await initOneSignal(OneSignal);
+
+                const perm = await OneSignal.Notifications.requestPermission();
+                console.info('[OneSignal] Resultado permiso:', perm);
+
+                if (!OneSignal.User.PushSubscription.optedIn) {
+                    if (Notification.permission === 'granted') {
+                        try {
+                            await OneSignal.User.PushSubscription.optIn();
+                            console.info('[OneSignal] Opt-in manual exitoso');
+                        } catch (optErr) {
+                            console.warn('[OneSignal] Fallo opt-in manual:', optErr);
+                        }
+                    }
+
+                    if (!OneSignal.User.PushSubscription.optedIn) {
+                        console.warn('[OneSignal] Usuario NO suscrito', {
+                            browserPerm: Notification.permission,
+                            optedIn: OneSignal.User.PushSubscription.optedIn,
+                            subId: OneSignal.User.PushSubscription.id || null
+                        });
+                        resolve({ ok: false, reason: 'permission-denied', permission: Notification.permission });
+                        return;
+                    }
+                }
+
+                const subId = OneSignal.User.PushSubscription.id;
+                console.info('[OneSignal] Subscription ID:', subId);
+
+                await OneSignal.User.addTags({
+                    role,
+                    username: user.username || role,
+                    email: user.email || ''
+                });
+
+                const tags = await OneSignal.User.getTags();
+                console.info('[OneSignal] Tags verificados:', tags);
+
+                const result = {
+                    ok: true,
+                    role,
+                    permission: Notification.permission,
+                    optedIn: true,
+                    subscriptionId: subId,
+                    tags
+                };
+                console.info('[OneSignal] Setup completo', result);
+                resolve(result);
+            } catch (error) {
+                console.error('[OneSignal] Error inesperado:', error);
+                resolve({ ok: false, reason: 'onesignal-error', error: String(error) });
             }
         });
     });

@@ -89,9 +89,31 @@ onMounted(async () => {
         if (result?.ok) {
             toast.add({
                 severity: 'success',
-                summary: 'Notificaciones activas',
+                summary: 'Notificaciones push activas',
                 detail: `Recibirás avisos como ${result.role}`,
                 life: 2500
+            });
+        } else {
+            const detalle = result?.reason === 'permission-denied'
+                ? 'Permite las notificaciones del navegador para recibir alertas push'
+                : `No se activaron push notifications (motivo: ${result?.reason || 'desconocido'})`;
+            toast.add({
+                severity: 'warn',
+                summary: 'Push notifications no activas',
+                detail,
+                life: 5000
+            });
+        }
+    });
+        } else {
+            console.warn('OneSignal no se pudo configurar:', result);
+            toast.add({
+                severity: 'warn',
+                summary: 'Push notifications',
+                detail: result?.reason === 'permission-denied'
+                    ? 'Permite las notificaciones del navegador para recibir avisos'
+                    : 'No se pudieron activar las notificaciones push',
+                life: 4000
             });
         }
     });
