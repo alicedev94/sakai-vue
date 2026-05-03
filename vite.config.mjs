@@ -1,7 +1,9 @@
 import { fileURLToPath, URL } from 'node:url';
+import fs from 'node:fs';
+import path from 'node:path';
 
 import { PrimeVueResolver } from '@primevue/auto-import-resolver';
-import basicSsl from '@vitejs/plugin-basic-ssl';
+//import basicSsl from '@vitejs/plugin-basic-ssl';
 import vue from '@vitejs/plugin-vue';
 import Components from 'unplugin-vue-components/vite';
 import { defineConfig } from 'vite';
@@ -13,8 +15,33 @@ export default defineConfig({
         include: ['html5-qrcode']
     },
     plugins: [
-        basicSsl(),
+        //basicSsl(),
         vue(),
+        {
+            name: 'onesignal-root-worker-dev',
+            configureServer(server) {
+                const workerMap = {
+                    '/OneSignalSDKWorker.js': path.resolve(process.cwd(), 'public', 'OneSignalSDKWorker.js'),
+                    '/OneSignalSDKUpdaterWorker.js': path.resolve(process.cwd(), 'public', 'OneSignalSDKUpdaterWorker.js')
+                };
+
+                server.middlewares.use((req, res, next) => {
+                    const reqPath = req.url?.split('?')[0];
+                    const filePath = reqPath ? workerMap[reqPath] : null;
+                    if (!filePath) {
+                        next();
+                        return;
+                    }
+                    if (!fs.existsSync(filePath)) {
+                        res.statusCode = 404;
+                        res.end('Not found');
+                        return;
+                    }
+                    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+                    res.end(fs.readFileSync(filePath, 'utf8'));
+                });
+            }
+        },
         Components({
             resolvers: [PrimeVueResolver()]
         })
@@ -28,11 +55,11 @@ export default defineConfig({
     server: {
         host: true,
         port: 3000,
-        https: true,
+        https: false,
         proxy: {
             // Proxy para las peticiones al backend
             '/api': {
-                target: 'http://149.50.135.38:8080',
+                target: 'http://localhost:8080',
                 changeOrigin: true,
                 secure: false,
                 // rewrite: (path) => path.replace(/^\/api/, '/api'), // Mantener /api en el path

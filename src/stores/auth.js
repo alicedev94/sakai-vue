@@ -76,7 +76,8 @@ export const useAuthStore = defineStore('auth', () => {
         user.value = authData.user || {
             username: authData.username,
             email: authData.email,
-            id: authData.id
+            id: authData.id,
+            role: authData.role
         };
 
         // Guardar en localStorage
