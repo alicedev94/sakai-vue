@@ -1148,23 +1148,24 @@ const exportarPDF = () => {
                                 </template>
                             </Select>
                         </div>
-                        <div class="col-8 md:col-4">
+                        <div class="col-12 md:col-6 mt-2">
                             <label>Cantidad</label>
-                            <InputNumber
-                                v-model="nuevoProducto.cantidad"
-                                :min="1"
-                                showButtons
-                                class="w-full mt-2"
-                            />
-                        </div>
-                        <div class="col-4 md:col-2">
-                            <Button
-                                icon="pi pi-plus"
-                                label="Agregar"
-                                class="w-full mt-2"
-                                @click="agregarProducto"
-                                :disabled="!nuevoProducto.producto || !newPreOrden.departamento"
-                            />
+                            <div class="flex gap-2 mt-2">
+                                <InputNumber
+                                    v-model="nuevoProducto.cantidad"
+                                    :min="1"
+                                    showButtons
+                                    class="flex-auto"
+                                    inputClass="w-full"
+                                />
+                                <Button
+                                    icon="pi pi-plus"
+                                    label="Agregar"
+                                    @click="agregarProducto"
+                                    :disabled="!nuevoProducto.producto || !newPreOrden.departamento"
+                                    class="white-space-nowrap"
+                                />
+                            </div>
                         </div>
                     </div>
 
