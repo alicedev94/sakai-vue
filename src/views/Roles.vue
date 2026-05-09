@@ -198,8 +198,8 @@ onMounted(() => {
                         <ul v-if="data.permissions && data.permissions.length" class="perms-list">
                             <li v-for="perm in data.permissions" :key="perm.id || perm.code">
                                 <span class="perm-name">{{ perm.name }}</span>
-                                <span class="perm-code">({{ perm.code }})</span>
-                                <span class="perm-url">- {{ perm.url }}</span>
+                                <!-- <span class="perm-code">({{ perm.code }})</span>
+                                <span class="perm-url">- {{ perm.url }}</span> -->
                             </li>
                         </ul>
                         <span v-else class="text-color-secondary">Sin permisos</span>

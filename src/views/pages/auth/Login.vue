@@ -109,9 +109,9 @@ const handleKeyPress = (event) => {
 
     <Toast />
     <div class="bg-surface-50 dark:bg-surface-950 flex items-center justify-center min-h-screen min-w-[100vw] overflow-hidden">
-        <div class="flex flex-col items-center justify-center">
-            <div style="border-radius: 56px; padding: 0.3rem; background: linear-gradient(180deg, var(--primary-color) 10%, rgba(33, 150, 243, 0) 30%)">
-                <div class="w-full bg-surface-0 dark:bg-surface-900 py-20 px-8 sm:px-20" style="border-radius: 53px">
+        <div class="flex flex-col items-center justify-center w-full px-4 sm:w-auto sm:px-0">
+            <div style="border-radius: 56px; padding: 0.3rem; background: linear-gradient(180deg, var(--primary-color) 10%, rgba(33, 150, 243, 0) 30%)" class="w-full sm:w-auto">
+                <div class="w-full bg-surface-0 dark:bg-surface-900 py-20 px-6 sm:px-20" style="border-radius: 53px">
                     <div class="text-center mb-8">
                         <img :src="logo" alt="Logo" class="w-35 h-24 mx-auto logo-rounded mb-4">
                         <div class="text-surface-900 dark:text-surface-0 text-3xl font-medium mb-4">¡Bienvenido!</div>
@@ -143,28 +143,28 @@ const handleKeyPress = (event) => {
                             :disabled="loading"
                         ></Password>
 
-                        <div class="flex items-center justify-between mt-2 mb-8 gap-8">
+                        <!-- <div class="flex items-center justify-between mt-2 mb-8 gap-8">
                             <div class="flex items-center">
                                 <Checkbox v-model="rememberMe" id="rememberme1" binary class="mr-2" :disabled="loading"></Checkbox>
                                 <label for="rememberme1">Recuérdame</label>
                             </div>
                             <span class="font-medium no-underline ml-2 text-right cursor-pointer text-primary">¿Olvidaste tu contraseña?</span>
-                        </div>
+                        </div> -->
 
                         <Button 
                             label="Iniciar Sesión" 
-                            class="w-full mb-4"
+                            class="w-full mb-4 mt-4"
                             @click="handleLogin"
                             :loading="loading"
                             :disabled="loading"
                         />
 
-                        <div class="text-center mt-4">
+                        <!-- <div class="text-center mt-4">
                             <span class="text-muted-color">¿No tienes cuenta? </span>
                             <router-link to="/v1/auth/register" class="font-medium no-underline cursor-pointer text-primary">
                                 Regístrate aquí
                             </router-link>
-                        </div>
+                        </div> -->
                     </div>
                 </div>
             </div>

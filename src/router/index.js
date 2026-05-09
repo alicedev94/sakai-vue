@@ -158,11 +158,11 @@ const router = createRouter({
                 }
             ]
         },
-        {
+        /* {
             path: '/v1/landing',
             name: 'landing',
             component: () => import('@/views/pages/Landing.vue')
-        },
+        }, */
         {
             path: '/v1/pages/notfound',
             name: 'notfound',
@@ -174,12 +174,12 @@ const router = createRouter({
             component: () => import('@/views/pages/auth/Login.vue'),
             meta: { requiresGuest: true }
         },
-        {
+        /* {
             path: '/v1/auth/register',
             name: 'register',
             component: () => import('@/views/pages/auth/Register.vue'),
             meta: { requiresGuest: true }
-        },
+        }, */
         {
             path: '/v1/auth/access',
             name: 'accessDenied',

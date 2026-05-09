@@ -1040,7 +1040,7 @@ const exportarPDF = () => {
         <Dialog
             v-model:visible="createDialog"
             :style="{ width: '800px' }"
-            :breakpoints="{ '1199px': '85vw', '575px': '98vw' }"
+            :breakpoints="{ '1199px': '85vw', '575px': '92vw' }"
             :header="isEditing ? 'Editar PreOrden' : 'Crear Nueva PreOrden'"
             :modal="true"
         >
@@ -1051,9 +1051,11 @@ const exportarPDF = () => {
                         v-model="newPreOrden.departamento"
                         :options="departamentosList"
                         optionLabel="descripcion"
+                        dataKey="descripcion"
                         placeholder="Seleccione departamento"
                         class="w-full mt-2"
                         :filter="true"
+                        appendTo="body"
                     />
                 </div>
                 <div class="col-12 md:col-6 mb-3">
@@ -1125,21 +1127,28 @@ const exportarPDF = () => {
                     </div>
 
                     <!-- Selector manual -->
-                    <div class="flex gap-2 mb-3" style="align-items: flex-end;">
-                        <div style="flex-grow: 1;">
+                    <div class="grid mb-3 align-items-end">
+                        <div class="col-12 md:col-6">
                             <label>Producto <small class="text-secondary">(selección manual)</small></label>
                             <Select
                                 v-model="nuevoProducto.producto"
                                 :options="productosList"
                                 optionLabel="label"
                                 placeholder="Seleccione un producto"
-                                class="w-full mt-2"
+                                class="w-full mt-2 product-select"
                                 :filter="true"
-                                :virtualScrollerOptions="{ itemSize: 38 }"
+                                :virtualScrollerOptions="{ itemSize: 48 }"
                                 :disabled="!newPreOrden.departamento"
-                            />
+                                appendTo="body"
+                            >
+                                <template #option="slotProps">
+                                    <div class="product-item-content">
+                                        {{ slotProps.option.label }}
+                                    </div>
+                                </template>
+                            </Select>
                         </div>
-                        <div style="width: 120px;">
+                        <div class="col-8 md:col-4">
                             <label>Cantidad</label>
                             <InputNumber
                                 v-model="nuevoProducto.cantidad"
@@ -1148,23 +1157,38 @@ const exportarPDF = () => {
                                 class="w-full mt-2"
                             />
                         </div>
-                        <div>
+                        <div class="col-4 md:col-2">
                             <Button
                                 icon="pi pi-plus"
                                 label="Agregar"
-                                class="mt-2"
+                                class="w-full mt-2"
                                 @click="agregarProducto"
                                 :disabled="!nuevoProducto.producto || !newPreOrden.departamento"
                             />
                         </div>
                     </div>
 
-                    <DataTable :value="newPreOrden.items" :rows="5" :paginator="newPreOrden.items.length > 5" size="small" stripedRows>
+                    <DataTable 
+                        :value="newPreOrden.items" 
+                        :rows="5" 
+                        :paginator="newPreOrden.items.length > 5" 
+                        size="small" 
+                        stripedRows
+                        scrollable
+                        scrollHeight="400px"
+                    >
                         <template #empty>
                             <div class="text-center p-3 text-secondary">No se han agregado productos</div>
                         </template>
-                        <Column field="codigoBarra" header="Código" />
-                        <Column field="nombreProducto" header="Producto" />
+                        <Column field="codigoBarra" header="Código" class="hidden sm:table-cell" headerClass="hidden sm:table-cell" />
+                        <Column field="nombreProducto" header="Producto">
+                            <template #body="{ data }">
+                                <div style="white-space: normal; word-break: break-word;">
+                                    <div class="font-bold sm:font-normal">{{ data.nombreProducto }}</div>
+                                    <div class="text-xs text-secondary sm:hidden">{{ data.codigoBarra }}</div>
+                                </div>
+                            </template>
+                        </Column>
                         <Column field="cantidad" header="Cant." style="width: 140px; text-align: center;">
                             <template #body="{ data }">
                                 <InputNumber
@@ -1223,8 +1247,12 @@ const exportarPDF = () => {
     display: flex;
     gap: 0.5rem;
     align-items: center;
+    flex-wrap: wrap;
 
-    .flex-grow-1 { flex: 1; }
+    .flex-grow-1 { 
+        flex: 1; 
+        min-width: 200px;
+    }
 }
 
 .scan-hint {
@@ -1831,5 +1859,22 @@ const exportarPDF = () => {
     padding: 0.65rem 1rem;
     border-top: 1px solid var(--surface-200);
     background: var(--surface-50);
+}
+
+:deep(.product-select) {
+    .p-select-label {
+        white-space: normal !important;
+        word-break: break-word;
+    }
+}
+
+:deep(.p-select-option) {
+    white-space: normal !important;
+    word-break: break-word;
+    line-height: 1.3;
+}
+
+.product-item-content {
+    width: 100%;
 }
 </style>
