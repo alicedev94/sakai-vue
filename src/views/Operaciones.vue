@@ -159,6 +159,25 @@ async function abrirSurtido(orden) {
             await store.cargarOrdenDetalle(orden.id);
         }
         ordenSeleccionada.value = store.ordenActiva;
+
+        // Cargar inventario (Piso/Almacén) para cada item de la orden
+        if (ordenSeleccionada.value?.items) {
+            for (const it of ordenSeleccionada.value.items) {
+                if (it.codigoBarra) {
+                    try {
+                        const inv = await store.obtenerInventarioUbicacion(it.codigoBarra);
+                        if (inv) {
+                            it.r3Piso = inv.piso ?? 0;
+                            it.r3Almacen = inv.almacen ?? 0;
+                        }
+                    } catch {
+                        it.r3Piso = '-';
+                        it.r3Almacen = '-';
+                    }
+                }
+            }
+        }
+
         codigoEscaneado.value = '';
         lastScanResult.value = null;
         scanDialog.value = true;
@@ -969,17 +988,7 @@ const finalizarOrden = async () => {
                             />
                             <span class="cantidad-max-hint">máx. {{ cantidadMax }}</span>
                         </div>
-                        <div v-if="inventarioUbicacion" class="cantidad-inventario-grid">
-                            <div class="inv-item">
-                                <span class="inv-label">Piso (PDV)</span>
-                                <span class="inv-value">{{ inventarioUbicacion.piso }}</span>
-                            </div>
-                            <div class="inv-item">
-                                <span class="inv-label">Almacén</span>
-                                <span class="inv-value">{{ inventarioUbicacion.almacen }}</span>
-                            </div>
-                        </div>
-                        <div v-else class="cantidad-info-row">
+                        <div class="cantidad-info-row">
                             <span class="cantidad-info-label">Inventario actual: </span>
                             <span class="cantidad-info-value">{{ cantidadInventario }}</span>
                         </div>
@@ -1069,6 +1078,16 @@ const finalizarOrden = async () => {
                     <Column field="barra7" header="Barra 7" />
                     <Column field="nombreProducto" header="Producto" />
                     <Column field="atributo" header="Atributo" />
+                    <Column field="r3Piso" header="Piso" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.r3Piso ?? '-' }}
+                        </template>
+                    </Column>
+                    <Column field="r3Almacen" header="Almacén" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.r3Almacen ?? '-' }}
+                        </template>
+                    </Column>
                     <Column field="departamento" header="Dpto." />
                     <Column header="Ubicación" style="min-width: 10rem">
                         <template #body="{ data }">
@@ -1094,7 +1113,6 @@ const finalizarOrden = async () => {
             </div>
 
             <template #footer>
-                <!-- <Button label="Cerrar" icon="pi pi-times" text @click="scanDialog = false" /> -->
             </template>
         </Dialog>
 
@@ -1168,6 +1186,16 @@ const finalizarOrden = async () => {
                     <Column field="barra7" header="Barra 7" />
                     <Column field="nombreProducto" header="Producto" />
                     <Column field="atributo" header="Atributo" />
+                    <Column field="r3Piso" header="Piso" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.r3Piso ?? '-' }}
+                        </template>
+                    </Column>
+                    <Column field="r3Almacen" header="Almacén" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.r3Almacen ?? '-' }}
+                        </template>
+                    </Column>
                     <Column field="departamento" header="Dpto." />
                     <Column header="Ubicación" style="min-width: 10rem">
                         <template #body="{ data }">
@@ -1814,58 +1842,6 @@ const finalizarOrden = async () => {
     padding: 0.5rem 0.85rem;
     background: var(--surface-100);
     border-radius: 6px;
-}
-
-.cantidad-inventario-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-}
-
-.inv-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0.4rem 0.5rem;
-    background: var(--surface-100);
-    border-radius: 6px;
-}
-
-.inv-item.inv-total {
-    background: var(--primary-color);
-    color: var(--primary-color-text);
-}
-
-.inv-label {
-    font-size: 0.7rem;
-    color: var(--text-color-secondary);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-}
-
-.inv-total .inv-label {
-    color: inherit;
-    opacity: 0.8;
-}
-
-.inv-value {
-    font-size: 0.95rem;
-    font-weight: 700;
-    margin-top: 0.15rem;
-}
-
-.cantidad-info-label {
-    font-size: 0.85rem;
-    color: var(--text-color-secondary);
-    font-weight: 600;
-}
-
-.cantidad-info-value {
-    font-size: 0.95rem;
-    color: var(--primary-color);
-    font-weight: 700;
 }
 
 .cantidad-acciones {

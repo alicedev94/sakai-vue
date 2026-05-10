@@ -345,22 +345,38 @@ watch(() => newPreOrden.value.departamento, async (newDept) => {
     await cargarProductos(newDept);
 });
 
-function agregarProducto() {
+async function agregarProducto() {
     const p = nuevoProducto.value.producto;
     if (!p || nuevoProducto.value.cantidad <= 0) return;
-    
-    const existing = newPreOrden.value.items.find(i => 
-        (p.codigoBarra && i.codigoBarra === p.codigoBarra) || 
+
+    const codBarra = p.codigoBarra || p.barra1 || '';
+
+    const existing = newPreOrden.value.items.find(i =>
+        (codBarra && i.codigoBarra === codBarra) ||
         (p.id !== undefined && i.id === p.id) ||
-        (p.idProducto !== undefined && i.idProducto === (p.id || p.codigoBarra))
+        (p.idProducto !== undefined && i.idProducto === (p.id || codBarra))
     );
+
+    let r3Piso = 0;
+    let r3Almacen = 0;
+    try {
+        const inv = await operacionesService.obtenerInventarioUbicacion(codBarra);
+        if (inv) {
+            r3Piso = inv.piso ?? 0;
+            r3Almacen = inv.almacen ?? 0;
+        }
+    } catch {
+        // fallo consulta inventario
+    }
+
     if (existing) {
         existing.cantidad += nuevoProducto.value.cantidad;
+        existing.r3Piso = r3Piso;
+        existing.r3Almacen = r3Almacen;
     } else {
-
         newPreOrden.value.items.push({
-            idProducto: p.id || p.codigoBarra,
-            codigoBarra: p.codigoBarra,
+            idProducto: p.id || codBarra,
+            codigoBarra: codBarra,
             nombreProducto: p.nombreProducto,
             cantidad: nuevoProducto.value.cantidad,
             cantidadSurtida: 0,
@@ -372,7 +388,9 @@ function agregarProducto() {
             barra5: p.barra5,
             barra6: p.barra6,
             barra7: p.barra7,
-            atributo: nuevoProducto.value.atributo
+            atributo: nuevoProducto.value.atributo,
+            r3Piso,
+            r3Almacen
         });
     }
     nuevoProducto.value = { producto: null, cantidad: 1, atributo: '' };
@@ -417,30 +435,6 @@ async function buscarProductoPorCodigo() {
         nuevoProducto.value.producto = encontrado;
         codigoScan.value = '';
 
-        // Consultar inventario por ubicación para mostrar disponibilidad en almacén
-        try {
-            const inv = await operacionesService.obtenerInventarioUbicacion(codigo);
-            const detalleInv = `Piso: ${inv.piso} | Almacén: ${inv.almacen}`;
-            if (inv.almacen < nuevoProducto.value.cantidad) {
-                toast.add({
-                    severity: 'warn',
-                    summary: 'Stock insuficiente en almacén',
-                    detail: `${encontrado.nombreProducto} — ${detalleInv}`,
-                    life: 6000
-                });
-            } else {
-                toast.add({
-                    severity: 'info',
-                    summary: 'Inventario disponible',
-                    detail: detalleInv,
-                    life: 4000
-                });
-            }
-        } catch {
-            // Si falla la consulta de inventario, se agrega igual
-        }
-
-        // Si la cantidad ya está definida, agregar directamente
         agregarProducto();
 
         toast.add({ severity: 'success', summary: 'Producto agregado', detail: encontrado.nombreProducto, life: 2000 });
@@ -1045,6 +1039,16 @@ const exportarPDF = () => {
                     <Column field="nombreProducto" header="Producto" />
                     <Column field="atributo" header="Atributo" />
                     <Column field="departamento" header="Dpto." />
+                    <Column field="r3Piso" header="Piso" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.r3Piso ?? '-' }}
+                        </template>
+                    </Column>
+                    <Column field="r3Almacen" header="Almacén" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.r3Almacen ?? '-' }}
+                        </template>
+                    </Column>
                     <Column field="cantidad" header="Cant." style="min-width: 5rem" />
                     <Column field="estadoItem" header="Estado" style="min-width: 8rem">
                         <template #body="{ data }">
@@ -1234,6 +1238,16 @@ const exportarPDF = () => {
                                     placeholder="Atributo..."
                                     class="w-full"
                                 />
+                            </template>
+                        </Column>
+                        <Column field="r3Piso" header="Piso" style="width: 80px; text-align: center;">
+                            <template #body="{ data }">
+                                {{ data.r3Piso ?? '-' }}
+                            </template>
+                        </Column>
+                        <Column field="r3Almacen" header="Almacén" style="width: 80px; text-align: center;">
+                            <template #body="{ data }">
+                                {{ data.r3Almacen ?? '-' }}
                             </template>
                         </Column>
                         <Column field="cantidad" header="Cant." style="width: 140px; text-align: center;">
