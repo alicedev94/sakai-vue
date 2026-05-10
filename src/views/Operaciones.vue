@@ -81,10 +81,15 @@ const ordenesFiltradas = computed(() => {
 const progresoOrden = (orden) => {
     const items = orden.items || [];
     if (!items.length) return 0;
-    const totalCantidad = items.reduce((acc, i) => acc + (i.cantidad || 0), 0);
-    if (totalCantidad === 0) return 0;
-    const totalSurtida = items.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0);
-    return Math.round((totalSurtida / totalCantidad) * 100);
+    const totalUnits = items.reduce((acc, i) => acc + (i.cantidad || 0), 0);
+    if (totalUnits === 0) return 0;
+    const surtidasUnits = items.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0);
+    return Math.round((surtidasUnits / totalUnits) * 100);
+};
+
+const progresoItem = (item) => {
+    if (!item.cantidad) return 0;
+    return Math.round(((item.cantidadSurtida || 0) / item.cantidad) * 100);
 };
 
 const estadoConfig = {
@@ -97,6 +102,13 @@ const itemEstadoConfig = {
     PENDIENTE: { label: 'Pendiente', class: 'pendiente', icon: 'pi pi-clock' },
     SURTIDO: { label: 'Surtido', class: 'surtido', icon: 'pi pi-check' },
     NO_SURTIDO: { label: 'No Surtido', class: 'no-surtido', icon: 'pi pi-times' }
+};
+
+const getEfectividadColor = (valor) => {
+    if (valor >= 100) return 'text-green-600 font-bold';
+    if (valor >= 80) return 'text-blue-600 font-bold';
+    if (valor >= 50) return 'text-orange-500 font-bold';
+    return 'text-red-600 font-bold';
 };
 
 const formatDateForApi = (dateStr) => {
@@ -521,9 +533,9 @@ const exportarPDF = () => {
     autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 15,
         body: [
-            ['Total Productos:', data.totalItems || 0, 'Productos Surtidos:', data.itemsSurtidos || 0],
-            ['Total Unidades:', totalUnidades, 'Progreso:', `${progresoOrden(data)}%`],
-            ['Total Unidades Surtidas:', data.items?.reduce((acc, item) => acc + item.cantidadSurtida, 0) || 0, 'Total Unidades Pendientes:', data.items?.reduce((acc, item) => acc + item.cantidad - item.cantidadSurtida, 0) || 0],
+            ['Total Renglones:', data.items?.length || 0, 'Renglones Surtidos:', data.items?.filter(i => (i.cantidadSurtida || 0) >= (i.cantidad || 0)).length || 0],
+            ['Total Unidades:', totalUnidades, 'Unidades Surtidas:', data.items?.reduce((acc, item) => acc + (item.cantidadSurtida || 0), 0) || 0],
+            ['Efectividad:', `${progresoOrden(data)}%`, 'Pendiente:', data.items?.reduce((acc, item) => acc + item.cantidad - (item.cantidadSurtida || 0), 0) || 0],
         ],
         theme: 'grid',
         headStyles: { fillColor: primaryColor },
@@ -742,7 +754,10 @@ const finalizarOrden = async () => {
                 <Column header="Productos" style="min-width: 11rem">
                     <template #body="{ data }">
                         <div class="progress-cell">
-                            <span class="progress-text">{{ data.itemsSurtidos ?? 0 }} / {{ data.totalItems ?? 0 }}</span>
+                            <span class="progress-text">
+                                {{ (data.items || []).filter(i => (i.cantidadSurtida || 0) >= (i.cantidad || 0)).length }}/{{ data.items?.length || 0 }} reng. 
+                                ({{ data.items?.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0) || 0 }}/{{ data.items?.reduce((acc, i) => acc + (i.cantidad || 0), 0) || 0 }} unid.)
+                            </span>
                             <ProgressBar
                                 :value="progresoOrden(data)"
                                 style="height: 6px; width: 90px"
@@ -855,7 +870,10 @@ const finalizarOrden = async () => {
                             <div class="flex justify-between items-center">
                                 <span class="font-medium text-surface-500 dark:text-surface-400">Productos:</span>
                                 <div class="progress-cell m-0 items-center">
-                                    <span class="progress-text mr-2">{{ data.itemsSurtidos ?? 0 }} / {{ data.totalItems ?? 0 }}</span>
+                                    <span class="progress-text mr-2">
+                                        {{ (data.items || []).filter(i => (i.cantidadSurtida || 0) >= (i.cantidad || 0)).length }}/{{ data.items?.length || 0 }} reng.
+                                        ({{ data.items?.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0) || 0 }}/{{ data.items?.reduce((acc, i) => acc + (i.cantidad || 0), 0) || 0 }} unid.)
+                                    </span>
                                     <ProgressBar :value="progresoOrden(data)" style="height: 6px; width: 60px" :showValue="false" />
                                 </div>
                             </div>
@@ -901,7 +919,8 @@ const finalizarOrden = async () => {
                         </span>
                     </div>
                     <span class="scan-progress-label">
-                        {{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0) || 0 }}/{{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidad || 0), 0) || 0 }} surtidos
+                        {{ ordenSeleccionada.items?.filter(i => (i.cantidadSurtida || 0) >= (i.cantidad || 0)).length || 0 }}/{{ ordenSeleccionada.items?.length || 0 }} renglones con
+                        {{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0) || 0 }}/{{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidad || 0), 0) || 0 }} unidades surtidas
                     </span>
                 </div>
 
@@ -1071,6 +1090,14 @@ const finalizarOrden = async () => {
                     </Column>
                     <Column field="cantidad" header="Cant." style="min-width: 5rem" />
                     <Column field="cantidadSurtida" header="Cant. Surtida" style="min-width: 5rem" />
+                    <Column header="Progreso" style="min-width: 8rem">
+                        <template #body="{ data }">
+                            <div class="flex items-center gap-2">
+                                <ProgressBar :value="progresoItem(data)" style="height: 6px; flex: 1" :showValue="false" />
+                                <span class="text-xs font-semibold">{{ progresoItem(data) }}%</span>
+                            </div>
+                        </template>
+                    </Column>
                     <Column field="estadoItem" header="Estado" style="min-width: 8rem">
                         <template #body="{ data }">
                             <span :class="['item-estado', itemEstadoConfig[data.estadoItem]?.class]">
@@ -1125,13 +1152,22 @@ const finalizarOrden = async () => {
                         <span>{{ formatFecha(ordenSeleccionada.fechaActualizacion) }}</span>
                     </div>
                     <div class="detail-field">
+                        <label>Efectividad de Surtido</label>
+                        <span :class="getEfectividadColor(progresoOrden(ordenSeleccionada))">
+                            {{ progresoOrden(ordenSeleccionada) }}%
+                        </span>
+                    </div>
+                    <div class="detail-field">
                         <label>Fecha Finalización</label>
                         <span>{{ formatFecha(ordenSeleccionada.fechaFinalizacion) }}</span>
                     </div>
                     <div class="detail-field full">
                         <label>Progreso</label>
                         <div class="progress-detail">
-                            <span>{{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0) || 0 }}/{{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidad || 0), 0) || 0 }} articulos surtidos</span>
+                            <span>
+                                {{ ordenSeleccionada.items?.filter(i => (i.cantidadSurtida || 0) >= (i.cantidad || 0)).length || 0 }}/{{ ordenSeleccionada.items?.length || 0 }} renglones con
+                                {{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0) || 0 }}/{{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidad || 0), 0) || 0 }} unidades completadas
+                            </span>
                             <ProgressBar :value="progresoOrden(ordenSeleccionada)" style="height: 8px; margin-top: 0.5rem" />
                         </div>
                     </div>
@@ -1170,6 +1206,14 @@ const finalizarOrden = async () => {
                     </Column>
                     <Column field="cantidad" header="Cant." style="min-width: 5rem" />
                     <Column field="cantidadSurtida" header="Cant. Surtida" style="min-width: 5rem" />
+                    <Column header="Progreso" style="min-width: 8rem">
+                        <template #body="{ data }">
+                            <div class="flex items-center gap-2">
+                                <ProgressBar :value="progresoItem(data)" style="height: 6px; flex: 1" :showValue="false" />
+                                <span class="text-xs font-semibold">{{ progresoItem(data) }}%</span>
+                            </div>
+                        </template>
+                    </Column>
                     <Column field="estadoItem" header="Estado" style="min-width: 8rem">
                         <template #body="{ data }">
                             <span :class="['item-estado', itemEstadoConfig[data.estadoItem]?.class]">
