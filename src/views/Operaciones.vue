@@ -978,14 +978,6 @@ const finalizarOrden = async () => {
                                 <span class="inv-label">Almacén</span>
                                 <span class="inv-value">{{ inventarioUbicacion.almacen }}</span>
                             </div>
-                            <div class="inv-item">
-                                <span class="inv-label">CEDIS</span>
-                                <span class="inv-value">{{ inventarioUbicacion.cedis }}</span>
-                            </div>
-                            <div class="inv-item inv-total">
-                                <span class="inv-label">Total</span>
-                                <span class="inv-value">{{ inventarioUbicacion.total }}</span>
-                            </div>
                         </div>
                         <div v-else class="cantidad-info-row">
                             <span class="cantidad-info-label">Inventario actual: </span>
@@ -1826,7 +1818,7 @@ const finalizarOrden = async () => {
 
 .cantidad-inventario-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 0.5rem;
     margin-bottom: 1rem;
 }

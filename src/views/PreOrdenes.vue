@@ -420,7 +420,7 @@ async function buscarProductoPorCodigo() {
         // Consultar inventario por ubicación para mostrar disponibilidad en almacén
         try {
             const inv = await operacionesService.obtenerInventarioUbicacion(codigo);
-            const detalleInv = `Piso: ${inv.piso} | Almacén: ${inv.almacen} | CEDIS: ${inv.cedis}`;
+            const detalleInv = `Piso: ${inv.piso} | Almacén: ${inv.almacen}`;
             if (inv.almacen < nuevoProducto.value.cantidad) {
                 toast.add({
                     severity: 'warn',
