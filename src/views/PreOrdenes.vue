@@ -393,7 +393,7 @@ async function buscarProductoPorCodigo() {
             await cargarProductos(newPreOrden.value.departamento);
         }
 
-        const normalizar = (v) => (v ?? '').toString().trim();
+                const normalizar = (v) => (v ?? '').toString().trim();
 
         const encontrado = productosList.value.find((p) =>
             normalizar(p.barra1) === codigo ||
@@ -405,6 +405,17 @@ async function buscarProductoPorCodigo() {
             normalizar(p.barra7) === codigo ||
             normalizar(p.codigoBarra) === codigo
         );
+
+        // PENDIENTE 2.1 — Consultar inventario en almacén antes de agregar producto.
+        // Llamar a endpoint GET /operaciones/{codigo}/inventarioUbicacion y mostrar
+        // alerta si r3Almacen (stock en bodega) es 0 o insuficiente para la cantidad solicitada.
+        // if (encontrado) {
+        //     const inv = await preOrdenesService.obtenerInventarioUbicacion(codigo);
+        //     if (inv && inv.almacen < nuevoProducto.value.cantidad) {
+        //         toast.add({ severity: 'warn', summary: 'Stock insuficiente',
+        //             detail: `Solo hay ${inv.almacen} unidades en almacén`, life: 5000 });
+        //     }
+        // }
 
         if (!encontrado) {
             toast.add({ severity: 'warn', summary: 'No encontrado', detail: `Código "${codigo}" no coincide con ningún producto del departamento seleccionado`, life: 4000 });

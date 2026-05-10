@@ -85,12 +85,37 @@ class OperacionesService {
 
     static async obtenerInventarioFinal(codigoBarra) {
         try {
-            const { data } = await apiClient.get(`${BASE}/${codigoBarra}/inventarioFinal`);
-            return data;
+            const response = await apiClient.get(`${BASE}/${codigoBarra}/inventarioFinal`);
+            return response.data;
         } catch (error) {
-            this.handleError(error, 'consultar inventario');
+            this.handleError(error, 'obtener inventario final');
             throw error;
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // PENDIENTE 2.1 — Inventario por ubicación (desglose PISO/ALMACEN/CEDIS)
+    // ═══════════════════════════════════════════════════════════════════
+    // Una vez implementado el endpoint en el backend:
+    //   GET /operaciones/{codigoBarra}/inventarioUbicacion
+    // que retorna InventarioUbicacionDTO { codigo, codBarra, descripcion,
+    //                                      piso, almacen, cedis, total }
+    //
+    // Descomentar y usar en:
+    //   - Operaciones.vue (panel de cantidad): mostrar piso + almacén
+    //   - PreOrdenes.vue (selector): alertar si almacén == 0
+    // ───────────────────────────────────────────────────────────────────
+    // static async obtenerInventarioUbicacion(codigoBarra) {
+    //     try {
+    //         const response = await apiClient.get(
+    //             `${BASE}/${codigoBarra}/inventarioUbicacion`);
+    //         return response.data;
+    //     } catch (error) {
+    //         this.handleError(error, 'obtener inventario por ubicación');
+    //         throw error;
+    //     }
+    // }
+
     }
 }
 

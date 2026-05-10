@@ -196,6 +196,25 @@ onMounted(() => {
                         <span class="price-text">{{ formatCurrency(data.precio1) }}</span>
                     </template>
                 </Column>
+                <!-- PENDIENTE 2.1 — Agregar columnas de inventario por ubicación
+                     El endpoint GET /api/v1/productos/getAll ya retorna r2Piso, r2Almacen, cedis
+                     vía MaProductosRepository.findAllWithFilters(). Descomentar cuando esté listo:
+                <Column field="r2Piso" header="Piso (PDV)" style="min-width: 6rem" align="center" :sortable="true">
+                    <template #body="{ data }">
+                        <span class="qty-text">{{ Number(data.r2Piso || 0).toFixed(2) }}</span>
+                    </template>
+                </Column>
+                <Column field="r2Almacen" header="Almacén" style="min-width: 6rem" align="center" :sortable="true">
+                    <template #body="{ data }">
+                        <span class="qty-text">{{ Number(data.r2Almacen || 0).toFixed(2) }}</span>
+                    </template>
+                </Column>
+                <Column field="cedis" header="CEDIS" style="min-width: 6rem" align="center" :sortable="true">
+                    <template #body="{ data }">
+                        <span class="qty-text">{{ Number(data.cedis || 0).toFixed(2) }}</span>
+                    </template>
+                </Column>
+                -->
                 <Column field="cantidad" header="Cantidad" style="min-width: 6rem" align="center" :sortable="true">
                     <template #body="{ data }">
                         <span class="qty-text">{{ Number(data.cantidad).toFixed(2) }}</span>

@@ -968,6 +968,12 @@ const finalizarOrden = async () => {
                             />
                             <span class="cantidad-max-hint">máx. {{ cantidadMax }}</span>
                         </div>
+                        <!-- PENDIENTE 2.1 — Desglosar inventario por ubicación
+                             Actualmente solo muestra el total (invFinal).
+                             Reemplazar por tres valores: Piso (PDV) / Almacén / CEDIS
+                             usando el nuevo endpoint GET /operaciones/{codigoBarra}/inventarioUbicacion
+                             que retorna InventarioUbicacionDTO { piso, almacen, cedis, total }.
+                        -->
                         <div class="cantidad-info-row">
                             <span class="cantidad-info-label">Inventario actual: </span>
                             <span class="cantidad-info-value">{{ cantidadInventario }}</span>
