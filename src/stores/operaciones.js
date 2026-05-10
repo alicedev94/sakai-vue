@@ -103,10 +103,18 @@ export const useOperacionesStore = defineStore('operaciones', () => {
             return await OperacionesService.obtenerInventarioFinal(codigoBarra);
         } catch (err) {
             console.error('Error al consultar inventario:', err);
-            return 0; // O un fallback apropiado
+            return 0;
         }
     }
 
+    async function obtenerInventarioUbicacion(codigoBarra) {
+        try {
+            return await OperacionesService.obtenerInventarioUbicacion(codigoBarra);
+        } catch (err) {
+            console.error('Error al consultar inventario por ubicación:', err);
+            return null;
+        }
+    }
 
     return {
         ordenes,
@@ -123,6 +131,7 @@ export const useOperacionesStore = defineStore('operaciones', () => {
         escanear,
         limpiarOrdenActiva,
         finalizarOrden,
-        obtenerInventarioFinal
+        obtenerInventarioFinal,
+        obtenerInventarioUbicacion
     };
 });

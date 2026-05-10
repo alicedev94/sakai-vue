@@ -85,10 +85,21 @@ class OperacionesService {
 
     static async obtenerInventarioFinal(codigoBarra) {
         try {
-            const { data } = await apiClient.get(`${BASE}/${codigoBarra}/inventarioFinal`);
-            return data;
+            const response = await apiClient.get(`${BASE}/${codigoBarra}/inventarioFinal`);
+            return response.data;
         } catch (error) {
-            this.handleError(error, 'consultar inventario');
+            this.handleError(error, 'obtener inventario final');
+            throw error;
+        }
+    }
+
+    static async obtenerInventarioUbicacion(codigoBarra) {
+        try {
+            const response = await apiClient.get(
+                `${BASE}/${codigoBarra}/inventarioUbicacion`);
+            return response.data;
+        } catch (error) {
+            this.handleError(error, 'obtener inventario por ubicación');
             throw error;
         }
     }
@@ -102,5 +113,6 @@ export const operacionesService = {
     obtenerPorId: (id) => OperacionesService.obtenerPorId(id),
     iniciarOrden: (id) => OperacionesService.iniciarOrden(id),
     escanearProducto: (ordenId, codigoBarra, cantidad) => OperacionesService.escanearProducto(ordenId, codigoBarra, cantidad),
-    obtenerInventarioFinal: (codigoBarra) => OperacionesService.obtenerInventarioFinal(codigoBarra)
+    obtenerInventarioFinal: (codigoBarra) => OperacionesService.obtenerInventarioFinal(codigoBarra),
+    obtenerInventarioUbicacion: (codigoBarra) => OperacionesService.obtenerInventarioUbicacion(codigoBarra)
 };

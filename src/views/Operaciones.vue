@@ -34,6 +34,7 @@ const codigoPendiente = ref('');
 const origenFueCamara = ref(false);
 const cantidadInput = ref(null);
 const cantidadInventario = ref(null);
+const inventarioUbicacion = ref(null);
 
 const cameraActiva = ref(false);
 const cameraLoading = ref(false);
@@ -158,6 +159,25 @@ async function abrirSurtido(orden) {
             await store.cargarOrdenDetalle(orden.id);
         }
         ordenSeleccionada.value = store.ordenActiva;
+
+        // Cargar inventario (Piso/Almacén) para cada item de la orden
+        if (ordenSeleccionada.value?.items) {
+            for (const it of ordenSeleccionada.value.items) {
+                if (it.codigoBarra) {
+                    try {
+                        const inv = await store.obtenerInventarioUbicacion(it.codigoBarra);
+                        if (inv) {
+                            it.r3Piso = inv.piso ?? 0;
+                            it.r3Almacen = inv.almacen ?? 0;
+                        }
+                    } catch {
+                        it.r3Piso = '-';
+                        it.r3Almacen = '-';
+                    }
+                }
+            }
+        }
+
         codigoEscaneado.value = '';
         lastScanResult.value = null;
         scanDialog.value = true;
@@ -238,15 +258,15 @@ async function procesarEscaneo(codigoDesdeCamara) {
     mostrarCantidad.value = true;
     codigoEscaneado.value = '';
     
-    // Consulta dinámica del inventario en base de datos al abrir
+    // Consulta dinámica del inventario desglosado por ubicación
     cantidadInventario.value = 'Calculando...';
+    inventarioUbicacion.value = null;
     try {
-        const inv = await store.obtenerInventarioFinal(item.codigoBarra);
-        console.log('Inventario final:', inv);
-        // Si el endpoint retorna el entero directo, lo seteamos. Si retorna objeto, accede a la property.
-        cantidadInventario.value = inv; 
+        const inv = await store.obtenerInventarioUbicacion(item.codigoBarra);
+        inventarioUbicacion.value = inv;
+        cantidadInventario.value = inv.total;
     } catch (e) {
-        console.error('Error al consultar inventario:', e);
+        console.error('Error al consultar inventario por ubicación:', e);
         cantidadInventario.value = 'Error';
     }
 
@@ -1058,6 +1078,16 @@ const finalizarOrden = async () => {
                     <Column field="barra7" header="Barra 7" />
                     <Column field="nombreProducto" header="Producto" />
                     <Column field="atributo" header="Atributo" />
+                    <Column field="r3Piso" header="Piso" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.r3Piso ?? '-' }}
+                        </template>
+                    </Column>
+                    <Column field="r3Almacen" header="Almacén" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.r3Almacen ?? '-' }}
+                        </template>
+                    </Column>
                     <Column field="departamento" header="Dpto." />
                     <Column header="Ubicación" style="min-width: 10rem">
                         <template #body="{ data }">
@@ -1083,7 +1113,6 @@ const finalizarOrden = async () => {
             </div>
 
             <template #footer>
-                <!-- <Button label="Cerrar" icon="pi pi-times" text @click="scanDialog = false" /> -->
             </template>
         </Dialog>
 
@@ -1157,6 +1186,16 @@ const finalizarOrden = async () => {
                     <Column field="barra7" header="Barra 7" />
                     <Column field="nombreProducto" header="Producto" />
                     <Column field="atributo" header="Atributo" />
+                    <Column field="r3Piso" header="Piso" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.r3Piso ?? '-' }}
+                        </template>
+                    </Column>
+                    <Column field="r3Almacen" header="Almacén" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.r3Almacen ?? '-' }}
+                        </template>
+                    </Column>
                     <Column field="departamento" header="Dpto." />
                     <Column header="Ubicación" style="min-width: 10rem">
                         <template #body="{ data }">
@@ -1803,18 +1842,6 @@ const finalizarOrden = async () => {
     padding: 0.5rem 0.85rem;
     background: var(--surface-100);
     border-radius: 6px;
-}
-
-.cantidad-info-label {
-    font-size: 0.85rem;
-    color: var(--text-color-secondary);
-    font-weight: 600;
-}
-
-.cantidad-info-value {
-    font-size: 0.95rem;
-    color: var(--primary-color);
-    font-weight: 700;
 }
 
 .cantidad-acciones {
