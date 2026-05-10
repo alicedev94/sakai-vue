@@ -143,7 +143,7 @@ const newPreOrden = ref({
 });
 const departamentosList = ref([]);
 const productosList = ref([]);
-const nuevoProducto = ref({ producto: null, cantidad: 1 });
+const nuevoProducto = ref({ producto: null, cantidad: 1, atributo: '' });
 
 // ── Barcode scan (texto / pistola) ───────────────────────────────────────────
 const codigoScan = ref('');
@@ -370,10 +370,11 @@ function agregarProducto() {
             barra4: p.barra4,
             barra5: p.barra5,
             barra6: p.barra6,
-            barra7: p.barra7
+            barra7: p.barra7,
+            atributo: nuevoProducto.value.atributo
         });
     }
-    nuevoProducto.value = { producto: null, cantidad: 1 };
+    nuevoProducto.value = { producto: null, cantidad: 1, atributo: '' };
 }
 
 function removerProducto(index) {
@@ -626,6 +627,7 @@ const exportarPDF = () => {
     const tableData = data.items.map(item => [
         item.codigoBarra,
         item.nombreProducto,
+        item.atributo || '—',
         item.departamento || '—',
         item.cantidad,
         item.estadoItem
@@ -633,7 +635,7 @@ const exportarPDF = () => {
     
     autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 15,
-        head: [['Código', 'Producto', 'Dpto.', 'Cant.', 'Estado']],
+        head: [['Código', 'Producto', 'Atributo', 'Dpto.', 'Cant.', 'Estado']],
         body: tableData,
         headStyles: { fillColor: primaryColor },
         alternateRowStyles: { fillColor: [245, 245, 245] },
@@ -1017,6 +1019,7 @@ const exportarPDF = () => {
                 <DataTable :value="preOrdenSeleccionada.items" :rows="10" :paginator="preOrdenSeleccionada.items?.length > 10" size="small" stripedRows>
                     <Column field="codigoBarra" header="Código" />
                     <Column field="nombreProducto" header="Producto" />
+                    <Column field="atributo" header="Atributo" />
                     <Column field="departamento" header="Dpto." />
                     <Column field="cantidad" header="Cant." style="min-width: 5rem" />
                     <Column field="estadoItem" header="Estado" style="min-width: 8rem">
@@ -1128,7 +1131,7 @@ const exportarPDF = () => {
 
                     <!-- Selector manual -->
                     <div class="grid mb-3 align-items-end">
-                        <div class="col-12 md:col-6">
+                        <div class="col-12 md:col-4">
                             <label>Producto <small class="text-secondary">(selección manual)</small></label>
                             <Select
                                 v-model="nuevoProducto.producto"
@@ -1148,7 +1151,16 @@ const exportarPDF = () => {
                                 </template>
                             </Select>
                         </div>
-                        <div class="col-12 md:col-6 mt-2">
+                        <div class="col-12 md:col-4 mt-2">
+                            <label>Atributo</label>
+                            <InputText
+                                v-model="nuevoProducto.atributo"
+                                placeholder="Color, talla, etc."
+                                class="w-full mt-2"
+                                :disabled="!newPreOrden.departamento"
+                            />
+                        </div>
+                        <div class="col-12 md:col-4 mt-2">
                             <label>Cantidad</label>
                             <div class="flex gap-2 mt-2">
                                 <InputNumber
@@ -1170,6 +1182,7 @@ const exportarPDF = () => {
                     </div>
 
                     <DataTable 
+                        class="mt-4"
                         :value="newPreOrden.items" 
                         :rows="5" 
                         :paginator="newPreOrden.items.length > 5" 
@@ -1188,6 +1201,15 @@ const exportarPDF = () => {
                                     <div class="font-bold sm:font-normal">{{ data.nombreProducto }}</div>
                                     <div class="text-xs text-secondary sm:hidden">{{ data.codigoBarra }}</div>
                                 </div>
+                            </template>
+                        </Column>
+                        <Column field="atributo" header="Atributo" style="min-width: 120px;">
+                            <template #body="{ data }">
+                                <InputText
+                                    v-model="data.atributo"
+                                    placeholder="Atributo..."
+                                    class="w-full"
+                                />
                             </template>
                         </Column>
                         <Column field="cantidad" header="Cant." style="width: 140px; text-align: center;">

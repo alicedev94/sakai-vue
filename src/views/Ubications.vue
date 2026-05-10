@@ -38,6 +38,7 @@ const cameraLoading = ref(false);
 const cameraError = ref(null);
 let html5Scanner = null;
 let decodeLock = false;
+const scanTarget = ref('codigo'); // 'codigo' o 'ubicacion'
 
 function mensajeFalloCamara(err) {
     if (typeof window !== 'undefined' && !window.isSecureContext) {
@@ -68,7 +69,8 @@ async function detenerCamara() {
     cameraLoading.value = false;
 }
 
-async function iniciarCamara() {
+async function iniciarCamara(target = 'codigo') {
+    scanTarget.value = target;
     if (html5Scanner) await detenerCamara();
     cameraError.value = null;
 
@@ -105,8 +107,8 @@ async function iniciarCamara() {
             decodeLock = true;
             try {
                 await detenerCamara();
-                form.value.codigo = codigo;
-                toast.add({ severity: 'success', summary: 'Código capturado', detail: codigo, life: 2500 });
+                form.value[scanTarget.value] = codigo;
+                toast.add({ severity: 'success', summary: 'Escaneo exitoso', detail: codigo, life: 2500 });
             } finally {
                 setTimeout(() => { decodeLock = false; }, 600);
             }
@@ -600,7 +602,7 @@ onUnmounted(detenerCamara);
                             outlined
                             :loading="cameraLoading"
                             v-tooltip.top="'Escanear con cámara'"
-                            @click="iniciarCamara"
+                            @click="iniciarCamara('codigo')"
                         />
                         <Button
                             v-else
@@ -633,12 +635,23 @@ onUnmounted(detenerCamara);
                     <label class="form-label required">
                         <i class="pi pi-map-marker" /> Ubicación
                     </label>
-                    <InputText
-                        v-model="form.ubicacion"
-                        placeholder="Ej. Bodega A, Estante 3"
-                        class="w-full"
-                        :class="{ 'p-invalid': !form.ubicacion?.trim() && saving }"
-                    />
+                    <div class="scan-row">
+                        <InputText
+                            v-model="form.ubicacion"
+                            placeholder="Ej. Bodega A, Estante 3"
+                            class="scan-input"
+                            :class="{ 'p-invalid': !form.ubicacion?.trim() && saving }"
+                        />
+                        <Button
+                            v-if="!cameraActiva"
+                            icon="pi pi-camera"
+                            severity="secondary"
+                            outlined
+                            :loading="cameraLoading"
+                            v-tooltip.top="'Escanear con cámara'"
+                            @click="iniciarCamara('ubicacion')"
+                        />
+                    </div>
                     <small class="form-hint">Descripción de la ubicación física (requerido)</small>
                 </div>
 

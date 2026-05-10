@@ -535,6 +535,7 @@ const exportarPDF = () => {
     const tableData = data.items.map(item => [
         item.codigoBarra,
         item.nombreProducto,
+        item.atributo || '—',
         item.departamento || '—',
         item.cantidad,
         item.estadoItem,
@@ -543,7 +544,7 @@ const exportarPDF = () => {
     
     autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 15,
-        head: [['Código', 'Producto', 'Dpto.', 'Cantidad', 'Estado', 'Cantidad Surtida']],
+        head: [['Código', 'Producto', 'Atributo', 'Dpto.', 'Cantidad', 'Estado', 'Cantidad Surtida']],
         body: tableData,
         headStyles: { fillColor: primaryColor },
         alternateRowStyles: { fillColor: [245, 245, 245] },
@@ -1056,6 +1057,7 @@ const finalizarOrden = async () => {
                     <Column field="barra6" header="Barra 6" />
                     <Column field="barra7" header="Barra 7" />
                     <Column field="nombreProducto" header="Producto" />
+                    <Column field="atributo" header="Atributo" />
                     <Column field="departamento" header="Dpto." />
                     <Column header="Ubicación" style="min-width: 10rem">
                         <template #body="{ data }">
@@ -1154,6 +1156,7 @@ const finalizarOrden = async () => {
                     <Column field="barra6" header="Barra 6" />
                     <Column field="barra7" header="Barra 7" />
                     <Column field="nombreProducto" header="Producto" />
+                    <Column field="atributo" header="Atributo" />
                     <Column field="departamento" header="Dpto." />
                     <Column header="Ubicación" style="min-width: 10rem">
                         <template #body="{ data }">
