@@ -1,4 +1,5 @@
 <script setup>
+import { operacionesService } from '@/service/OperacionesService';
 import { preOrdenesService } from '@/service/PreOrdenesService';
 import { useAuthStore } from '@/stores/auth';
 import { usePreOrdenStore } from '@/stores/preOrden';
@@ -406,17 +407,6 @@ async function buscarProductoPorCodigo() {
             normalizar(p.codigoBarra) === codigo
         );
 
-        // PENDIENTE 2.1 — Consultar inventario en almacén antes de agregar producto.
-        // Llamar a endpoint GET /operaciones/{codigo}/inventarioUbicacion y mostrar
-        // alerta si r3Almacen (stock en bodega) es 0 o insuficiente para la cantidad solicitada.
-        // if (encontrado) {
-        //     const inv = await preOrdenesService.obtenerInventarioUbicacion(codigo);
-        //     if (inv && inv.almacen < nuevoProducto.value.cantidad) {
-        //         toast.add({ severity: 'warn', summary: 'Stock insuficiente',
-        //             detail: `Solo hay ${inv.almacen} unidades en almacén`, life: 5000 });
-        //     }
-        // }
-
         if (!encontrado) {
             toast.add({ severity: 'warn', summary: 'No encontrado', detail: `Código "${codigo}" no coincide con ningún producto del departamento seleccionado`, life: 4000 });
             codigoScan.value = '';
@@ -426,6 +416,29 @@ async function buscarProductoPorCodigo() {
         // Pre-seleccionar en el Select y agregar directamente con la cantidad actual
         nuevoProducto.value.producto = encontrado;
         codigoScan.value = '';
+
+        // Consultar inventario por ubicación para mostrar disponibilidad en almacén
+        try {
+            const inv = await operacionesService.obtenerInventarioUbicacion(codigo);
+            const detalleInv = `Piso: ${inv.piso} | Almacén: ${inv.almacen} | CEDIS: ${inv.cedis}`;
+            if (inv.almacen < nuevoProducto.value.cantidad) {
+                toast.add({
+                    severity: 'warn',
+                    summary: 'Stock insuficiente en almacén',
+                    detail: `${encontrado.nombreProducto} — ${detalleInv}`,
+                    life: 6000
+                });
+            } else {
+                toast.add({
+                    severity: 'info',
+                    summary: 'Inventario disponible',
+                    detail: detalleInv,
+                    life: 4000
+                });
+            }
+        } catch {
+            // Si falla la consulta de inventario, se agrega igual
+        }
 
         // Si la cantidad ya está definida, agregar directamente
         agregarProducto();

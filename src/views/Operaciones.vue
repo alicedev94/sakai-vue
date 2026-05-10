@@ -34,6 +34,7 @@ const codigoPendiente = ref('');
 const origenFueCamara = ref(false);
 const cantidadInput = ref(null);
 const cantidadInventario = ref(null);
+const inventarioUbicacion = ref(null);
 
 const cameraActiva = ref(false);
 const cameraLoading = ref(false);
@@ -238,15 +239,15 @@ async function procesarEscaneo(codigoDesdeCamara) {
     mostrarCantidad.value = true;
     codigoEscaneado.value = '';
     
-    // Consulta dinámica del inventario en base de datos al abrir
+    // Consulta dinámica del inventario desglosado por ubicación
     cantidadInventario.value = 'Calculando...';
+    inventarioUbicacion.value = null;
     try {
-        const inv = await store.obtenerInventarioFinal(item.codigoBarra);
-        console.log('Inventario final:', inv);
-        // Si el endpoint retorna el entero directo, lo seteamos. Si retorna objeto, accede a la property.
-        cantidadInventario.value = inv; 
+        const inv = await store.obtenerInventarioUbicacion(item.codigoBarra);
+        inventarioUbicacion.value = inv;
+        cantidadInventario.value = inv.total;
     } catch (e) {
-        console.error('Error al consultar inventario:', e);
+        console.error('Error al consultar inventario por ubicación:', e);
         cantidadInventario.value = 'Error';
     }
 
@@ -968,13 +969,25 @@ const finalizarOrden = async () => {
                             />
                             <span class="cantidad-max-hint">máx. {{ cantidadMax }}</span>
                         </div>
-                        <!-- PENDIENTE 2.1 — Desglosar inventario por ubicación
-                             Actualmente solo muestra el total (invFinal).
-                             Reemplazar por tres valores: Piso (PDV) / Almacén / CEDIS
-                             usando el nuevo endpoint GET /operaciones/{codigoBarra}/inventarioUbicacion
-                             que retorna InventarioUbicacionDTO { piso, almacen, cedis, total }.
-                        -->
-                        <div class="cantidad-info-row">
+                        <div v-if="inventarioUbicacion" class="cantidad-inventario-grid">
+                            <div class="inv-item">
+                                <span class="inv-label">Piso (PDV)</span>
+                                <span class="inv-value">{{ inventarioUbicacion.piso }}</span>
+                            </div>
+                            <div class="inv-item">
+                                <span class="inv-label">Almacén</span>
+                                <span class="inv-value">{{ inventarioUbicacion.almacen }}</span>
+                            </div>
+                            <div class="inv-item">
+                                <span class="inv-label">CEDIS</span>
+                                <span class="inv-value">{{ inventarioUbicacion.cedis }}</span>
+                            </div>
+                            <div class="inv-item inv-total">
+                                <span class="inv-label">Total</span>
+                                <span class="inv-value">{{ inventarioUbicacion.total }}</span>
+                            </div>
+                        </div>
+                        <div v-else class="cantidad-info-row">
                             <span class="cantidad-info-label">Inventario actual: </span>
                             <span class="cantidad-info-value">{{ cantidadInventario }}</span>
                         </div>
@@ -1809,6 +1822,46 @@ const finalizarOrden = async () => {
     padding: 0.5rem 0.85rem;
     background: var(--surface-100);
     border-radius: 6px;
+}
+
+.cantidad-inventario-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.inv-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.4rem 0.5rem;
+    background: var(--surface-100);
+    border-radius: 6px;
+}
+
+.inv-item.inv-total {
+    background: var(--primary-color);
+    color: var(--primary-color-text);
+}
+
+.inv-label {
+    font-size: 0.7rem;
+    color: var(--text-color-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.inv-total .inv-label {
+    color: inherit;
+    opacity: 0.8;
+}
+
+.inv-value {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-top: 0.15rem;
 }
 
 .cantidad-info-label {
