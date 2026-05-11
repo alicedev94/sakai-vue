@@ -478,10 +478,12 @@ watch(createDialog, async (abierto) => {
 onUnmounted(detenerCamara);
 
 async function abrirEditar(orden) {
+    console.log('🔥 [abrirEditar] NUEVA version con loading + inventario');
     skipItemsClear = true;
     loadingEdit.value = true;
     createDialog.value = true;
     try {
+        console.log('[abrirEditar] loadingEdit=', loadingEdit.value, 'createDialog=', createDialog.value);
         const [detalle] = await Promise.all([
             store.cargarOrdenDetalle(orden.id),
             (departamentosList.value.length === 0 || !departamentosList.value.some(d => d.descripcion === '00 TODOS'))
@@ -493,6 +495,7 @@ async function abrirEditar(orden) {
         ]);
         
         const det = store.preOrdenActiva;
+        console.log('[abrirEditar] det.items:', det.items?.length, JSON.parse(JSON.stringify(det.items?.map(i => ({ codigoBarra: i.codigoBarra, r3Piso: i.r3Piso, r3Almacen: i.r3Almacen })))));
         newPreOrden.value = { 
             id: det.id,
             departamento: det.departamento, 
@@ -508,28 +511,36 @@ async function abrirEditar(orden) {
             await cargarProductos(deptObj);
         }
         
-        const promises = (newPreOrden.value.items || [])
-            .filter(it => it.codigoBarra)
+        const itemsConCodigo = (newPreOrden.value.items || []).filter(it => it.codigoBarra);
+        console.log(`[abrirEditar] items con codigoBarra: ${itemsConCodigo.length}/${newPreOrden.value.items?.length}`);
+        const promises = itemsConCodigo
             .map(async (it) => {
                 try {
+                    console.log('[abrirEditar] consultando inventario para:', it.codigoBarra);
                     const inv = await operacionesService.obtenerInventarioUbicacion(it.codigoBarra);
+                    console.log('[abrirEditar] inventario respuesta:', it.codigoBarra, inv);
                     if (inv) {
                         it.r3Piso = inv.piso ?? 0;
                         it.r3Almacen = inv.almacen ?? 0;
+                        console.log(`[abrirEditar] item actualizado: ${it.codigoBarra} → piso=${it.r3Piso} almacen=${it.r3Almacen}`);
                     }
-                } catch {
+                } catch (e) {
+                    console.log('[abrirEditar] error inventario para', it.codigoBarra, e);
                     it.r3Piso = '-';
                     it.r3Almacen = '-';
                 }
             });
         await Promise.all(promises);
+        console.log('[abrirEditar] inventario cargado para todos los items');
         
         setTimeout(() => { skipItemsClear = false; }, 200);
     } catch (err) {
+        console.log('[abrirEditar] ERROR:', err);
         skipItemsClear = false;
         createDialog.value = false;
         toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar la Preorden para edición', life: 3000 });
     } finally {
+        console.log('[abrirEditar] finally → loadingEdit=false');
         loadingEdit.value = false;
     }
 }
