@@ -68,12 +68,8 @@ const ordenesFiltradas = computed(() => {
 });
 
 const progresoOrden = (orden) => {
-    const items = orden.items || [];
-    if (!items.length) return 0;
-    const totalUnits = items.reduce((acc, i) => acc + (i.cantidad || 0), 0);
-    if (totalUnits === 0) return 0;
-    const surtidasUnits = items.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0);
-    return Math.round((surtidasUnits / totalUnits) * 100);
+    if (!orden.totalUnidades) return 0;
+    return Math.round(((orden.unidadesSurtidas || 0) / orden.totalUnidades) * 100);
 };
 
 const progresoItem = (item) => {
@@ -573,15 +569,15 @@ const exportarPDF = () => {
         }
     });
     
-    const totalUnidades = data.items?.reduce((acc, item) => acc + item.cantidad, 0) || 0;
+    const totalUnidades = data.totalUnidades || 0;
     doc.text('Resumen de Totales', 14, doc.lastAutoTable.finalY + 10);
     
     autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 15,
         body: [
-            ['Total Renglones:', data.items?.length || 0, 'Renglones Surtidos:', data.items?.filter(i => (i.cantidadSurtida || 0) >= (i.cantidad || 0)).length || 0],
-            ['Total Unidades:', totalUnidades, 'Unidades Surtidas:', data.items?.reduce((acc, item) => acc + (item.cantidadSurtida || 0), 0) || 0],
-            ['Efectividad:', `${progresoOrden(data)}%`, 'Pendiente:', data.items?.reduce((acc, item) => acc + item.cantidad - (item.cantidadSurtida || 0), 0) || 0],
+            ['Total Renglones:', data.totalItems || 0, 'Renglones Surtidos:', data.itemsSurtidos || 0],
+            ['Total Unidades:', totalUnidades, 'Unidades Surtidas:', data.unidadesSurtidas || 0],
+            ['Efectividad:', `${progresoOrden(data)}%`, 'Pendiente:', totalUnidades - (data.unidadesSurtidas || 0)],
         ],
         theme: 'grid',
         headStyles: { fillColor: primaryColor },
@@ -805,8 +801,8 @@ const finalizarOrden = async () => {
                     <template #body="{ data }">
                         <div class="progress-cell">
                             <span class="progress-text">
-                                {{ (data.items || []).filter(i => (i.cantidadSurtida || 0) >= (i.cantidad || 0)).length }}/{{ data.items?.length || 0 }} reng. 
-                                ({{ data.items?.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0) || 0 }}/{{ data.items?.reduce((acc, i) => acc + (i.cantidad || 0), 0) || 0 }} unid.)
+                                {{ data.itemsSurtidos || 0 }}/{{ data.totalItems || 0 }} reng.
+                                ({{ data.unidadesSurtidas || 0 }}/{{ data.totalUnidades || 0 }} unid.)
                             </span>
                             <ProgressBar
                                 :value="progresoOrden(data)"
@@ -921,8 +917,8 @@ const finalizarOrden = async () => {
                                 <span class="font-medium text-surface-500 dark:text-surface-400">Productos:</span>
                                 <div class="progress-cell m-0 items-center">
                                     <span class="progress-text mr-2">
-                                        {{ (data.items || []).filter(i => (i.cantidadSurtida || 0) >= (i.cantidad || 0)).length }}/{{ data.items?.length || 0 }} reng.
-                                        ({{ data.items?.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0) || 0 }}/{{ data.items?.reduce((acc, i) => acc + (i.cantidad || 0), 0) || 0 }} unid.)
+                                        {{ data.itemsSurtidos || 0 }}/{{ data.totalItems || 0 }} reng.
+                                        ({{ data.unidadesSurtidas || 0 }}/{{ data.totalUnidades || 0 }} unid.)
                                     </span>
                                     <ProgressBar :value="progresoOrden(data)" style="height: 6px; width: 60px" :showValue="false" />
                                 </div>

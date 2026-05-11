@@ -640,14 +640,15 @@ const exportarPDF = () => {
     });
     
     // Resumen de cantidades
-    const totalUnidades = data.items?.reduce((acc, item) => acc + item.cantidad, 0) || 0;
+    const totalUnidades = data.totalUnidades || 0;
     doc.text('Resumen de Totales', 14, doc.lastAutoTable.finalY + 10);
     
     autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 15,
         body: [
             ['Total Productos:', data.totalItems || 0, 'Productos Surtidos:', data.itemsSurtidos || 0],
-            ['Total Unidades:', totalUnidades, 'Progreso:', `${progresoOrden(data)}%`]
+            ['Total Unidades:', totalUnidades, 'Unidades Surtidas:', data.unidadesSurtidas || 0],
+            ['Efectividad:', `${progresoOrden(data)}%`, 'Pendiente:', totalUnidades - (data.unidadesSurtidas || 0)]
         ],
         theme: 'grid',
         headStyles: { fillColor: primaryColor },
@@ -740,7 +741,7 @@ const exportarPDF = () => {
                 </template>
                 <template #end>
                     <div class="toolbar-end">
-                        <Select
+                        <!-- <Select
                             v-model="filtroEstado"
                             :options="ESTADOS"
                             optionLabel="label"
@@ -748,7 +749,7 @@ const exportarPDF = () => {
                             placeholder="Todos los estados"
                             class="filter-select w-full md:w-auto"
                             @change="resetMobilePage"
-                        />
+                        /> -->
                         <Calendar
                             v-model="filtroFecha"
                             dateFormat="yy-mm-dd"
@@ -803,11 +804,11 @@ const exportarPDF = () => {
                     </div>
                 </template>
 
-                <Column field="id" header="ID" :sortable="true" style="min-width: 5rem">
+                <!-- <Column field="id" header="ID" :sortable="true" style="min-width: 5rem">
                     <template #body="{ data }">
                         <span class="id-badge">#{{ data.id }}</span>
                     </template>
-                </Column>
+                </Column> -->
 
                 <Column field="numeroOrden" header="N° Documento" :sortable="true" style="min-width: 12rem">
                     <template #body="{ data }">
