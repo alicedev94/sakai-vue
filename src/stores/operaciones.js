@@ -8,7 +8,9 @@ export const useOperacionesStore = defineStore('operaciones', () => {
     const isLoading = ref(false);
     const error = ref(null);
 
-    const totalOrdenes = computed(() => ordenes.value.length);
+    const totalRecords = ref(0);
+
+    const totalOrdenes = computed(() => totalRecords.value || ordenes.value.length);
     const ordenesPendientes = computed(() => ordenes.value.filter((o) => o.estado === 'PENDIENTE'));
     const ordenesEnProceso = computed(() => ordenes.value.filter((o) => o.estado === 'EN_PROCESO'));
     const ordenesListas = computed(() => ordenes.value.filter((o) => o.estado === 'LISTA'));
@@ -18,7 +20,13 @@ export const useOperacionesStore = defineStore('operaciones', () => {
         error.value = null;
         try {
             const data = await OperacionesService.listarTodas(params);
-            ordenes.value = Array.isArray(data) ? data : [];
+            if (data && data.content !== undefined) {
+                ordenes.value = data.content;
+                totalRecords.value = data.totalElements;
+            } else {
+                ordenes.value = Array.isArray(data) ? data : [];
+                totalRecords.value = ordenes.value.length;
+            }
         } catch (err) {
             error.value = err.userMessage || 'Error al cargar las órdenes';
             throw err;

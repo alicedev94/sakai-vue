@@ -129,9 +129,23 @@ const formatFecha = (value) => {
     return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+const lazyParams = ref({
+    page: 0,
+    size: 10
+});
+
+function onPage(event) {
+    lazyParams.value.page = event.page;
+    lazyParams.value.size = event.rows;
+    cargarDatos();
+}
+
 async function cargarDatos() {
     try {
-        const params = {};
+        const params = {
+            page: lazyParams.value.page,
+            size: lazyParams.value.size
+        };
         if (filtroFecha.value) {
             params.fecha = formatDateForApi(filtroFecha.value);
         }
@@ -736,7 +750,11 @@ const finalizarOrden = async () => {
                 :loading="store.isLoading"
                 dataKey="id"
                 :paginator="true"
-                :rows="10"
+                lazy
+                :totalRecords="store.totalOrdenes"
+                :first="lazyParams.page * lazyParams.size"
+                @page="onPage"
+                :rows="lazyParams.size"
                 :rowsPerPageOptions="[5, 10, 25]"
                 paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                 currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} órdenes"
@@ -936,6 +954,17 @@ const finalizarOrden = async () => {
                         </div>
                     </div>
                 </div>
+                
+                <Paginator 
+                    v-if="store.totalOrdenes > 0"
+                    :first="lazyParams.page * lazyParams.size"
+                    :rows="lazyParams.size"
+                    :totalRecords="store.totalOrdenes"
+                    @page="onPage"
+                    template="FirstPageLink PrevPageLink CurrentPageReport NextPageLink LastPageLink"
+                    currentPageReportTemplate="{first}-{last} de {totalRecords}"
+                    class="mt-4 border-t border-surface-200 dark:border-surface-700 bg-transparent"
+                />
             </div>
         </div>
 
