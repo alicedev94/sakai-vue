@@ -146,8 +146,9 @@ async function verDetalle(orden) {
         ordenSeleccionada.value = store.ordenActiva;
 
         if (ordenSeleccionada.value?.items) {
-            for (const it of ordenSeleccionada.value.items) {
-                if (it.codigoBarra) {
+            const promises = ordenSeleccionada.value.items
+                .filter(it => it.codigoBarra)
+                .map(async (it) => {
                     try {
                         const inv = await store.obtenerInventarioUbicacion(it.codigoBarra);
                         if (inv) {
@@ -158,8 +159,8 @@ async function verDetalle(orden) {
                         it.r3Piso = '-';
                         it.r3Almacen = '-';
                     }
-                }
-            }
+                });
+            await Promise.all(promises);
         }
 
         detailDialog.value = true;
@@ -178,10 +179,10 @@ async function abrirSurtido(orden) {
         }
         ordenSeleccionada.value = store.ordenActiva;
 
-        // Cargar inventario (Piso/Almacén) para cada item de la orden
         if (ordenSeleccionada.value?.items) {
-            for (const it of ordenSeleccionada.value.items) {
-                if (it.codigoBarra) {
+            const promises = ordenSeleccionada.value.items
+                .filter(it => it.codigoBarra)
+                .map(async (it) => {
                     try {
                         const inv = await store.obtenerInventarioUbicacion(it.codigoBarra);
                         if (inv) {
@@ -192,8 +193,8 @@ async function abrirSurtido(orden) {
                         it.r3Piso = '-';
                         it.r3Almacen = '-';
                     }
-                }
-            }
+                });
+            await Promise.all(promises);
         }
 
         codigoEscaneado.value = '';

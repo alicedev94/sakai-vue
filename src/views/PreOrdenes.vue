@@ -22,6 +22,7 @@ const filters = ref({ global: { value: null, matchMode: FilterMatchMode.CONTAINS
 
 const detailDialog = ref(false);
 const preOrdenSeleccionada = ref(null);
+const loadingEdit = ref(false);
 
 
 
@@ -129,8 +130,9 @@ async function verDetalle(orden) {
         preOrdenSeleccionada.value = store.preOrdenActiva;
 
         if (preOrdenSeleccionada.value?.items) {
-            for (const it of preOrdenSeleccionada.value.items) {
-                if (it.codigoBarra) {
+            const promises = preOrdenSeleccionada.value.items
+                .filter(it => it.codigoBarra)
+                .map(async (it) => {
                     try {
                         const inv = await operacionesService.obtenerInventarioUbicacion(it.codigoBarra);
                         if (inv) {
@@ -141,8 +143,8 @@ async function verDetalle(orden) {
                         it.r3Piso = '-';
                         it.r3Almacen = '-';
                     }
-                }
-            }
+                });
+            await Promise.all(promises);
         }
 
         detailDialog.value = true;
@@ -477,36 +479,58 @@ onUnmounted(detenerCamara);
 
 async function abrirEditar(orden) {
     skipItemsClear = true;
+    loadingEdit.value = true;
+    createDialog.value = true;
     try {
-        await store.cargarOrdenDetalle(orden.id);
-        const detalle = store.preOrdenActiva;
+        const [detalle] = await Promise.all([
+            store.cargarOrdenDetalle(orden.id),
+            (departamentosList.value.length === 0 || !departamentosList.value.some(d => d.descripcion === '00 TODOS'))
+                ? preOrdenesService.obtenerDepartamentos().then(data => {
+                    let depts = Array.isArray(data) ? data : data.data || [];
+                    departamentosList.value = [{ codigo: '', descripcion: '00 TODOS' }, ...depts];
+                  })
+                : Promise.resolve()
+        ]);
+        
+        const det = store.preOrdenActiva;
         newPreOrden.value = { 
-            id: detalle.id,
-            departamento: detalle.departamento, 
-            usuarioSurtidor: detalle.usuarioSurtidor, 
-            items: detalle.items ? detalle.items.map(i => ({ ...i })) : []
+            id: det.id,
+            departamento: det.departamento, 
+            usuarioSurtidor: det.usuarioSurtidor, 
+            items: det.items ? det.items.map(i => ({ ...i })) : []
         };
         nuevoProducto.value = { producto: null, cantidad: 1 };
         productosList.value = [];
         
-        if (departamentosList.value.length === 0 || !departamentosList.value.some(d => d.descripcion === '00 TODOS')) {
-            const data = await preOrdenesService.obtenerDepartamentos();
-            let depts = Array.isArray(data) ? data : data.data || [];
-            departamentosList.value = [{ codigo: '', descripcion: '00 TODOS' }, ...depts];
-        }
-        
-        const deptObj = departamentosList.value.find(d => d.descripcion === detalle.departamento);
+        const deptObj = departamentosList.value.find(d => d.descripcion === det.departamento);
         if (deptObj) {
             newPreOrden.value.departamento = deptObj;
-            // Consultamos los productos inmediatamente al abrir para editar
             await cargarProductos(deptObj);
         }
         
-        createDialog.value = true;
+        const promises = (newPreOrden.value.items || [])
+            .filter(it => it.codigoBarra)
+            .map(async (it) => {
+                try {
+                    const inv = await operacionesService.obtenerInventarioUbicacion(it.codigoBarra);
+                    if (inv) {
+                        it.r3Piso = inv.piso ?? 0;
+                        it.r3Almacen = inv.almacen ?? 0;
+                    }
+                } catch {
+                    it.r3Piso = '-';
+                    it.r3Almacen = '-';
+                }
+            });
+        await Promise.all(promises);
+        
         setTimeout(() => { skipItemsClear = false; }, 200);
     } catch (err) {
         skipItemsClear = false;
+        createDialog.value = false;
         toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar la Preorden para edición', life: 3000 });
+    } finally {
+        loadingEdit.value = false;
     }
 }
 
@@ -1093,7 +1117,11 @@ const exportarPDF = () => {
             :header="isEditing ? 'Editar PreOrden' : 'Crear Nueva PreOrden'"
             :modal="true"
         >
-            <div class="p-fluid grid">
+            <div v-if="loadingEdit" class="loading-overlay">
+                <i class="pi pi-spin pi-spinner" style="font-size: 2.5rem; color: var(--primary-color)" />
+                <p style="margin-top: 1rem; color: var(--text-color-secondary)">Cargando datos de la PreOrden...</p>
+            </div>
+            <div v-else class="p-fluid grid">
                 <div class="col-12 md:col-6 mb-3">
                     <label>Departamento</label>
                     <Select
@@ -1861,6 +1889,15 @@ const exportarPDF = () => {
 
 .ml-2 { margin-left: 0.5rem; }
 .text-primary { color: var(--primary-color); }
+
+.loading-overlay {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    text-align: center;
+}
 
 /* Mobile actions bar */
 .mobile-actions {
