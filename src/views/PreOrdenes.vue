@@ -49,21 +49,21 @@ const preOrdenesFiltradas = computed(() => {
     return lista;
 });
 
-// Paginado móvil
-const mobileCurrentPage = ref(0);
-const mobileRowsPerPage = 6;
-
-const mobilePagedOrdenes = computed(() => {
-    const start = mobileCurrentPage.value * mobileRowsPerPage;
-    return preOrdenesFiltradas.value.slice(start, start + mobileRowsPerPage);
+// Paginado server-side
+const lazyParams = ref({
+    page: 0,
+    size: 10
 });
 
-const mobileTotalPages = computed(() =>
-    Math.ceil(preOrdenesFiltradas.value.length / mobileRowsPerPage)
-);
+function onPage(event) {
+    lazyParams.value.page = event.page;
+    lazyParams.value.size = event.rows;
+    cargarDatos();
+}
 
 function resetMobilePage() {
-    mobileCurrentPage.value = 0;
+    lazyParams.value.page = 0;
+    cargarDatos();
 }
 
 const progresoOrden = (orden) => {
@@ -102,7 +102,10 @@ const formatFecha = (value) => {
 
 async function cargarDatos() {
     try {
-        const params = {};
+        const params = {
+            page: lazyParams.value.page,
+            size: lazyParams.value.size
+        };
         if (filtroFecha.value) {
             params.fecha = formatDateForApi(filtroFecha.value);
         }
@@ -781,7 +784,11 @@ const exportarPDF = () => {
                 :loading="store.isLoading"
                 dataKey="id"
                 :paginator="true"
-                :rows="10"
+                lazy
+                :totalRecords="store.totalPreOrdenes"
+                :first="lazyParams.page * lazyParams.size"
+                @page="onPage"
+                :rows="lazyParams.size"
                 :rowsPerPageOptions="[5, 10, 25]"
                 paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                 currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} órdenes"
@@ -933,7 +940,7 @@ const exportarPDF = () => {
                         <i class="pi pi-spin pi-spinner" style="font-size: 3rem; color: var(--primary-color)" />
                     </div>
 
-                    <div v-for="data in mobilePagedOrdenes" :key="data.id" class="preorden-card">
+                    <div v-for="data in preOrdenesFiltradas" :key="data.id" class="preorden-card">
                         <!-- Header -->
                         <div class="preorden-card-header">
                             <div class="preorden-card-header-left">
@@ -984,13 +991,16 @@ const exportarPDF = () => {
                     </div>
 
                     <!-- Paginador móvil -->
-                    <div v-if="mobileTotalPages > 1" class="flex justify-center items-center gap-3 mt-2">
-                        <Button icon="pi pi-chevron-left" outlined rounded size="small" :disabled="mobileCurrentPage === 0" @click="mobileCurrentPage--" />
-                        <span class="text-sm" style="color: var(--text-color-secondary)">
-                            Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }}
-                        </span>
-                        <Button icon="pi pi-chevron-right" outlined rounded size="small" :disabled="mobileCurrentPage >= mobileTotalPages - 1" @click="mobileCurrentPage++" />
-                    </div>
+                    <Paginator
+                        v-if="store.totalPreOrdenes > 0"
+                        :first="lazyParams.page * lazyParams.size"
+                        :rows="lazyParams.size"
+                        :totalRecords="store.totalPreOrdenes"
+                        @page="onPage"
+                        template="FirstPageLink PrevPageLink CurrentPageReport NextPageLink LastPageLink"
+                        currentPageReportTemplate="{first}-{last} de {totalRecords}"
+                        class="mt-4 border-t border-surface-200 dark:border-surface-700 bg-transparent"
+                    />
                 </div>
             </div>
         </div>
