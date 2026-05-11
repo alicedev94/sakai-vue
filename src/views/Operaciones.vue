@@ -137,9 +137,6 @@ async function cargarDatos() {
         if (filtroFecha.value) {
             params.fecha = formatDateForApi(filtroFecha.value);
         }
-        if (filtroTipoDocumento.value) {
-            params.tipoDocumento = filtroTipoDocumento.value;
-        }
         if (filtroEstado.value) {
             params.estado = filtroEstado.value;
         }
