@@ -156,6 +156,24 @@ async function verDetalle(orden) {
     try {
         await store.cargarOrdenDetalle(orden.id);
         ordenSeleccionada.value = store.ordenActiva;
+
+        if (ordenSeleccionada.value?.items) {
+            for (const it of ordenSeleccionada.value.items) {
+                if (it.codigoBarra) {
+                    try {
+                        const inv = await store.obtenerInventarioUbicacion(it.codigoBarra);
+                        if (inv) {
+                            it.r3Piso = inv.piso ?? 0;
+                            it.r3Almacen = inv.almacen ?? 0;
+                        }
+                    } catch {
+                        it.r3Piso = '-';
+                        it.r3Almacen = '-';
+                    }
+                }
+            }
+        }
+
         detailDialog.value = true;
     } catch (err) {
         toast.add({ severity: 'error', summary: 'Error', detail: err.userMessage || 'No se pudo cargar el detalle', life: 4000 });
