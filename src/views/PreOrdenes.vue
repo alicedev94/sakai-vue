@@ -34,19 +34,7 @@ const ESTADOS = [
 const filtroEstado = ref(null);
 
 const preOrdenesFiltradas = computed(() => {
-    let lista = store.preOrdenes;
-    if (filtroEstado.value) {
-        lista = lista.filter((o) => o.estado === filtroEstado.value);
-    }
-    if (searchQuery.value) {
-        const q = searchQuery.value.toLowerCase();
-        lista = lista.filter(
-            (o) =>
-                o.numeroOrden?.toLowerCase().includes(q) ||
-                o.departamento?.toLowerCase().includes(q)
-        );
-    }
-    return lista;
+    return store.preOrdenes;
 });
 
 // Paginado server-side
@@ -108,6 +96,12 @@ async function cargarDatos() {
         };
         if (filtroFecha.value) {
             params.fecha = formatDateForApi(filtroFecha.value);
+        }
+        if (filtroEstado.value) {
+            params.estado = filtroEstado.value;
+        }
+        if (searchQuery.value) {
+            params.query = searchQuery.value;
         }
         await store.fetchPreOrdenes(params);
     } catch (err) {

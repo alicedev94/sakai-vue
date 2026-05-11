@@ -22,7 +22,8 @@ export const useOperacionesStore = defineStore('operaciones', () => {
             const data = await OperacionesService.listarTodas(params);
             if (data && data.content !== undefined) {
                 ordenes.value = data.content;
-                totalRecords.value = data.totalElements;
+                // Soporta tanto Page (totalElements) como PagedModel (page.totalElements)
+                totalRecords.value = data.page ? data.page.totalElements : (data.totalElements !== undefined ? data.totalElements : data.content.length);
             } else {
                 ordenes.value = Array.isArray(data) ? data : [];
                 totalRecords.value = ordenes.value.length;

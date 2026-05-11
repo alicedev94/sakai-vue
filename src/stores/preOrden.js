@@ -22,7 +22,8 @@ export const usePreOrdenStore = defineStore('preOrden', () => {
             const data = await PreOrdenesService.listarTodas(params);
             if (data && data.content !== undefined) {
                 preOrdenes.value = data.content;
-                totalRecords.value = data.totalElements;
+                // Soporta tanto Page (totalElements) como PagedModel (page.totalElements)
+                totalRecords.value = data.page ? data.page.totalElements : (data.totalElements !== undefined ? data.totalElements : data.content.length);
             } else {
                 preOrdenes.value = Array.isArray(data) ? data : [];
                 totalRecords.value = preOrdenes.value.length;

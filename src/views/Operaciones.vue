@@ -64,19 +64,7 @@ const ESTADOS = [
 const filtroEstado = ref(null);
 
 const ordenesFiltradas = computed(() => {
-    let lista = store.ordenes;
-    if (filtroEstado.value) {
-        lista = lista.filter((o) => o.estado === filtroEstado.value);
-    }
-    if (searchQuery.value) {
-        const q = searchQuery.value.toLowerCase();
-        lista = lista.filter(
-            (o) =>
-                o.numeroOrden?.toLowerCase().includes(q) ||
-                o.departamento?.toLowerCase().includes(q)
-        );
-    }
-    return lista;
+    return store.ordenes;
 });
 
 const progresoOrden = (orden) => {
@@ -148,6 +136,15 @@ async function cargarDatos() {
         };
         if (filtroFecha.value) {
             params.fecha = formatDateForApi(filtroFecha.value);
+        }
+        if (filtroTipoDocumento.value) {
+            params.tipoDocumento = filtroTipoDocumento.value;
+        }
+        if (filtroEstado.value) {
+            params.estado = filtroEstado.value;
+        }
+        if (searchQuery.value) {
+            params.query = searchQuery.value;
         }
         await store.fetchOrdenes(params);
     } catch (err) {
