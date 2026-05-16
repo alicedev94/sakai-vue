@@ -33,7 +33,8 @@ const mostrarCantidad = ref(false);
 const codigoPendiente = ref('');
 const origenFueCamara = ref(false);
 const cantidadInput = ref(null);
-const cantidadInventario = ref(null);
+const cantidadInventarioPiso = ref(null);
+const cantidadInventarioAlmacen = ref(null);
 const inventarioUbicacion = ref(null);
 
 const cameraActiva = ref(false);
@@ -294,15 +295,18 @@ async function procesarEscaneo(codigoDesdeCamara) {
     codigoEscaneado.value = '';
     
     // Consulta dinámica del inventario desglosado por ubicación
-    cantidadInventario.value = 'Calculando...';
+    cantidadInventarioPiso.value = 'Calculando...';
+    cantidadInventarioAlmacen.value = 'Calculando...';
     inventarioUbicacion.value = null;
     try {
         const inv = await store.obtenerInventarioUbicacion(item.codigoBarra);
         inventarioUbicacion.value = inv;
-        cantidadInventario.value = inv.total;
+        cantidadInventarioPiso.value = inv.piso;
+        cantidadInventarioAlmacen.value = inv.almacen;
     } catch (e) {
         console.error('Error al consultar inventario por ubicación:', e);
-        cantidadInventario.value = 'Error';
+        cantidadInventarioPiso.value = 'Error';
+        cantidadInventarioAlmacen.value = 'Error';
     }
 
     await nextTick();
@@ -1046,8 +1050,12 @@ const finalizarOrden = async () => {
                             <span class="cantidad-max-hint">máx. {{ cantidadMax }}</span>
                         </div>
                         <div class="cantidad-info-row">
-                            <span class="cantidad-info-label">Inventario actual: </span>
-                            <span class="cantidad-info-value">{{ cantidadInventario }}</span>
+                            <span class="cantidad-info-label">Inventario PDV: </span>
+                            <span class="cantidad-info-value">{{ cantidadInventarioPiso }}</span>
+                        </div>
+                        <div class="cantidad-info-row">
+                            <span class="cantidad-info-label">Inventario Almacen: </span>
+                            <span class="cantidad-info-value">{{ cantidadInventarioAlmacen }}</span>
                         </div>
 
                         <div class="cantidad-acciones">

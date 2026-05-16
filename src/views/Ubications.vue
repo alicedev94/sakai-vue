@@ -18,6 +18,7 @@ const filtroLocalidad = ref('');
 
 // ─── Dialogs ────────────────────────────────────────────────────────────────
 const showDialog = ref(false);
+const showScannerDialog = ref(false);
 const isEditing = ref(false);
 const saving = ref(false);
 
@@ -107,7 +108,13 @@ async function iniciarCamara(target = 'codigo') {
             decodeLock = true;
             try {
                 await detenerCamara();
-                form.value[scanTarget.value] = codigo;
+                if (scanTarget.value === 'filtroCodigo') {
+                    filtroCodigo.value = codigo;
+                    resetMobilePage();
+                    showScannerDialog.value = false;
+                } else {
+                    form.value[scanTarget.value] = codigo;
+                }
                 toast.add({ severity: 'success', summary: 'Escaneo exitoso', detail: codigo, life: 2500 });
             } finally {
                 setTimeout(() => { decodeLock = false; }, 600);
@@ -129,7 +136,7 @@ async function iniciarCamara(target = 'codigo') {
                     try { html5Scanner.clear(); } catch { /* */ }
                     html5Scanner = null;
                 }
-                html5Scanner = new Html5Qrcode(CAMARA_HOST_ID);
+                html5Scanner = new Html5Qrcode(scanTarget.value === 'filtroCodigo' ? 'camara-filter-host' : CAMARA_HOST_ID);
                 await html5Scanner.start(cam, cfg, onDecode, () => {});
                 lastErr = null;
                 break;
@@ -155,6 +162,18 @@ watch(showDialog, async (abierto) => {
     }
 });
 
+watch(showScannerDialog, async (abierto) => {
+    if (!abierto) {
+        await detenerCamara();
+    }
+});
+
+async function abrirScannerFiltro() {
+    showScannerDialog.value = true;
+    await nextTick();
+    iniciarCamara('filtroCodigo');
+}
+
 const emptyForm = () => ({
     id: null,
     codigo: '',
@@ -165,11 +184,6 @@ const emptyForm = () => ({
 });
 
 const form = ref(emptyForm());
-
-// ─── Stats computadas ────────────────────────────────────────────────────────
-const totalUbicaciones = computed(() => store.ubications.length);
-const totalActivas = computed(() => store.ubications.filter((u) => u.activo).length);
-const totalInactivas = computed(() => store.ubications.filter((u) => !u.activo).length);
 
 // ─── Filtrado ────────────────────────────────────────────────────────────────
 const ubicacionesFiltradas = computed(() => {
@@ -183,6 +197,11 @@ const ubicacionesFiltradas = computed(() => {
     if (loc) lista = lista.filter((u) => u.localidad?.toLowerCase().includes(loc));
     return lista;
 });
+
+// ─── Stats computadas ────────────────────────────────────────────────────────
+const totalUbicaciones = computed(() => ubicacionesFiltradas.value.length);
+const totalActivas = computed(() => ubicacionesFiltradas.value.filter((u) => u.activo).length);
+const totalInactivas = computed(() => ubicacionesFiltradas.value.filter((u) => !u.activo).length);
 
 // ─── Paginado móvil ──────────────────────────────────────────────────────────
 const mobileCurrentPage = ref(0);
@@ -368,15 +387,24 @@ onUnmounted(detenerCamara);
                 </template>
                 <template #end>
                     <div class="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto mt-3 md:mt-0">
-                        <IconField class="w-full md:w-auto">
-                            <InputIcon><i class="pi pi-barcode" /></InputIcon>
-                            <InputText
-                                v-model="filtroCodigo"
-                                placeholder="Buscar por código..."
-                                class="w-full md:w-44"
-                                @input="resetMobilePage"
+                        <div class="flex gap-2 w-full md:w-auto">
+                            <IconField class="w-full md:w-auto">
+                                <InputIcon><i class="pi pi-barcode" /></InputIcon>
+                                <InputText
+                                    v-model="filtroCodigo"
+                                    placeholder="Buscar por código..."
+                                    class="w-full md:w-44"
+                                    @input="resetMobilePage"
+                                />
+                            </IconField>
+                            <Button
+                                icon="pi pi-camera"
+                                severity="secondary"
+                                outlined
+                                v-tooltip.top="'Escanear para buscar'"
+                                @click="abrirScannerFiltro"
                             />
-                        </IconField>
+                        </div>
                         <IconField class="w-full md:w-auto">
                             <InputIcon><i class="pi pi-map" /></InputIcon>
                             <InputText
@@ -714,6 +742,24 @@ onUnmounted(detenerCamara);
                     @click="guardar"
                 />
             </template>
+        </Dialog>
+
+        <!-- Dialog: Escáner Filtro -->
+        <Dialog
+            v-model:visible="showScannerDialog"
+            :style="{ width: '400px' }"
+            header="Escanear Código"
+            :modal="true"
+        >
+            <div class="camara-panel mt-3">
+                <p v-if="cameraError" class="camara-error">
+                    <i class="pi pi-exclamation-circle" /> {{ cameraError }}
+                </p>
+                <div id="camara-filter-host" class="camara-host" />
+                <p class="camara-hint">
+                    Apunta la cámara al código de barras para buscar la ubicación.
+                </p>
+            </div>
         </Dialog>
 
         <ConfirmDialog />
