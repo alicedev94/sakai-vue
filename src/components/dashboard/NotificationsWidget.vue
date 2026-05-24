@@ -1,78 +1,189 @@
 <script setup>
-import { ref } from 'vue';
+import { useNotificationStore } from '@/stores/notifications';
+import { computed, onMounted } from 'vue';
 
-const menu = ref(null);
+const notificationStore = useNotificationStore();
 
-const items = ref([
-    { label: 'Add New', icon: 'pi pi-fw pi-plus' },
-    { label: 'Remove', icon: 'pi pi-fw pi-trash' }
-]);
+const recientes = computed(() => notificationStore.notificaciones.slice(0, 10));
+const totalPendientes = computed(() => notificationStore.totalPendientes);
+
+const formatFecha = (value) => {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString('es-CO', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+};
+
+const marcarLeida = (notificacion) => {
+    if (!notificacion.leida) {
+        notificationStore.marcarLeida(notificacion.id).catch(() => {});
+    }
+};
+
+onMounted(() => {
+    notificationStore.cargar(false).catch(() => {});
+});
 </script>
 
 <template>
-    <div class="card">
-        <div class="flex items-center justify-between mb-6">
-            <div class="font-semibold text-xl">Notifications</div>
+    <div class="card notifications-card">
+        <div class="notifications-title">
             <div>
-                <Button icon="pi pi-ellipsis-v" class="p-button-text p-button-plain p-button-rounded" @click="$refs.menu.toggle($event)"></Button>
-                <Menu ref="menu" popup :model="items" class="!min-w-40"></Menu>
+                <h3>Notificaciones</h3>
+                <small>Últimas 10 notificaciones</small>
+            </div>
+            <div class="notifications-counter" :class="{ empty: totalPendientes === 0 }">
+                {{ totalPendientes }}
             </div>
         </div>
 
-        <span class="block text-muted-color font-medium mb-4">TODAY</span>
-        <ul class="p-0 mx-0 mt-0 mb-6 list-none">
-            <li class="flex items-center py-2 border-b border-surface">
-                <div class="w-12 h-12 flex items-center justify-center bg-blue-100 dark:bg-blue-400/10 rounded-full mr-4 shrink-0">
-                    <i class="pi pi-dollar !text-xl text-blue-500"></i>
+        <div v-if="notificationStore.isLoading" class="notifications-empty">
+            Cargando notificaciones...
+        </div>
+        <div v-else-if="recientes.length === 0" class="notifications-empty">
+            No tienes notificaciones.
+        </div>
+        <ul v-else class="notifications-list">
+            <li
+                v-for="notificacion in recientes"
+                :key="notificacion.id"
+                :class="['notification-row', { unread: !notificacion.leida }]"
+            >
+                <div class="notification-icon">
+                    <i :class="['pi', notificacion.leida ? 'pi-envelope-open' : 'pi-bell']"></i>
                 </div>
-                <span class="text-surface-900 dark:text-surface-0 leading-normal"
-                    >Richard Jones
-                    <span class="text-surface-700 dark:text-surface-100">has purchased a blue t-shirt for <span class="text-primary font-bold">$79.00</span></span>
-                </span>
-            </li>
-            <li class="flex items-center py-2">
-                <div class="w-12 h-12 flex items-center justify-center bg-orange-100 dark:bg-orange-400/10 rounded-full mr-4 shrink-0">
-                    <i class="pi pi-download !text-xl text-orange-500"></i>
+                <div class="notification-body">
+                    <div class="notification-heading">
+                        <strong>{{ notificacion.titulo }}</strong>
+                        <span v-if="!notificacion.leida" class="unread-dot"></span>
+                    </div>
+                    <p>{{ notificacion.mensaje }}</p>
+                    <small>{{ formatFecha(notificacion.fechaCreacion) }}</small>
                 </div>
-                <span class="text-surface-700 dark:text-surface-100 leading-normal">Your request for withdrawal of <span class="text-primary font-bold">$2500.00</span> has been initiated.</span>
-            </li>
-        </ul>
-
-        <span class="block text-muted-color font-medium mb-4">YESTERDAY</span>
-        <ul class="p-0 m-0 list-none mb-6">
-            <li class="flex items-center py-2 border-b border-surface">
-                <div class="w-12 h-12 flex items-center justify-center bg-blue-100 dark:bg-blue-400/10 rounded-full mr-4 shrink-0">
-                    <i class="pi pi-dollar !text-xl text-blue-500"></i>
-                </div>
-                <span class="text-surface-900 dark:text-surface-0 leading-normal"
-                    >Keyser Wick
-                    <span class="text-surface-700 dark:text-surface-100">has purchased a black jacket for <span class="text-primary font-bold">$59.00</span></span>
-                </span>
-            </li>
-            <li class="flex items-center py-2 border-b border-surface">
-                <div class="w-12 h-12 flex items-center justify-center bg-pink-100 dark:bg-pink-400/10 rounded-full mr-4 shrink-0">
-                    <i class="pi pi-question !text-xl text-pink-500"></i>
-                </div>
-                <span class="text-surface-900 dark:text-surface-0 leading-normal"
-                    >Jane Davis
-                    <span class="text-surface-700 dark:text-surface-100">has posted a new questions about your product.</span>
-                </span>
-            </li>
-        </ul>
-        <span class="block text-muted-color font-medium mb-4">LAST WEEK</span>
-        <ul class="p-0 m-0 list-none">
-            <li class="flex items-center py-2 border-b border-surface">
-                <div class="w-12 h-12 flex items-center justify-center bg-green-100 dark:bg-green-400/10 rounded-full mr-4 shrink-0">
-                    <i class="pi pi-arrow-up !text-xl text-green-500"></i>
-                </div>
-                <span class="text-surface-900 dark:text-surface-0 leading-normal">Your revenue has increased by <span class="text-primary font-bold">%25</span>.</span>
-            </li>
-            <li class="flex items-center py-2 border-b border-surface">
-                <div class="w-12 h-12 flex items-center justify-center bg-purple-100 dark:bg-purple-400/10 rounded-full mr-4 shrink-0">
-                    <i class="pi pi-heart !text-xl text-purple-500"></i>
-                </div>
-                <span class="text-surface-900 dark:text-surface-0 leading-normal"><span class="text-primary font-bold">12</span> users have added your products to their wishlist.</span>
+                <Button
+                    v-if="!notificacion.leida"
+                    icon="pi pi-check"
+                    rounded
+                    text
+                    severity="success"
+                    v-tooltip.left="'Marcar como leída'"
+                    @click="marcarLeida(notificacion)"
+                />
             </li>
         </ul>
     </div>
 </template>
+
+<style scoped>
+.notifications-card {
+    margin-top: 1rem;
+}
+
+.notifications-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.notifications-title h3 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.notifications-title small,
+.notification-row small {
+    color: var(--text-color-secondary);
+}
+
+.notifications-counter {
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 0.55rem;
+    border-radius: 999px;
+    background: var(--red-500);
+    color: #fff;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 18px color-mix(in srgb, var(--red-500) 30%, transparent);
+}
+
+.notifications-counter.empty {
+    background: var(--surface-300);
+    color: var(--text-color-secondary);
+    box-shadow: none;
+}
+
+.notifications-list {
+    display: grid;
+    gap: 0.65rem;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+.notification-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.8rem;
+    border: 1px solid var(--surface-200);
+    border-radius: 12px;
+    background: var(--surface-card);
+}
+
+.notification-row.unread {
+    border-color: color-mix(in srgb, var(--red-500) 35%, var(--surface-200));
+    background: color-mix(in srgb, var(--red-500) 6%, var(--surface-card));
+}
+
+.notification-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--red-500) 12%, var(--surface-card));
+    color: var(--red-500);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+
+.notification-body {
+    min-width: 0;
+    flex: 1;
+}
+
+.notification-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.notification-body p {
+    margin: 0.25rem 0;
+    color: var(--text-color-secondary);
+    line-height: 1.35;
+}
+
+.unread-dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: var(--red-500);
+    flex: 0 0 auto;
+}
+
+.notifications-empty {
+    padding: 1rem 0;
+    color: var(--text-color-secondary);
+}
+</style>
