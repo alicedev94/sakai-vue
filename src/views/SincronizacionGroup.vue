@@ -1,4 +1,5 @@
 <script setup>
+import { useSincronizacionStore } from '@/stores/sincronizacion';
 import { useSincronizacionGroupStore } from '@/stores/sincronizacionGroup';
 import { FilterMatchMode } from '@primevue/core/api';
 import { useConfirm } from 'primevue/useconfirm';
@@ -9,6 +10,7 @@ import { computed, onMounted, ref } from 'vue';
 const toast = useToast();
 const confirm = useConfirm();
 const store = useSincronizacionGroupStore();
+const sincStore = useSincronizacionStore();
 
 // ─── State de la vista ────────────────────────────────────────────────────────
 const configDialog = ref(false);
@@ -16,6 +18,8 @@ const deleteDialog = ref(false);
 const submitted = ref(false);
 const selectedItem = ref({});
 const searchQuery = ref('');
+const selectedSincronizaciones = ref([]);
+const sincSearchQuery = ref('');
 
 // ─── Paginado móvil ──────────────────────────────────────────────────────────
 const mobileCurrentPage = ref(0);
@@ -24,7 +28,8 @@ const mobileRowsPerPage = 6;
 const FORM_DEFAULTS = {
     nombre: '',
     descripcion: '',
-    esActivo: true
+    esActivo: true,
+    intervaloMinutos: 30
 };
 
 // ─── Filtros de búsqueda ─────────────────────────────────────────────────────
@@ -55,11 +60,43 @@ function resetMobilePage() {
     mobileCurrentPage.value = 0;
 }
 
+const filteredSincronizaciones = computed(() => {
+    let list = sincStore.configuraciones;
+    const currentGroupId = selectedItem.value.id;
+    list = [...list].sort((a, b) => {
+        const aBelongs = a.sincronizacionGroup?.id === currentGroupId;
+        const bBelongs = b.sincronizacionGroup?.id === currentGroupId;
+        if (aBelongs && !bBelongs) return -1;
+        if (!aBelongs && bBelongs) return 1;
+        
+        const aGeneral = !a.sincronizacionGroup;
+        const bGeneral = !b.sincronizacionGroup;
+        if (aGeneral && !bGeneral) return -1;
+        if (!aGeneral && bGeneral) return 1;
+        
+        return a.departamento.localeCompare(b.departamento);
+    });
+
+    if (sincSearchQuery.value) {
+        const q = sincSearchQuery.value.toLowerCase();
+        list = list.filter(s => s.departamento.toLowerCase().includes(q));
+    }
+    return list;
+});
+
 const isEditing = computed(() => !!selectedItem.value.id);
 
 const dialogHeader = computed(() =>
     isEditing.value ? 'Editar Grupo' : 'Nuevo Grupo'
 );
+
+const seleccionarTodos = () => {
+    selectedSincronizaciones.value = sincStore.configuraciones.map(s => s.id);
+};
+
+const deseleccionarTodos = () => {
+    selectedSincronizaciones.value = [];
+};
 
 // ─── Helpers de formato ───────────────────────────────────────────────────────
 const formatFecha = (value) => {
@@ -78,6 +115,7 @@ const formatFecha = (value) => {
 const cargarDatos = async () => {
     try {
         await store.fetchGrupos();
+        await sincStore.fetchConfiguraciones();
     } catch (err) {
         toast.add({
             severity: 'error',
@@ -90,12 +128,18 @@ const cargarDatos = async () => {
 
 const abrirNuevo = () => {
     selectedItem.value = { ...FORM_DEFAULTS };
+    selectedSincronizaciones.value = [];
+    sincSearchQuery.value = '';
     submitted.value = false;
     configDialog.value = true;
 };
 
 const editarItem = (item) => {
     selectedItem.value = { ...item };
+    selectedSincronizaciones.value = sincStore.configuraciones
+        .filter(s => s.sincronizacionGroup?.id === item.id)
+        .map(s => s.id);
+    sincSearchQuery.value = '';
     submitted.value = false;
     configDialog.value = true;
 };
@@ -125,6 +169,11 @@ const ejecutarGuardar = async (payload) => {
                 life: 3000
             });
         }
+
+        // Recargar los datos de los stores para sincronizar el estado
+        await sincStore.fetchConfiguraciones();
+        await store.fetchGrupos();
+
         cerrarDialog();
     } catch (err) {
         toast.add({
@@ -152,7 +201,9 @@ const guardar = async () => {
     const payload = {
         nombre: selectedItem.value.nombre.trim(),
         descripcion: selectedItem.value.descripcion?.trim() || '',
-        esActivo: selectedItem.value.esActivo ?? true
+        esActivo: selectedItem.value.esActivo ?? true,
+        intervaloMinutos: selectedItem.value.intervaloMinutos ?? 30,
+        sincronizacionesIds: selectedSincronizaciones.value
     };
 
     await ejecutarGuardar(payload);
@@ -538,7 +589,78 @@ onMounted(() => {
                     />
                 </div>
 
+                <div class="field col-12">
+                    <label for="intervaloMinutos">Temporalidad (Minutos) *</label>
+                    <InputNumber
+                        id="intervaloMinutos"
+                        v-model="selectedItem.intervaloMinutos"
+                        placeholder="Intervalo en minutos..."
+                        :min="1"
+                        :max="1440"
+                        class="w-full"
+                        :invalid="submitted && !selectedItem.intervaloMinutos"
+                    />
+                    <small class="p-error" v-if="submitted && !selectedItem.intervaloMinutos">
+                        La temporalidad es obligatoria.
+                    </small>
+                </div>
 
+                <div class="field col-12">
+                    <label class="font-bold mb-2 block">Asociar Sincronizaciones</label>
+                    <div class="sinc-selector-container">
+                        <div class="flex justify-between items-center mb-2 gap-2 flex-wrap" style="display: flex; justify-content: space-between; align-items: center;">
+                            <IconField class="flex-1 min-w-[200px]" style="flex: 1;">
+                                <InputIcon>
+                                    <i class="pi pi-search" />
+                                </InputIcon>
+                                <InputText
+                                    v-model="sincSearchQuery"
+                                    placeholder="Filtrar sincronizaciones..."
+                                    class="w-full p-inputtext-sm"
+                                />
+                            </IconField>
+                            <div class="flex gap-1" style="display: flex; gap: 0.25rem;">
+                                <Button
+                                    label="Todos"
+                                    icon="pi pi-check-square"
+                                    severity="secondary"
+                                    text
+                                    size="small"
+                                    @click="seleccionarTodos"
+                                    v-tooltip.top="'Seleccionar todos'"
+                                />
+                                <Button
+                                    label="Ninguno"
+                                    icon="pi pi-minus-square"
+                                    severity="secondary"
+                                    text
+                                    size="small"
+                                    @click="deseleccionarTodos"
+                                    v-tooltip.top="'Deseleccionar todos'"
+                                />
+                            </div>
+                        </div>
+                        <div class="sinc-scroll-list">
+                            <div v-for="s in filteredSincronizaciones" :key="s.id" class="sinc-checkbox-item">
+                                <Checkbox
+                                    v-model="selectedSincronizaciones"
+                                    :inputId="`sinc-chk-${s.id}`"
+                                    :name="`sinc-group`"
+                                    :value="s.id"
+                                />
+                                <label :for="`sinc-chk-${s.id}`" class="sinc-checkbox-label ml-2">
+                                    <span class="depto-name">{{ s.departamento }}</span>
+                                    <span :class="['group-badge', s.sincronizacionGroup ? 'custom-group' : 'general-group']">
+                                        {{ s.sincronizacionGroup ? s.sincronizacionGroup.nombre : 'General' }}
+                                    </span>
+                                </label>
+                            </div>
+                            <div v-if="filteredSincronizaciones.length === 0" class="p-3 text-center text-secondary text-sm">
+                                No se encontraron sincronizaciones
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <template v-if="isEditing">
                     <div class="field col-12">
@@ -1020,5 +1142,67 @@ onMounted(() => {
     padding: 0.65rem 1rem;
     border-top: 1px solid var(--surface-200);
     background: var(--surface-50);
+}
+
+.sinc-selector-container {
+    border: 1px solid var(--surface-300);
+    border-radius: 8px;
+    padding: 0.75rem;
+    background: var(--surface-card);
+}
+
+.sinc-scroll-list {
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid var(--surface-200);
+    border-radius: 6px;
+    padding: 0.5rem;
+    background: var(--surface-50);
+}
+
+.sinc-checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+
+    &:hover {
+        background-color: var(--surface-100);
+    }
+}
+
+.sinc-checkbox-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.depto-name {
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.group-badge {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 12px;
+    font-weight: 600;
+
+    &.custom-group {
+        background: color-mix(in srgb, var(--primary-color) 12%, var(--surface-card));
+        color: var(--primary-color);
+        border: 1px solid color-mix(in srgb, var(--primary-color) 20%, var(--surface-card));
+    }
+
+    &.general-group {
+        background: var(--surface-200);
+        color: var(--text-color-secondary);
+        border: 1px solid var(--surface-300);
+    }
 }
 </style>

@@ -187,6 +187,43 @@ const FORMATOS_BARRAS = [
     Html5QrcodeSupportedFormats.QR_CODE
 ];
 
+// Ordenación de productos por ubicación
+function obtenerTextoUbicacion(item) {
+    if (!item.ubicaciones || item.ubicaciones.length === 0) {
+        return 'zzzzzzzzzz'; // Los que no tienen ubicación se muestran al final
+    }
+    return item.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ').toLowerCase();
+}
+
+function ordenarItemsPorUbicacion(items) {
+    if (!Array.isArray(items)) return [];
+    return [...items].sort((a, b) => {
+        const ubiA = obtenerTextoUbicacion(a);
+        const ubiB = obtenerTextoUbicacion(b);
+        return ubiA.localeCompare(ubiB, 'es', { sensitivity: 'base', numeric: true });
+    });
+}
+
+watch(preOrdenSeleccionada, (nueva) => {
+    if (nueva && nueva.items) {
+        const copia = ordenarItemsPorUbicacion(nueva.items);
+        const yaOrdenado = nueva.items.every((item, idx) => item.idProducto === copia[idx].idProducto && item.atributo === copia[idx].atributo && item.cantidad === copia[idx].cantidad);
+        if (!yaOrdenado) {
+            nueva.items = copia;
+        }
+    }
+});
+
+watch(() => newPreOrden.value.items, (nuevosItems) => {
+    if (nuevosItems && nuevosItems.length > 0) {
+        const copia = ordenarItemsPorUbicacion(nuevosItems);
+        const yaOrdenado = nuevosItems.every((item, idx) => item.idProducto === copia[idx].idProducto && item.atributo === copia[idx].atributo && item.cantidad === copia[idx].cantidad);
+        if (!yaOrdenado) {
+            newPreOrden.value.items = copia;
+        }
+    }
+}, { deep: true });
+
 function mensajeFalloCamara(err) {
     if (typeof window !== 'undefined' && !window.isSecureContext) {
         return 'La cámara no funciona con HTTP desde la IP de tu red. Usa HTTPS (npm run dev con --https o ngrok).';
@@ -407,7 +444,8 @@ async function agregarProducto() {
             barra7: p.barra7,
             atributo: nuevoProducto.value.atributo,
             r3Piso,
-            r3Almacen
+            r3Almacen,
+            ubicaciones: p.ubicaciones || []
         });
     }
     nuevoProducto.value = { producto: null, cantidad: 1, atributo: '' };
@@ -1097,6 +1135,16 @@ const exportarPDF = () => {
                     <Column field="nombreProducto" header="Producto" />
                     <Column field="atributo" header="Atributo" />
                     <Column field="departamento" header="Dpto." />
+                    <Column header="Ubicación" style="min-width: 10rem">
+                        <template #body="{ data }">
+                            <span v-if="data.ubicaciones && data.ubicaciones.length > 0">
+                                {{ data.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ') }}
+                            </span>
+                            <span v-else class="text-surface-500 dark:text-surface-400 italic">
+                                Sin ubicación
+                            </span>
+                        </template>
+                    </Column>
                     <Column field="r3Piso" header="Piso" style="min-width: 5rem">
                         <template #body="{ data }">
                             {{ data.r3Piso ?? '-' }}
@@ -1300,6 +1348,16 @@ const exportarPDF = () => {
                                     placeholder="Atributo..."
                                     class="w-full"
                                 />
+                            </template>
+                        </Column>
+                        <Column header="Ubicación" style="min-width: 10rem">
+                            <template #body="{ data }">
+                                <span v-if="data.ubicaciones && data.ubicaciones.length > 0">
+                                    {{ data.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ') }}
+                                </span>
+                                <span v-else class="text-surface-500 dark:text-surface-400 italic">
+                                    Sin ubicación
+                                </span>
                             </template>
                         </Column>
                         <Column field="r3Piso" header="Piso" style="width: 80px; text-align: center;">

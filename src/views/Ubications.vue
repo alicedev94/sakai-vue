@@ -41,6 +41,56 @@ let html5Scanner = null;
 let decodeLock = false;
 const scanTarget = ref('codigo'); // 'codigo' o 'ubicacion'
 
+// Función para limpiar códigos escaneados si vienen como URL o ruta
+function limpiarCodigoEscaneado(texto) {
+    if (!texto) return '';
+    let limpio = texto.trim();
+
+    const esUrl = limpio.toLowerCase().startsWith('http://') || limpio.toLowerCase().startsWith('https://');
+    const esRutaAbsoluta = limpio.startsWith('/');
+    const contienePrefijoUbicacion = limpio.toLowerCase().includes('v1/ubicaciones') || limpio.toLowerCase().includes('ubicaciones/');
+
+    if (esUrl || esRutaAbsoluta || contienePrefijoUbicacion) {
+        try {
+            if (esUrl) {
+                const url = new URL(limpio);
+                const params = ['codigo', 'code', 'id', 'ubicacion', 'location', 'value'];
+                for (const param of params) {
+                    if (url.searchParams.has(param)) {
+                        const val = url.searchParams.get(param)?.trim();
+                        if (val) return val;
+                    }
+                }
+                const pathSegments = url.pathname.split('/').filter(Boolean);
+                if (pathSegments.length > 0) {
+                    return decodeURIComponent(pathSegments[pathSegments.length - 1].trim());
+                }
+            }
+        } catch (e) {
+            // Ignorar y usar fallback
+        }
+
+        const indexUltimaBarra = limpio.lastIndexOf('/');
+        const indexUltimaContraBarra = limpio.lastIndexOf('\\');
+        const maxIndex = Math.max(indexUltimaBarra, indexUltimaContraBarra);
+        if (maxIndex !== -1) {
+            const finalPart = limpio.substring(maxIndex + 1).trim();
+            const queryIndex = finalPart.indexOf('?');
+            if (queryIndex !== -1) {
+                return decodeURIComponent(finalPart.substring(0, queryIndex).trim());
+            }
+            return decodeURIComponent(finalPart);
+        }
+    }
+    return limpio;
+}
+
+function procesarInputBlur(campo) {
+    if (form.value[campo]) {
+        form.value[campo] = limpiarCodigoEscaneado(form.value[campo]);
+    }
+}
+
 function mensajeFalloCamara(err) {
     if (typeof window !== 'undefined' && !window.isSecureContext) {
         return 'La cámara requiere HTTPS. Abre la app con https:// desde tu celular.';
@@ -103,9 +153,13 @@ async function iniciarCamara(target = 'codigo') {
         const configLite = { fps: 10, qrbox };
 
         const onDecode = async (texto) => {
-            const codigo = texto?.trim();
+            let codigo = texto?.trim();
             if (!codigo || decodeLock) return;
             decodeLock = true;
+            
+            // Limpiar si viene con URL o ruta (extraer el código final)
+            codigo = limpiarCodigoEscaneado(codigo);
+
             try {
                 await detenerCamara();
                 if (scanTarget.value === 'filtroCodigo') {
@@ -195,7 +249,13 @@ const ubicacionesFiltradas = computed(() => {
     if (cod) lista = lista.filter((u) => u.codigo?.toLowerCase().includes(cod));
     if (ubi) lista = lista.filter((u) => u.ubicacion?.toLowerCase().includes(ubi));
     if (loc) lista = lista.filter((u) => u.localidad?.toLowerCase().includes(loc));
-    return lista;
+
+    // Ordenar alfabéticamente por el campo ubicacion (ordenación natural)
+    return [...lista].sort((a, b) => {
+        const ubiA = a.ubicacion || '';
+        const ubiB = b.ubicacion || '';
+        return ubiA.localeCompare(ubiB, 'es', { sensitivity: 'base', numeric: true });
+    });
 });
 
 // ─── Stats computadas ────────────────────────────────────────────────────────
@@ -257,6 +317,11 @@ function abrirEditar(ubication) {
 }
 
 async function guardar() {
+    // Limpiar campos por si contienen URLs o rutas antes de guardar
+    if (form.value.codigo) form.value.codigo = limpiarCodigoEscaneado(form.value.codigo);
+    if (form.value.ubicacion) form.value.ubicacion = limpiarCodigoEscaneado(form.value.ubicacion);
+    if (form.value.localidad) form.value.localidad = limpiarCodigoEscaneado(form.value.localidad);
+
     if (!form.value.codigo?.trim() || !form.value.ubicacion?.trim()) {
         toast.add({ severity: 'warn', summary: 'Campos requeridos', detail: 'El código y la ubicación son obligatorios', life: 3500 });
         return;
@@ -395,6 +460,8 @@ onUnmounted(detenerCamara);
                                     placeholder="Buscar por código..."
                                     class="w-full md:w-44"
                                     @input="resetMobilePage"
+                                    @blur="filtroCodigo = limpiarCodigoEscaneado(filtroCodigo)"
+                                    @keydown.enter="filtroCodigo = limpiarCodigoEscaneado(filtroCodigo)"
                                 />
                             </IconField>
                             <Button
@@ -619,9 +686,10 @@ onUnmounted(detenerCamara);
                     <div class="scan-row">
                         <InputText
                             v-model="form.codigo"
-                            placeholder="Ej. 7501000100011 o escanea..."
                             class="scan-input"
                             :class="{ 'p-invalid': !form.codigo?.trim() && saving }"
+                            @blur="procesarInputBlur('codigo')"
+                            @keydown.enter="procesarInputBlur('codigo')"
                         />
                         <Button
                             v-if="!cameraActiva"
@@ -666,9 +734,10 @@ onUnmounted(detenerCamara);
                     <div class="scan-row">
                         <InputText
                             v-model="form.ubicacion"
-                            placeholder="Ej. Bodega A, Estante 3"
                             class="scan-input"
                             :class="{ 'p-invalid': !form.ubicacion?.trim() && saving }"
+                            @blur="procesarInputBlur('ubicacion')"
+                            @keydown.enter="procesarInputBlur('ubicacion')"
                         />
                         <Button
                             v-if="!cameraActiva"
@@ -690,9 +759,10 @@ onUnmounted(detenerCamara);
                     </label>
                     <InputText
                         v-model="form.localidad"
-                        placeholder="Ej. CD01"
                         class="w-full"
                         maxlength="10"
+                        @blur="procesarInputBlur('localidad')"
+                        @keydown.enter="procesarInputBlur('localidad')"
                     />
                     <small class="form-hint">Código de localidad (máx. 10 caracteres)</small>
                 </div>

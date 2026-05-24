@@ -366,6 +366,33 @@ function cancelarSurtido() {
     });
 }
 
+// Ordenación de productos por ubicación
+function obtenerTextoUbicacion(item) {
+    if (!item.ubicaciones || item.ubicaciones.length === 0) {
+        return 'zzzzzzzzzz'; // Los que no tienen ubicación se muestran al final
+    }
+    return item.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ').toLowerCase();
+}
+
+function ordenarItemsPorUbicacion(items) {
+    if (!Array.isArray(items)) return [];
+    return [...items].sort((a, b) => {
+        const ubiA = obtenerTextoUbicacion(a);
+        const ubiB = obtenerTextoUbicacion(b);
+        return ubiA.localeCompare(ubiB, 'es', { sensitivity: 'base', numeric: true });
+    });
+}
+
+watch(() => ordenSeleccionada.value?.items, (nuevosItems) => {
+    if (nuevosItems && nuevosItems.length > 0) {
+        const copia = ordenarItemsPorUbicacion(nuevosItems);
+        const yaOrdenado = nuevosItems.every((item, idx) => item.id === copia[idx].id && item.cantidad === copia[idx].cantidad && item.cantidadSurtida === copia[idx].cantidadSurtida);
+        if (!yaOrdenado) {
+            ordenSeleccionada.value.items = copia;
+        }
+    }
+}, { deep: true });
+
 function mensajeFalloCamara(err) {
     if (typeof window !== 'undefined' && !window.isSecureContext) {
         return 'La cámara no funciona con HTTP desde la IP de tu red (ej. http://192.168…). Arranca el front con npm run dev y en el celular abre https://TU-IP:3000/v1/ (acepta la advertencia del certificado).';
