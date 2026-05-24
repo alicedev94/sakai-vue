@@ -1,4 +1,5 @@
 <script setup>
+import { operacionesService } from '@/service/OperacionesService';
 import { preOrdenesService } from '@/service/PreOrdenesService';
 import { useAuthStore } from '@/stores/auth';
 import { usePreOrdenStore } from '@/stores/preOrden';
@@ -21,6 +22,7 @@ const filters = ref({ global: { value: null, matchMode: FilterMatchMode.CONTAINS
 
 const detailDialog = ref(false);
 const preOrdenSeleccionada = ref(null);
+const loadingEdit = ref(false);
 
 
 
@@ -33,36 +35,24 @@ const ESTADOS = [
 const filtroEstado = ref(null);
 
 const preOrdenesFiltradas = computed(() => {
-    let lista = store.preOrdenes;
-    if (filtroEstado.value) {
-        lista = lista.filter((o) => o.estado === filtroEstado.value);
-    }
-    if (searchQuery.value) {
-        const q = searchQuery.value.toLowerCase();
-        lista = lista.filter(
-            (o) =>
-                o.numeroOrden?.toLowerCase().includes(q) ||
-                o.departamento?.toLowerCase().includes(q)
-        );
-    }
-    return lista;
+    return store.preOrdenes;
 });
 
-// Paginado móvil
-const mobileCurrentPage = ref(0);
-const mobileRowsPerPage = 6;
-
-const mobilePagedOrdenes = computed(() => {
-    const start = mobileCurrentPage.value * mobileRowsPerPage;
-    return preOrdenesFiltradas.value.slice(start, start + mobileRowsPerPage);
+// Paginado server-side
+const lazyParams = ref({
+    page: 0,
+    size: 10
 });
 
-const mobileTotalPages = computed(() =>
-    Math.ceil(preOrdenesFiltradas.value.length / mobileRowsPerPage)
-);
+function onPage(event) {
+    lazyParams.value.page = event.page;
+    lazyParams.value.size = event.rows;
+    cargarDatos();
+}
 
 function resetMobilePage() {
-    mobileCurrentPage.value = 0;
+    lazyParams.value.page = 0;
+    cargarDatos();
 }
 
 const progresoOrden = (orden) => {
@@ -101,9 +91,18 @@ const formatFecha = (value) => {
 
 async function cargarDatos() {
     try {
-        const params = {};
+        const params = {
+            page: lazyParams.value.page,
+            size: lazyParams.value.size
+        };
         if (filtroFecha.value) {
             params.fecha = formatDateForApi(filtroFecha.value);
+        }
+        if (filtroEstado.value) {
+            params.estado = filtroEstado.value;
+        }
+        if (searchQuery.value) {
+            params.query = searchQuery.value;
         }
         await store.fetchPreOrdenes(params);
     } catch (err) {
@@ -126,6 +125,25 @@ async function verDetalle(orden) {
     try {
         await store.cargarOrdenDetalle(orden.id);
         preOrdenSeleccionada.value = store.preOrdenActiva;
+
+        if (preOrdenSeleccionada.value?.items) {
+            const promises = preOrdenSeleccionada.value.items
+                .filter(it => it.codigoBarra)
+                .map(async (it) => {
+                    try {
+                        const inv = await operacionesService.obtenerInventarioUbicacion(it.codigoBarra);
+                        if (inv) {
+                            it.r3Piso = inv.piso ?? 0;
+                            it.r3Almacen = inv.almacen ?? 0;
+                        }
+                    } catch {
+                        it.r3Piso = '-';
+                        it.r3Almacen = '-';
+                    }
+                });
+            await Promise.all(promises);
+        }
+
         detailDialog.value = true;
     } catch (err) {
         toast.add({ severity: 'error', summary: 'Error', detail: err.userMessage || 'No se pudo cargar el detalle', life: 4000 });
@@ -143,7 +161,7 @@ const newPreOrden = ref({
 });
 const departamentosList = ref([]);
 const productosList = ref([]);
-const nuevoProducto = ref({ producto: null, cantidad: 1 });
+const nuevoProducto = ref({ producto: null, cantidad: 1, atributo: '' });
 
 // ── Barcode scan (texto / pistola) ───────────────────────────────────────────
 const codigoScan = ref('');
@@ -168,6 +186,43 @@ const FORMATOS_BARRAS = [
     Html5QrcodeSupportedFormats.CODE_39,
     Html5QrcodeSupportedFormats.QR_CODE
 ];
+
+// Ordenación de productos por ubicación
+function obtenerTextoUbicacion(item) {
+    if (!item.ubicaciones || item.ubicaciones.length === 0) {
+        return 'zzzzzzzzzz'; // Los que no tienen ubicación se muestran al final
+    }
+    return item.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ').toLowerCase();
+}
+
+function ordenarItemsPorUbicacion(items) {
+    if (!Array.isArray(items)) return [];
+    return [...items].sort((a, b) => {
+        const ubiA = obtenerTextoUbicacion(a);
+        const ubiB = obtenerTextoUbicacion(b);
+        return ubiA.localeCompare(ubiB, 'es', { sensitivity: 'base', numeric: true });
+    });
+}
+
+watch(preOrdenSeleccionada, (nueva) => {
+    if (nueva && nueva.items) {
+        const copia = ordenarItemsPorUbicacion(nueva.items);
+        const yaOrdenado = nueva.items.every((item, idx) => item.idProducto === copia[idx].idProducto && item.atributo === copia[idx].atributo && item.cantidad === copia[idx].cantidad);
+        if (!yaOrdenado) {
+            nueva.items = copia;
+        }
+    }
+});
+
+watch(() => newPreOrden.value.items, (nuevosItems) => {
+    if (nuevosItems && nuevosItems.length > 0) {
+        const copia = ordenarItemsPorUbicacion(nuevosItems);
+        const yaOrdenado = nuevosItems.every((item, idx) => item.idProducto === copia[idx].idProducto && item.atributo === copia[idx].atributo && item.cantidad === copia[idx].cantidad);
+        if (!yaOrdenado) {
+            newPreOrden.value.items = copia;
+        }
+    }
+}, { deep: true });
 
 function mensajeFalloCamara(err) {
     if (typeof window !== 'undefined' && !window.isSecureContext) {
@@ -344,22 +399,38 @@ watch(() => newPreOrden.value.departamento, async (newDept) => {
     await cargarProductos(newDept);
 });
 
-function agregarProducto() {
+async function agregarProducto() {
     const p = nuevoProducto.value.producto;
     if (!p || nuevoProducto.value.cantidad <= 0) return;
-    
-    const existing = newPreOrden.value.items.find(i => 
-        (p.codigoBarra && i.codigoBarra === p.codigoBarra) || 
+
+    const codBarra = p.codigoBarra || p.barra1 || '';
+
+    const existing = newPreOrden.value.items.find(i =>
+        (codBarra && i.codigoBarra === codBarra) ||
         (p.id !== undefined && i.id === p.id) ||
-        (p.idProducto !== undefined && i.idProducto === (p.id || p.codigoBarra))
+        (p.idProducto !== undefined && i.idProducto === (p.id || codBarra))
     );
+
+    let r3Piso = 0;
+    let r3Almacen = 0;
+    try {
+        const inv = await operacionesService.obtenerInventarioUbicacion(codBarra);
+        if (inv) {
+            r3Piso = inv.piso ?? 0;
+            r3Almacen = inv.almacen ?? 0;
+        }
+    } catch {
+        // fallo consulta inventario
+    }
+
     if (existing) {
         existing.cantidad += nuevoProducto.value.cantidad;
+        existing.r3Piso = r3Piso;
+        existing.r3Almacen = r3Almacen;
     } else {
-
         newPreOrden.value.items.push({
-            idProducto: p.id || p.codigoBarra,
-            codigoBarra: p.codigoBarra,
+            idProducto: p.id || codBarra,
+            codigoBarra: codBarra,
             nombreProducto: p.nombreProducto,
             cantidad: nuevoProducto.value.cantidad,
             cantidadSurtida: 0,
@@ -370,10 +441,14 @@ function agregarProducto() {
             barra4: p.barra4,
             barra5: p.barra5,
             barra6: p.barra6,
-            barra7: p.barra7
+            barra7: p.barra7,
+            atributo: nuevoProducto.value.atributo,
+            r3Piso,
+            r3Almacen,
+            ubicaciones: p.ubicaciones || []
         });
     }
-    nuevoProducto.value = { producto: null, cantidad: 1 };
+    nuevoProducto.value = { producto: null, cantidad: 1, atributo: '' };
 }
 
 function removerProducto(index) {
@@ -392,7 +467,7 @@ async function buscarProductoPorCodigo() {
             await cargarProductos(newPreOrden.value.departamento);
         }
 
-        const normalizar = (v) => (v ?? '').toString().trim();
+                const normalizar = (v) => (v ?? '').toString().trim();
 
         const encontrado = productosList.value.find((p) =>
             normalizar(p.barra1) === codigo ||
@@ -415,7 +490,6 @@ async function buscarProductoPorCodigo() {
         nuevoProducto.value.producto = encontrado;
         codigoScan.value = '';
 
-        // Si la cantidad ya está definida, agregar directamente
         agregarProducto();
 
         toast.add({ severity: 'success', summary: 'Producto agregado', detail: encontrado.nombreProducto, life: 2000 });
@@ -439,37 +513,70 @@ watch(createDialog, async (abierto) => {
 onUnmounted(detenerCamara);
 
 async function abrirEditar(orden) {
+    console.log('🔥 [abrirEditar] NUEVA version con loading + inventario');
     skipItemsClear = true;
+    loadingEdit.value = true;
+    createDialog.value = true;
     try {
-        await store.cargarOrdenDetalle(orden.id);
-        const detalle = store.preOrdenActiva;
+        console.log('[abrirEditar] loadingEdit=', loadingEdit.value, 'createDialog=', createDialog.value);
+        const [detalle] = await Promise.all([
+            store.cargarOrdenDetalle(orden.id),
+            (departamentosList.value.length === 0 || !departamentosList.value.some(d => d.descripcion === '00 TODOS'))
+                ? preOrdenesService.obtenerDepartamentos().then(data => {
+                    let depts = Array.isArray(data) ? data : data.data || [];
+                    departamentosList.value = [{ codigo: '', descripcion: '00 TODOS' }, ...depts];
+                  })
+                : Promise.resolve()
+        ]);
+        
+        const det = store.preOrdenActiva;
+        console.log('[abrirEditar] det.items:', det.items?.length, JSON.parse(JSON.stringify(det.items?.map(i => ({ codigoBarra: i.codigoBarra, r3Piso: i.r3Piso, r3Almacen: i.r3Almacen })))));
         newPreOrden.value = { 
-            id: detalle.id,
-            departamento: detalle.departamento, 
-            usuarioSurtidor: detalle.usuarioSurtidor, 
-            items: detalle.items ? detalle.items.map(i => ({ ...i })) : []
+            id: det.id,
+            departamento: det.departamento, 
+            usuarioSurtidor: det.usuarioSurtidor, 
+            items: det.items ? det.items.map(i => ({ ...i })) : []
         };
         nuevoProducto.value = { producto: null, cantidad: 1 };
         productosList.value = [];
         
-        if (departamentosList.value.length === 0 || !departamentosList.value.some(d => d.descripcion === '00 TODOS')) {
-            const data = await preOrdenesService.obtenerDepartamentos();
-            let depts = Array.isArray(data) ? data : data.data || [];
-            departamentosList.value = [{ codigo: '', descripcion: '00 TODOS' }, ...depts];
-        }
-        
-        const deptObj = departamentosList.value.find(d => d.descripcion === detalle.departamento);
+        const deptObj = departamentosList.value.find(d => d.descripcion === det.departamento);
         if (deptObj) {
             newPreOrden.value.departamento = deptObj;
-            // Consultamos los productos inmediatamente al abrir para editar
             await cargarProductos(deptObj);
         }
         
-        createDialog.value = true;
+        const itemsConCodigo = (newPreOrden.value.items || []).filter(it => it.codigoBarra);
+        console.log(`[abrirEditar] items con codigoBarra: ${itemsConCodigo.length}/${newPreOrden.value.items?.length}`);
+        const promises = itemsConCodigo
+            .map(async (it) => {
+                try {
+                    console.log('[abrirEditar] consultando inventario para:', it.codigoBarra);
+                    const inv = await operacionesService.obtenerInventarioUbicacion(it.codigoBarra);
+                    console.log('[abrirEditar] inventario respuesta:', it.codigoBarra, inv);
+                    if (inv) {
+                        it.r3Piso = inv.piso ?? 0;
+                        it.r3Almacen = inv.almacen ?? 0;
+                        console.log(`[abrirEditar] item actualizado: ${it.codigoBarra} → piso=${it.r3Piso} almacen=${it.r3Almacen}`);
+                    }
+                } catch (e) {
+                    console.log('[abrirEditar] error inventario para', it.codigoBarra, e);
+                    it.r3Piso = '-';
+                    it.r3Almacen = '-';
+                }
+            });
+        await Promise.all(promises);
+        console.log('[abrirEditar] inventario cargado para todos los items');
+        
         setTimeout(() => { skipItemsClear = false; }, 200);
     } catch (err) {
+        console.log('[abrirEditar] ERROR:', err);
         skipItemsClear = false;
+        createDialog.value = false;
         toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar la Preorden para edición', life: 3000 });
+    } finally {
+        console.log('[abrirEditar] finally → loadingEdit=false');
+        loadingEdit.value = false;
     }
 }
 
@@ -606,14 +713,15 @@ const exportarPDF = () => {
     });
     
     // Resumen de cantidades
-    const totalUnidades = data.items?.reduce((acc, item) => acc + item.cantidad, 0) || 0;
+    const totalUnidades = data.totalUnidades || 0;
     doc.text('Resumen de Totales', 14, doc.lastAutoTable.finalY + 10);
     
     autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 15,
         body: [
             ['Total Productos:', data.totalItems || 0, 'Productos Surtidos:', data.itemsSurtidos || 0],
-            ['Total Unidades:', totalUnidades, 'Progreso:', `${progresoOrden(data)}%`]
+            ['Total Unidades:', totalUnidades, 'Unidades Surtidas:', data.unidadesSurtidas || 0],
+            ['Efectividad:', `${progresoOrden(data)}%`, 'Pendiente:', totalUnidades - (data.unidadesSurtidas || 0)]
         ],
         theme: 'grid',
         headStyles: { fillColor: primaryColor },
@@ -626,6 +734,7 @@ const exportarPDF = () => {
     const tableData = data.items.map(item => [
         item.codigoBarra,
         item.nombreProducto,
+        item.atributo || '—',
         item.departamento || '—',
         item.cantidad,
         item.estadoItem
@@ -633,7 +742,7 @@ const exportarPDF = () => {
     
     autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 15,
-        head: [['Código', 'Producto', 'Dpto.', 'Cant.', 'Estado']],
+        head: [['Código', 'Producto', 'Atributo', 'Dpto.', 'Cant.', 'Estado']],
         body: tableData,
         headStyles: { fillColor: primaryColor },
         alternateRowStyles: { fillColor: [245, 245, 245] },
@@ -705,7 +814,7 @@ const exportarPDF = () => {
                 </template>
                 <template #end>
                     <div class="toolbar-end">
-                        <Select
+                        <!-- <Select
                             v-model="filtroEstado"
                             :options="ESTADOS"
                             optionLabel="label"
@@ -713,7 +822,7 @@ const exportarPDF = () => {
                             placeholder="Todos los estados"
                             class="filter-select w-full md:w-auto"
                             @change="resetMobilePage"
-                        />
+                        /> -->
                         <Calendar
                             v-model="filtroFecha"
                             dateFormat="yy-mm-dd"
@@ -743,7 +852,11 @@ const exportarPDF = () => {
                 :loading="store.isLoading"
                 dataKey="id"
                 :paginator="true"
-                :rows="10"
+                lazy
+                :totalRecords="store.totalPreOrdenes"
+                :first="lazyParams.page * lazyParams.size"
+                @page="onPage"
+                :rows="lazyParams.size"
                 :rowsPerPageOptions="[5, 10, 25]"
                 paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                 currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} órdenes"
@@ -764,11 +877,11 @@ const exportarPDF = () => {
                     </div>
                 </template>
 
-                <Column field="id" header="ID" :sortable="true" style="min-width: 5rem">
+                <!-- <Column field="id" header="ID" :sortable="true" style="min-width: 5rem">
                     <template #body="{ data }">
                         <span class="id-badge">#{{ data.id }}</span>
                     </template>
-                </Column>
+                </Column> -->
 
                 <Column field="numeroOrden" header="N° Documento" :sortable="true" style="min-width: 12rem">
                     <template #body="{ data }">
@@ -895,7 +1008,7 @@ const exportarPDF = () => {
                         <i class="pi pi-spin pi-spinner" style="font-size: 3rem; color: var(--primary-color)" />
                     </div>
 
-                    <div v-for="data in mobilePagedOrdenes" :key="data.id" class="preorden-card">
+                    <div v-for="data in preOrdenesFiltradas" :key="data.id" class="preorden-card">
                         <!-- Header -->
                         <div class="preorden-card-header">
                             <div class="preorden-card-header-left">
@@ -946,13 +1059,16 @@ const exportarPDF = () => {
                     </div>
 
                     <!-- Paginador móvil -->
-                    <div v-if="mobileTotalPages > 1" class="flex justify-center items-center gap-3 mt-2">
-                        <Button icon="pi pi-chevron-left" outlined rounded size="small" :disabled="mobileCurrentPage === 0" @click="mobileCurrentPage--" />
-                        <span class="text-sm" style="color: var(--text-color-secondary)">
-                            Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }}
-                        </span>
-                        <Button icon="pi pi-chevron-right" outlined rounded size="small" :disabled="mobileCurrentPage >= mobileTotalPages - 1" @click="mobileCurrentPage++" />
-                    </div>
+                    <Paginator
+                        v-if="store.totalPreOrdenes > 0"
+                        :first="lazyParams.page * lazyParams.size"
+                        :rows="lazyParams.size"
+                        :totalRecords="store.totalPreOrdenes"
+                        @page="onPage"
+                        template="FirstPageLink PrevPageLink CurrentPageReport NextPageLink LastPageLink"
+                        currentPageReportTemplate="{first}-{last} de {totalRecords}"
+                        class="mt-4 border-t border-surface-200 dark:border-surface-700 bg-transparent"
+                    />
                 </div>
             </div>
         </div>
@@ -1017,7 +1133,28 @@ const exportarPDF = () => {
                 <DataTable :value="preOrdenSeleccionada.items" :rows="10" :paginator="preOrdenSeleccionada.items?.length > 10" size="small" stripedRows>
                     <Column field="codigoBarra" header="Código" />
                     <Column field="nombreProducto" header="Producto" />
+                    <Column field="atributo" header="Atributo" />
                     <Column field="departamento" header="Dpto." />
+                    <Column header="Ubicación" style="min-width: 10rem">
+                        <template #body="{ data }">
+                            <span v-if="data.ubicaciones && data.ubicaciones.length > 0">
+                                {{ data.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ') }}
+                            </span>
+                            <span v-else class="text-surface-500 dark:text-surface-400 italic">
+                                Sin ubicación
+                            </span>
+                        </template>
+                    </Column>
+                    <Column field="r3Piso" header="Piso" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.r3Piso ?? '-' }}
+                        </template>
+                    </Column>
+                    <Column field="r3Almacen" header="Almacén" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.r3Almacen ?? '-' }}
+                        </template>
+                    </Column>
                     <Column field="cantidad" header="Cant." style="min-width: 5rem" />
                     <Column field="estadoItem" header="Estado" style="min-width: 8rem">
                         <template #body="{ data }">
@@ -1040,20 +1177,26 @@ const exportarPDF = () => {
         <Dialog
             v-model:visible="createDialog"
             :style="{ width: '800px' }"
-            :breakpoints="{ '1199px': '85vw', '575px': '98vw' }"
+            :breakpoints="{ '1199px': '85vw', '575px': '92vw' }"
             :header="isEditing ? 'Editar PreOrden' : 'Crear Nueva PreOrden'"
             :modal="true"
         >
-            <div class="p-fluid grid">
+            <div v-if="loadingEdit" class="loading-overlay">
+                <i class="pi pi-spin pi-spinner" style="font-size: 2.5rem; color: var(--primary-color)" />
+                <p style="margin-top: 1rem; color: var(--text-color-secondary)">Cargando datos de la PreOrden...</p>
+            </div>
+            <div v-else class="p-fluid grid">
                 <div class="col-12 md:col-6 mb-3">
                     <label>Departamento</label>
                     <Select
                         v-model="newPreOrden.departamento"
                         :options="departamentosList"
                         optionLabel="descripcion"
+                        dataKey="descripcion"
                         placeholder="Seleccione departamento"
                         class="w-full mt-2"
                         :filter="true"
+                        appendTo="body"
                     />
                 </div>
                 <div class="col-12 md:col-6 mb-3">
@@ -1125,46 +1268,108 @@ const exportarPDF = () => {
                     </div>
 
                     <!-- Selector manual -->
-                    <div class="flex gap-2 mb-3" style="align-items: flex-end;">
-                        <div style="flex-grow: 1;">
+                    <div class="grid mb-3 align-items-end">
+                        <div class="col-12 md:col-4">
                             <label>Producto <small class="text-secondary">(selección manual)</small></label>
                             <Select
                                 v-model="nuevoProducto.producto"
                                 :options="productosList"
                                 optionLabel="label"
                                 placeholder="Seleccione un producto"
-                                class="w-full mt-2"
+                                class="w-full mt-2 product-select"
                                 :filter="true"
-                                :virtualScrollerOptions="{ itemSize: 38 }"
+                                :virtualScrollerOptions="{ itemSize: 48 }"
+                                :disabled="!newPreOrden.departamento"
+                                appendTo="body"
+                            >
+                                <template #option="slotProps">
+                                    <div class="product-item-content">
+                                        {{ slotProps.option.label }}
+                                    </div>
+                                </template>
+                            </Select>
+                        </div>
+                        <div class="col-12 md:col-4 mt-2">
+                            <label>Atributo</label>
+                            <InputText
+                                v-model="nuevoProducto.atributo"
+                                placeholder="Color, talla, etc."
+                                class="w-full mt-2"
                                 :disabled="!newPreOrden.departamento"
                             />
                         </div>
-                        <div style="width: 120px;">
+                        <div class="col-12 md:col-4 mt-2">
                             <label>Cantidad</label>
-                            <InputNumber
-                                v-model="nuevoProducto.cantidad"
-                                :min="1"
-                                showButtons
-                                class="w-full mt-2"
-                            />
-                        </div>
-                        <div>
-                            <Button
-                                icon="pi pi-plus"
-                                label="Agregar"
-                                class="mt-2"
-                                @click="agregarProducto"
-                                :disabled="!nuevoProducto.producto || !newPreOrden.departamento"
-                            />
+                            <div class="flex gap-2 mt-2">
+                                <InputNumber
+                                    v-model="nuevoProducto.cantidad"
+                                    :min="1"
+                                    showButtons
+                                    class="flex-auto"
+                                    inputClass="w-full"
+                                />
+                                <Button
+                                    icon="pi pi-plus"
+                                    label="Agregar"
+                                    @click="agregarProducto"
+                                    :disabled="!nuevoProducto.producto || !newPreOrden.departamento"
+                                    class="white-space-nowrap"
+                                />
+                            </div>
                         </div>
                     </div>
 
-                    <DataTable :value="newPreOrden.items" :rows="5" :paginator="newPreOrden.items.length > 5" size="small" stripedRows>
+                    <DataTable 
+                        class="mt-4"
+                        :value="newPreOrden.items" 
+                        :rows="5" 
+                        :paginator="newPreOrden.items.length > 5" 
+                        size="small" 
+                        stripedRows
+                        scrollable
+                        scrollHeight="400px"
+                    >
                         <template #empty>
                             <div class="text-center p-3 text-secondary">No se han agregado productos</div>
                         </template>
-                        <Column field="codigoBarra" header="Código" />
-                        <Column field="nombreProducto" header="Producto" />
+                        <Column field="codigoBarra" header="Código" class="hidden sm:table-cell" headerClass="hidden sm:table-cell" />
+                        <Column field="nombreProducto" header="Producto">
+                            <template #body="{ data }">
+                                <div style="white-space: normal; word-break: break-word;">
+                                    <div class="font-bold sm:font-normal">{{ data.nombreProducto }}</div>
+                                    <div class="text-xs text-secondary sm:hidden">{{ data.codigoBarra }}</div>
+                                </div>
+                            </template>
+                        </Column>
+                        <Column field="atributo" header="Atributo" style="min-width: 120px;">
+                            <template #body="{ data }">
+                                <InputText
+                                    v-model="data.atributo"
+                                    placeholder="Atributo..."
+                                    class="w-full"
+                                />
+                            </template>
+                        </Column>
+                        <Column header="Ubicación" style="min-width: 10rem">
+                            <template #body="{ data }">
+                                <span v-if="data.ubicaciones && data.ubicaciones.length > 0">
+                                    {{ data.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ') }}
+                                </span>
+                                <span v-else class="text-surface-500 dark:text-surface-400 italic">
+                                    Sin ubicación
+                                </span>
+                            </template>
+                        </Column>
+                        <Column field="r3Piso" header="Piso" style="width: 80px; text-align: center;">
+                            <template #body="{ data }">
+                                {{ data.r3Piso ?? '-' }}
+                            </template>
+                        </Column>
+                        <Column field="r3Almacen" header="Almacén" style="width: 80px; text-align: center;">
+                            <template #body="{ data }">
+                                {{ data.r3Almacen ?? '-' }}
+                            </template>
+                        </Column>
                         <Column field="cantidad" header="Cant." style="width: 140px; text-align: center;">
                             <template #body="{ data }">
                                 <InputNumber
@@ -1223,8 +1428,12 @@ const exportarPDF = () => {
     display: flex;
     gap: 0.5rem;
     align-items: center;
+    flex-wrap: wrap;
 
-    .flex-grow-1 { flex: 1; }
+    .flex-grow-1 { 
+        flex: 1; 
+        min-width: 200px;
+    }
 }
 
 .scan-hint {
@@ -1755,6 +1964,15 @@ const exportarPDF = () => {
 .ml-2 { margin-left: 0.5rem; }
 .text-primary { color: var(--primary-color); }
 
+.loading-overlay {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    text-align: center;
+}
+
 /* Mobile actions bar */
 .mobile-actions {
     display: flex;
@@ -1831,5 +2049,22 @@ const exportarPDF = () => {
     padding: 0.65rem 1rem;
     border-top: 1px solid var(--surface-200);
     background: var(--surface-50);
+}
+
+:deep(.product-select) {
+    .p-select-label {
+        white-space: normal !important;
+        word-break: break-word;
+    }
+}
+
+:deep(.p-select-option) {
+    white-space: normal !important;
+    word-break: break-word;
+    line-height: 1.3;
+}
+
+.product-item-content {
+    width: 100%;
 }
 </style>

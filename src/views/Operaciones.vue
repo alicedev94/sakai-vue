@@ -33,8 +33,9 @@ const mostrarCantidad = ref(false);
 const codigoPendiente = ref('');
 const origenFueCamara = ref(false);
 const cantidadInput = ref(null);
-const cantidadInventario = ref(null);
-const ubicacionItem = ref('');
+const cantidadInventarioPiso = ref(null);
+const cantidadInventarioAlmacen = ref(null);
+const inventarioUbicacion = ref(null);
 
 const cameraActiva = ref(false);
 const cameraLoading = ref(false);
@@ -64,28 +65,17 @@ const ESTADOS = [
 const filtroEstado = ref(null);
 
 const ordenesFiltradas = computed(() => {
-    let lista = store.ordenes;
-    if (filtroEstado.value) {
-        lista = lista.filter((o) => o.estado === filtroEstado.value);
-    }
-    if (searchQuery.value) {
-        const q = searchQuery.value.toLowerCase();
-        lista = lista.filter(
-            (o) =>
-                o.numeroOrden?.toLowerCase().includes(q) ||
-                o.departamento?.toLowerCase().includes(q)
-        );
-    }
-    return lista;
+    return store.ordenes;
 });
 
 const progresoOrden = (orden) => {
-    const items = orden.items || [];
-    if (!items.length) return 0;
-    const totalCantidad = items.reduce((acc, i) => acc + (i.cantidad || 0), 0);
-    if (totalCantidad === 0) return 0;
-    const totalSurtida = items.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0);
-    return Math.round((totalSurtida / totalCantidad) * 100);
+    if (!orden.totalUnidades) return 0;
+    return Math.round(((orden.unidadesSurtidas || 0) / orden.totalUnidades) * 100);
+};
+
+const progresoItem = (item) => {
+    if (!item.cantidad) return 0;
+    return Math.round(((item.cantidadSurtida || 0) / item.cantidad) * 100);
 };
 
 const estadoConfig = {
@@ -98,6 +88,13 @@ const itemEstadoConfig = {
     PENDIENTE: { label: 'Pendiente', class: 'pendiente', icon: 'pi pi-clock' },
     SURTIDO: { label: 'Surtido', class: 'surtido', icon: 'pi pi-check' },
     NO_SURTIDO: { label: 'No Surtido', class: 'no-surtido', icon: 'pi pi-times' }
+};
+
+const getEfectividadColor = (valor) => {
+    if (valor >= 100) return 'text-green-600 font-bold';
+    if (valor >= 80) return 'text-blue-600 font-bold';
+    if (valor >= 50) return 'text-orange-500 font-bold';
+    return 'text-red-600 font-bold';
 };
 
 const formatDateForApi = (dateStr) => {
@@ -117,11 +114,31 @@ const formatFecha = (value) => {
     return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+const lazyParams = ref({
+    page: 0,
+    size: 10
+});
+
+function onPage(event) {
+    lazyParams.value.page = event.page;
+    lazyParams.value.size = event.rows;
+    cargarDatos();
+}
+
 async function cargarDatos() {
     try {
-        const params = {};
+        const params = {
+            page: lazyParams.value.page,
+            size: lazyParams.value.size
+        };
         if (filtroFecha.value) {
             params.fecha = formatDateForApi(filtroFecha.value);
+        }
+        if (filtroEstado.value) {
+            params.estado = filtroEstado.value;
+        }
+        if (searchQuery.value) {
+            params.query = searchQuery.value;
         }
         await store.fetchOrdenes(params);
     } catch (err) {
@@ -144,6 +161,25 @@ async function verDetalle(orden) {
     try {
         await store.cargarOrdenDetalle(orden.id);
         ordenSeleccionada.value = store.ordenActiva;
+
+        if (ordenSeleccionada.value?.items) {
+            const promises = ordenSeleccionada.value.items
+                .filter(it => it.codigoBarra)
+                .map(async (it) => {
+                    try {
+                        const inv = await store.obtenerInventarioUbicacion(it.codigoBarra);
+                        if (inv) {
+                            it.r3Piso = inv.piso ?? 0;
+                            it.r3Almacen = inv.almacen ?? 0;
+                        }
+                    } catch {
+                        it.r3Piso = '-';
+                        it.r3Almacen = '-';
+                    }
+                });
+            await Promise.all(promises);
+        }
+
         detailDialog.value = true;
     } catch (err) {
         toast.add({ severity: 'error', summary: 'Error', detail: err.userMessage || 'No se pudo cargar el detalle', life: 4000 });
@@ -159,6 +195,25 @@ async function abrirSurtido(orden) {
             await store.cargarOrdenDetalle(orden.id);
         }
         ordenSeleccionada.value = store.ordenActiva;
+
+        if (ordenSeleccionada.value?.items) {
+            const promises = ordenSeleccionada.value.items
+                .filter(it => it.codigoBarra)
+                .map(async (it) => {
+                    try {
+                        const inv = await store.obtenerInventarioUbicacion(it.codigoBarra);
+                        if (inv) {
+                            it.r3Piso = inv.piso ?? 0;
+                            it.r3Almacen = inv.almacen ?? 0;
+                        }
+                    } catch {
+                        it.r3Piso = '-';
+                        it.r3Almacen = '-';
+                    }
+                });
+            await Promise.all(promises);
+        }
+
         codigoEscaneado.value = '';
         lastScanResult.value = null;
         scanDialog.value = true;
@@ -239,34 +294,19 @@ async function procesarEscaneo(codigoDesdeCamara) {
     mostrarCantidad.value = true;
     codigoEscaneado.value = '';
     
-    // Consulta dinámica del inventario en base de datos al abrir
-    cantidadInventario.value = 'Calculando...';
+    // Consulta dinámica del inventario desglosado por ubicación
+    cantidadInventarioPiso.value = 'Calculando...';
+    cantidadInventarioAlmacen.value = 'Calculando...';
+    inventarioUbicacion.value = null;
     try {
-        const inv = await store.obtenerInventarioFinal(item.codigoBarra);
-        console.log('Inventario final:', inv);
-        // Si el endpoint retorna el entero directo, lo seteamos. Si retorna objeto, accede a la property.
-        cantidadInventario.value = inv; 
+        const inv = await store.obtenerInventarioUbicacion(item.codigoBarra);
+        inventarioUbicacion.value = inv;
+        cantidadInventarioPiso.value = inv.piso;
+        cantidadInventarioAlmacen.value = inv.almacen;
     } catch (e) {
-        console.error('Error al consultar inventario:', e);
-        cantidadInventario.value = 'Error';
-    }
-
-    // Consulta dinámica de la ubicación en base de datos al abrir
-    ubicacionItem.value = 'Calculando...';
-    try {
-        const ubicaciones = await ubiStore.getUbicacionesByBarcode(item.codigoBarra);
-        console.log('Ubicaciones:', ubicaciones);
-        if (Array.isArray(ubicaciones) && ubicaciones.length > 0) {
-            // Formato: "Bodega A - Estante 3 (CD01), ..."
-            ubicacionItem.value = ubicaciones
-                .map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion)
-                .join(', ');
-        } else {
-            ubicacionItem.value = 'Sin ubicación registrada';
-        }
-    } catch (e) {
-        console.error('Error al consultar ubicacion:', e);
-        ubicacionItem.value = 'No encontrada';
+        console.error('Error al consultar inventario por ubicación:', e);
+        cantidadInventarioPiso.value = 'Error';
+        cantidadInventarioAlmacen.value = 'Error';
     }
 
     await nextTick();
@@ -325,6 +365,33 @@ function cancelarSurtido() {
         scanInput.value?.$el?.focus();
     });
 }
+
+// Ordenación de productos por ubicación
+function obtenerTextoUbicacion(item) {
+    if (!item.ubicaciones || item.ubicaciones.length === 0) {
+        return 'zzzzzzzzzz'; // Los que no tienen ubicación se muestran al final
+    }
+    return item.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ').toLowerCase();
+}
+
+function ordenarItemsPorUbicacion(items) {
+    if (!Array.isArray(items)) return [];
+    return [...items].sort((a, b) => {
+        const ubiA = obtenerTextoUbicacion(a);
+        const ubiB = obtenerTextoUbicacion(b);
+        return ubiA.localeCompare(ubiB, 'es', { sensitivity: 'base', numeric: true });
+    });
+}
+
+watch(() => ordenSeleccionada.value?.items, (nuevosItems) => {
+    if (nuevosItems && nuevosItems.length > 0) {
+        const copia = ordenarItemsPorUbicacion(nuevosItems);
+        const yaOrdenado = nuevosItems.every((item, idx) => item.id === copia[idx].id && item.cantidad === copia[idx].cantidad && item.cantidadSurtida === copia[idx].cantidadSurtida);
+        if (!yaOrdenado) {
+            ordenSeleccionada.value.items = copia;
+        }
+    }
+}, { deep: true });
 
 function mensajeFalloCamara(err) {
     if (typeof window !== 'undefined' && !window.isSecureContext) {
@@ -534,15 +601,15 @@ const exportarPDF = () => {
         }
     });
     
-    const totalUnidades = data.items?.reduce((acc, item) => acc + item.cantidad, 0) || 0;
+    const totalUnidades = data.totalUnidades || 0;
     doc.text('Resumen de Totales', 14, doc.lastAutoTable.finalY + 10);
     
     autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 15,
         body: [
-            ['Total Productos:', data.totalItems || 0, 'Productos Surtidos:', data.itemsSurtidos || 0],
-            ['Total Unidades:', totalUnidades, 'Progreso:', `${progresoOrden(data)}%`],
-            ['Total Unidades Surtidas:', data.items?.reduce((acc, item) => acc + item.cantidadSurtida, 0) || 0, 'Total Unidades Pendientes:', data.items?.reduce((acc, item) => acc + item.cantidad - item.cantidadSurtida, 0) || 0],
+            ['Total Renglones:', data.totalItems || 0, 'Renglones Surtidos:', data.itemsSurtidos || 0],
+            ['Total Unidades:', totalUnidades, 'Unidades Surtidas:', data.unidadesSurtidas || 0],
+            ['Efectividad:', `${progresoOrden(data)}%`, 'Pendiente:', totalUnidades - (data.unidadesSurtidas || 0)],
         ],
         theme: 'grid',
         headStyles: { fillColor: primaryColor },
@@ -554,6 +621,7 @@ const exportarPDF = () => {
     const tableData = data.items.map(item => [
         item.codigoBarra,
         item.nombreProducto,
+        item.atributo || '—',
         item.departamento || '—',
         item.cantidad,
         item.estadoItem,
@@ -562,7 +630,7 @@ const exportarPDF = () => {
     
     autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 15,
-        head: [['Código', 'Producto', 'Dpto.', 'Cantidad', 'Estado', 'Cantidad Surtida']],
+        head: [['Código', 'Producto', 'Atributo', 'Dpto.', 'Cantidad', 'Estado', 'Cantidad Surtida']],
         body: tableData,
         headStyles: { fillColor: primaryColor },
         alternateRowStyles: { fillColor: [245, 245, 245] },
@@ -704,7 +772,11 @@ const finalizarOrden = async () => {
                 :loading="store.isLoading"
                 dataKey="id"
                 :paginator="true"
-                :rows="10"
+                lazy
+                :totalRecords="store.totalOrdenes"
+                :first="lazyParams.page * lazyParams.size"
+                @page="onPage"
+                :rows="lazyParams.size"
                 :rowsPerPageOptions="[5, 10, 25]"
                 paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                 currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} órdenes"
@@ -760,7 +832,10 @@ const finalizarOrden = async () => {
                 <Column header="Productos" style="min-width: 11rem">
                     <template #body="{ data }">
                         <div class="progress-cell">
-                            <span class="progress-text">{{ data.itemsSurtidos ?? 0 }} / {{ data.totalItems ?? 0 }}</span>
+                            <span class="progress-text">
+                                {{ data.itemsSurtidos || 0 }}/{{ data.totalItems || 0 }} reng.
+                                ({{ data.unidadesSurtidas || 0 }}/{{ data.totalUnidades || 0 }} unid.)
+                            </span>
                             <ProgressBar
                                 :value="progresoOrden(data)"
                                 style="height: 6px; width: 90px"
@@ -873,7 +948,10 @@ const finalizarOrden = async () => {
                             <div class="flex justify-between items-center">
                                 <span class="font-medium text-surface-500 dark:text-surface-400">Productos:</span>
                                 <div class="progress-cell m-0 items-center">
-                                    <span class="progress-text mr-2">{{ data.itemsSurtidos ?? 0 }} / {{ data.totalItems ?? 0 }}</span>
+                                    <span class="progress-text mr-2">
+                                        {{ data.itemsSurtidos || 0 }}/{{ data.totalItems || 0 }} reng.
+                                        ({{ data.unidadesSurtidas || 0 }}/{{ data.totalUnidades || 0 }} unid.)
+                                    </span>
                                     <ProgressBar :value="progresoOrden(data)" style="height: 6px; width: 60px" :showValue="false" />
                                 </div>
                             </div>
@@ -898,6 +976,17 @@ const finalizarOrden = async () => {
                         </div>
                     </div>
                 </div>
+                
+                <Paginator 
+                    v-if="store.totalOrdenes > 0"
+                    :first="lazyParams.page * lazyParams.size"
+                    :rows="lazyParams.size"
+                    :totalRecords="store.totalOrdenes"
+                    @page="onPage"
+                    template="FirstPageLink PrevPageLink CurrentPageReport NextPageLink LastPageLink"
+                    currentPageReportTemplate="{first}-{last} de {totalRecords}"
+                    class="mt-4 border-t border-surface-200 dark:border-surface-700 bg-transparent"
+                />
             </div>
         </div>
 
@@ -919,7 +1008,8 @@ const finalizarOrden = async () => {
                         </span>
                     </div>
                     <span class="scan-progress-label">
-                        {{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0) || 0 }}/{{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidad || 0), 0) || 0 }} surtidos
+                        {{ ordenSeleccionada.items?.filter(i => (i.cantidadSurtida || 0) >= (i.cantidad || 0)).length || 0 }}/{{ ordenSeleccionada.items?.length || 0 }} renglones con
+                        {{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0) || 0 }}/{{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidad || 0), 0) || 0 }} unidades surtidas
                     </span>
                 </div>
 
@@ -987,12 +1077,12 @@ const finalizarOrden = async () => {
                             <span class="cantidad-max-hint">máx. {{ cantidadMax }}</span>
                         </div>
                         <div class="cantidad-info-row">
-                            <span class="cantidad-info-label">Inventario actual: </span>
-                            <span class="cantidad-info-value">{{ cantidadInventario }}</span>
+                            <span class="cantidad-info-label">Inventario PDV: </span>
+                            <span class="cantidad-info-value">{{ cantidadInventarioPiso }}</span>
                         </div>
                         <div class="cantidad-info-row">
-                            <span class="cantidad-info-label">Ubicación: </span>
-                            <span class="cantidad-info-value">{{ ubicacionItem }}</span>
+                            <span class="cantidad-info-label">Inventario Almacen: </span>
+                            <span class="cantidad-info-value">{{ cantidadInventarioAlmacen }}</span>
                         </div>
 
                         <div class="cantidad-acciones">
@@ -1079,9 +1169,38 @@ const finalizarOrden = async () => {
                     <Column field="barra6" header="Barra 6" />
                     <Column field="barra7" header="Barra 7" />
                     <Column field="nombreProducto" header="Producto" />
+                    <Column field="atributo" header="Atributo" />
+                    <Column field="r3Piso" header="Piso" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.r3Piso ?? '-' }}
+                        </template>
+                    </Column>
+                    <Column field="r3Almacen" header="Almacén" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.r3Almacen ?? '-' }}
+                        </template>
+                    </Column>
                     <Column field="departamento" header="Dpto." />
+                    <Column header="Ubicación" style="min-width: 10rem">
+                        <template #body="{ data }">
+                            <span v-if="data.ubicaciones && data.ubicaciones.length > 0">
+                                {{ data.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ') }}
+                            </span>
+                            <span v-else class="text-surface-500 dark:text-surface-400 italic">
+                                Sin ubicación
+                            </span>
+                        </template>
+                    </Column>
                     <Column field="cantidad" header="Cant." style="min-width: 5rem" />
                     <Column field="cantidadSurtida" header="Cant. Surtida" style="min-width: 5rem" />
+                    <Column header="Progreso" style="min-width: 8rem">
+                        <template #body="{ data }">
+                            <div class="flex items-center gap-2">
+                                <ProgressBar :value="progresoItem(data)" style="height: 6px; flex: 1" :showValue="false" />
+                                <span class="text-xs font-semibold">{{ progresoItem(data) }}%</span>
+                            </div>
+                        </template>
+                    </Column>
                     <Column field="estadoItem" header="Estado" style="min-width: 8rem">
                         <template #body="{ data }">
                             <span :class="['item-estado', itemEstadoConfig[data.estadoItem]?.class]">
@@ -1094,7 +1213,6 @@ const finalizarOrden = async () => {
             </div>
 
             <template #footer>
-                <!-- <Button label="Cerrar" icon="pi pi-times" text @click="scanDialog = false" /> -->
             </template>
         </Dialog>
 
@@ -1136,13 +1254,22 @@ const finalizarOrden = async () => {
                         <span>{{ formatFecha(ordenSeleccionada.fechaActualizacion) }}</span>
                     </div>
                     <div class="detail-field">
+                        <label>Efectividad de Surtido</label>
+                        <span :class="getEfectividadColor(progresoOrden(ordenSeleccionada))">
+                            {{ progresoOrden(ordenSeleccionada) }}%
+                        </span>
+                    </div>
+                    <div class="detail-field">
                         <label>Fecha Finalización</label>
                         <span>{{ formatFecha(ordenSeleccionada.fechaFinalizacion) }}</span>
                     </div>
                     <div class="detail-field full">
                         <label>Progreso</label>
                         <div class="progress-detail">
-                            <span>{{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0) || 0 }}/{{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidad || 0), 0) || 0 }} articulos surtidos</span>
+                            <span>
+                                {{ ordenSeleccionada.items?.filter(i => (i.cantidadSurtida || 0) >= (i.cantidad || 0)).length || 0 }}/{{ ordenSeleccionada.items?.length || 0 }} renglones con
+                                {{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0) || 0 }}/{{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidad || 0), 0) || 0 }} unidades completadas
+                            </span>
                             <ProgressBar :value="progresoOrden(ordenSeleccionada)" style="height: 8px; margin-top: 0.5rem" />
                         </div>
                     </div>
@@ -1167,9 +1294,38 @@ const finalizarOrden = async () => {
                     <Column field="barra6" header="Barra 6" />
                     <Column field="barra7" header="Barra 7" />
                     <Column field="nombreProducto" header="Producto" />
+                    <Column field="atributo" header="Atributo" />
+                    <Column field="r3Piso" header="Piso" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.r3Piso ?? '-' }}
+                        </template>
+                    </Column>
+                    <Column field="r3Almacen" header="Almacén" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.r3Almacen ?? '-' }}
+                        </template>
+                    </Column>
                     <Column field="departamento" header="Dpto." />
+                    <Column header="Ubicación" style="min-width: 10rem">
+                        <template #body="{ data }">
+                            <span v-if="data.ubicaciones && data.ubicaciones.length > 0">
+                                {{ data.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ') }}
+                            </span>
+                            <span v-else class="text-surface-500 dark:text-surface-400 italic">
+                                Sin ubicación
+                            </span>
+                        </template>
+                    </Column>
                     <Column field="cantidad" header="Cant." style="min-width: 5rem" />
                     <Column field="cantidadSurtida" header="Cant. Surtida" style="min-width: 5rem" />
+                    <Column header="Progreso" style="min-width: 8rem">
+                        <template #body="{ data }">
+                            <div class="flex items-center gap-2">
+                                <ProgressBar :value="progresoItem(data)" style="height: 6px; flex: 1" :showValue="false" />
+                                <span class="text-xs font-semibold">{{ progresoItem(data) }}%</span>
+                            </div>
+                        </template>
+                    </Column>
                     <Column field="estadoItem" header="Estado" style="min-width: 8rem">
                         <template #body="{ data }">
                             <span :class="['item-estado', itemEstadoConfig[data.estadoItem]?.class]">
@@ -1803,18 +1959,6 @@ const finalizarOrden = async () => {
     padding: 0.5rem 0.85rem;
     background: var(--surface-100);
     border-radius: 6px;
-}
-
-.cantidad-info-label {
-    font-size: 0.85rem;
-    color: var(--text-color-secondary);
-    font-weight: 600;
-}
-
-.cantidad-info-value {
-    font-size: 0.95rem;
-    color: var(--primary-color);
-    font-weight: 700;
 }
 
 .cantidad-acciones {

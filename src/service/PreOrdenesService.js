@@ -60,7 +60,7 @@ class PreOrdenesService {
 
     static async obtenerDepartamentos() {
         try {
-            const { data } = await apiClient.get('/sincronizacion/departamentos');
+            const { data } = await apiClient.get(`${BASE}/departamentos`);
             return data;
         } catch (error) {
             this.handleError(error, 'obtener departamentos');

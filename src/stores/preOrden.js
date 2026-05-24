@@ -8,7 +8,9 @@ export const usePreOrdenStore = defineStore('preOrden', () => {
     const isLoading = ref(false);
     const error = ref(null);
 
-    const totalPreOrdenes = computed(() => preOrdenes.value.length);
+    const totalRecords = ref(0);
+
+    const totalPreOrdenes = computed(() => totalRecords.value || preOrdenes.value.length);
     const preOrdenesPendientes = computed(() => preOrdenes.value.filter((o) => o.estado === 'PENDIENTE'));
     const preOrdenesEnProceso = computed(() => preOrdenes.value.filter((o) => o.estado === 'EN_PROCESO'));
     const preOrdenesListas = computed(() => preOrdenes.value.filter((o) => o.estado === 'LISTA'));
@@ -18,7 +20,14 @@ export const usePreOrdenStore = defineStore('preOrden', () => {
         error.value = null;
         try {
             const data = await PreOrdenesService.listarTodas(params);
-            preOrdenes.value = Array.isArray(data) ? data : [];
+            if (data && data.content !== undefined) {
+                preOrdenes.value = data.content;
+                // Soporta tanto Page (totalElements) como PagedModel (page.totalElements)
+                totalRecords.value = data.page ? data.page.totalElements : (data.totalElements !== undefined ? data.totalElements : data.content.length);
+            } else {
+                preOrdenes.value = Array.isArray(data) ? data : [];
+                totalRecords.value = preOrdenes.value.length;
+            }
         } catch (err) {
             error.value = err.userMessage || 'Error al cargar las pre ordenes';
             throw err;

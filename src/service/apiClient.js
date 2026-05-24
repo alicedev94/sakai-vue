@@ -7,7 +7,7 @@ const apiClient = axios.create({
     headers: {
         'Content-Type': 'application/json'
     },
-    timeout: 60000
+    timeout: 600000
 });
 
 // ─── Interceptor de REQUEST: adjuntar JWT ────────────────────────────────────
@@ -61,8 +61,8 @@ apiClient.interceptors.response.use(
                     if (authStore.token && typeof window !== 'undefined') {
                         console.warn('⚠️ Backend no responde. Limpiando sesión...');
                         authStore.logout();
-                        if (!window.location.pathname.includes('/auth/login')) {
-                            window.location.href = '/auth/login?error=backend_unavailable';
+                        if (!window.location.pathname.includes('/v1/auth/login')) {
+                            window.location.href = '/v1/auth/login?error=backend_unavailable';
                         }
                     }
                 } catch { /* store no disponible */ }
@@ -118,7 +118,7 @@ apiClient.interceptors.response.use(
                 isRefreshing = false;
                 authStore?.logout();
                 if (typeof window !== 'undefined') {
-                    window.location.href = '/auth/login?error=no_refresh_token';
+                    window.location.href = '/v1/auth/login?error=no_refresh_token';
                 }
                 return Promise.reject(error);
             }
@@ -139,7 +139,7 @@ apiClient.interceptors.response.use(
                 processQueue(refreshError, null);
                 authStore?.logout();
                 if (typeof window !== 'undefined') {
-                    window.location.href = '/auth/login?error=session_expired';
+                    window.location.href = '/v1/auth/login?error=session_expired';
                 }
                 return Promise.reject(refreshError);
             } finally {
