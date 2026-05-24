@@ -105,18 +105,6 @@ onMounted(async () => {
             });
         }
     });
-        } else {
-            console.warn('OneSignal no se pudo configurar:', result);
-            toast.add({
-                severity: 'warn',
-                summary: 'Push notifications',
-                detail: result?.reason === 'permission-denied'
-                    ? 'Permite las notificaciones del navegador para recibir avisos'
-                    : 'No se pudieron activar las notificaciones push',
-                life: 4000
-            });
-        }
-    });
 
     refreshTimer = window.setInterval(() => {
         notificationStore.cargar(false).catch(() => {});

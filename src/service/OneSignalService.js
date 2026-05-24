@@ -111,6 +111,10 @@ export async function setupOneSignalForUser(user) {
                 const subId = OneSignal.User.PushSubscription.id;
                 console.info('[OneSignal] Subscription exitosa, id:', subId);
 
+                const externalId = user.username || user.email || role;
+                await OneSignal.login(externalId);
+                console.info('[OneSignal] External ID asignado:', externalId);
+
                 await OneSignal.User.addTags({
                     role,
                     username: user.username || role,
@@ -120,13 +124,18 @@ export async function setupOneSignalForUser(user) {
                 const tags = await OneSignal.User.getTags();
                 console.info('[OneSignal] Tags confirmados:', tags);
 
+                const aliasResult = await OneSignal.User.getAliases();
+                console.info('[OneSignal] Alias confirmados:', aliasResult);
+
                 const result = {
                     ok: true,
                     role,
+                    externalId,
                     permission: Notification.permission,
                     optedIn: OneSignal.User.PushSubscription.optedIn,
                     subscriptionId: subId,
-                    tags
+                    tags,
+                    aliases: aliasResult
                 };
                 console.info('[OneSignal] Setup completo', result);
                 resolve(result);
@@ -137,72 +146,4 @@ export async function setupOneSignalForUser(user) {
         });
     });
 }
-    await loadSdk();
 
-    return new Promise((resolve) => {
-        window.OneSignalDeferred.push(async (OneSignal) => {
-            try {
-                const role = operationalRole(user);
-                console.info('[OneSignal] Iniciando setup role=', role, 'user=', user.username || user.email);
-
-                if (!role) {
-                    console.warn('[OneSignal] No se pudo determinar el rol operativo');
-                    resolve({ ok: false, reason: 'missing-role' });
-                    return;
-                }
-
-                await initOneSignal(OneSignal);
-
-                const perm = await OneSignal.Notifications.requestPermission();
-                console.info('[OneSignal] Resultado permiso:', perm);
-
-                if (!OneSignal.User.PushSubscription.optedIn) {
-                    if (Notification.permission === 'granted') {
-                        try {
-                            await OneSignal.User.PushSubscription.optIn();
-                            console.info('[OneSignal] Opt-in manual exitoso');
-                        } catch (optErr) {
-                            console.warn('[OneSignal] Fallo opt-in manual:', optErr);
-                        }
-                    }
-
-                    if (!OneSignal.User.PushSubscription.optedIn) {
-                        console.warn('[OneSignal] Usuario NO suscrito', {
-                            browserPerm: Notification.permission,
-                            optedIn: OneSignal.User.PushSubscription.optedIn,
-                            subId: OneSignal.User.PushSubscription.id || null
-                        });
-                        resolve({ ok: false, reason: 'permission-denied', permission: Notification.permission });
-                        return;
-                    }
-                }
-
-                const subId = OneSignal.User.PushSubscription.id;
-                console.info('[OneSignal] Subscription ID:', subId);
-
-                await OneSignal.User.addTags({
-                    role,
-                    username: user.username || role,
-                    email: user.email || ''
-                });
-
-                const tags = await OneSignal.User.getTags();
-                console.info('[OneSignal] Tags verificados:', tags);
-
-                const result = {
-                    ok: true,
-                    role,
-                    permission: Notification.permission,
-                    optedIn: true,
-                    subscriptionId: subId,
-                    tags
-                };
-                console.info('[OneSignal] Setup completo', result);
-                resolve(result);
-            } catch (error) {
-                console.error('[OneSignal] Error inesperado:', error);
-                resolve({ ok: false, reason: 'onesignal-error', error: String(error) });
-            }
-        });
-    });
-}
