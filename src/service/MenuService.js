@@ -11,7 +11,8 @@ export async function getMenu() {
             { categoryLabel: 'Principal', label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/v1/' },
             { categoryLabel: 'Gestión', label: 'Usuarios', icon: 'pi pi-fw pi-users', to: '/v1/usuarios' },
             { categoryLabel: 'Gestión', label: 'Roles', icon: 'pi pi-fw pi-shield', to: '/v1/roles' },
-            { categoryLabel: 'Gestión', label: 'Permisos', icon: 'pi pi-fw pi-lock', to: '/v1/permisos' }
+            { categoryLabel: 'Gestión', label: 'Permisos', icon: 'pi pi-fw pi-lock', to: '/v1/permisos' },
+            { categoryLabel: 'Gestión', label: 'Notificaciones', icon: 'pi pi-fw pi-bell', to: '/v1/reglas-notificacion' }
         ];
     }
 }

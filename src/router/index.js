@@ -46,6 +46,11 @@ const router = createRouter({
                     component: () => import('@/views/Sincronizacion.vue')
                 },
                 {
+                    path: '/v1/reglas-notificacion',
+                    name: 'reglasNotificacion',
+                    component: () => import('@/views/ReglasNotificacion.vue')
+                },
+                {
                     path: '/v1/sincronizacion/groups',
                     name: 'sincronizacion-groups',
                     component: () => import('@/views/SincronizacionGroup.vue')

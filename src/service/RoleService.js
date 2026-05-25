@@ -22,6 +22,11 @@ class RoleService {
         }
     }
 
+    static async listar() {
+        const { data } = await apiClient.get('/roles');
+        return data.content || data;
+    }
+
     /**
      * Obtiene un rol específico por ID
      * @param {number} id - ID del rol
