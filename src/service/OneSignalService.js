@@ -1,4 +1,4 @@
-const APP_ID = import.meta.env.VITE_ONESIGNAL_APP_ID || '15cb0818-b2ec-4986-83b9-f3bc61218fd4';
+const APP_ID = import.meta.env.VITE_ONESIGNAL_APP_ID || '5c02a63a-c3ed-4f01-b4b6-b6e50cbab837';
 const SDK_URL = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
 
 let loadingPromise = null;
@@ -11,10 +11,6 @@ async function initOneSignal(OneSignal) {
     try {
         await OneSignal.init({
             appId: APP_ID,
-            allowLocalhostAsSecureOrigin: true,
-            httpPermissionRequest: {
-                enable: true
-            },
             serviceWorkerPath: '/OneSignalSDKWorker.js',
             serviceWorkerUpdaterPath: '/OneSignalSDKUpdaterWorker.js'
         });
@@ -92,6 +88,10 @@ export async function setupOneSignalForUser(user) {
 
                 const permResult = await OneSignal.Notifications.requestPermission();
                 console.info('[OneSignal] Resultado de pedir permiso:', permResult);
+
+                if (permResult === 'denied' || permResult === 'blocked') {
+                    console.warn('[OneSignal] Permiso bloqueado o denegado. Verifica que el dominio esté configurado en OneSignal Dashboard.');
+                }
 
                 if (!OneSignal.User.PushSubscription.optedIn && Notification.permission === 'granted') {
                     console.info('[OneSignal] Permiso concedido pero no optedIn, intentando optIn manual...');
