@@ -11,7 +11,7 @@ class PermissionService {
      */
     static async getPermissions() {
         try {
-            const response = await apiClient.get('/permissions');
+            const response = await apiClient.get('/roles/permissions');
             return response.data;
         } catch (error) {
             this.handleError(error, 'obtener permisos');
@@ -26,7 +26,7 @@ class PermissionService {
      */
     static async getPermissionById(id) {
         try {
-            const response = await apiClient.get(`/permissions/${id}`);
+            const response = await apiClient.get(`/roles/permissions/${id}`);
             return response.data;
         } catch (error) {
             this.handleError(error, 'obtener el permiso');
@@ -41,7 +41,7 @@ class PermissionService {
      */
     static async createPermission(permissionData) {
         try {
-            const response = await apiClient.post('/permissions', permissionData);
+            const response = await apiClient.post('/roles/permissions', permissionData);
             return response.data;
         } catch (error) {
             this.handleError(error, 'crear el permiso');
@@ -57,7 +57,7 @@ class PermissionService {
      */
     static async updatePermission(id, permissionData) {
         try {
-            const response = await apiClient.put(`/permissions/${id}`, permissionData);
+            const response = await apiClient.put(`/roles/permissions/${id}`, permissionData);
             return response.data;
         } catch (error) {
             this.handleError(error, 'actualizar el permiso');
@@ -72,7 +72,7 @@ class PermissionService {
      */
     static async softDeletePermission(id) {
         try {
-            const response = await apiClient.delete(`/permissions/${id}`);
+            const response = await apiClient.delete(`/roles/permissions/${id}`);
             return response.data;
         } catch (error) {
             this.handleError(error, 'eliminar el permiso');
@@ -87,7 +87,7 @@ class PermissionService {
      */
     static async restorePermission(id) {
         try {
-            const response = await apiClient.patch(`/permissions/${id}/restore`, {
+            const response = await apiClient.patch(`/roles/permissions/${id}/restore`, {
                 status: true,
                 deletedAt: null
             });
@@ -105,7 +105,7 @@ class PermissionService {
      */
     static async hardDeletePermission(id) {
         try {
-            const response = await apiClient.delete(`/permissions/${id}/hard`);
+            const response = await apiClient.delete(`/roles/permissions/${id}/hard`);
             return response.data;
         } catch (error) {
             this.handleError(error, 'eliminar permanentemente el permiso');
