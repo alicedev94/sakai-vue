@@ -39,7 +39,7 @@ const cameraLoading = ref(false);
 const cameraError = ref(null);
 let html5Scanner = null;
 let decodeLock = false;
-const scanTarget = ref('codigo'); // 'codigo' o 'ubicacion'
+const scanTarget = ref('codigo'); // 'codigo', 'ubicacion', 'filtroCodigo' o 'filtroUbicacion'
 
 // Función para limpiar códigos escaneados si vienen como URL o ruta
 function limpiarCodigoEscaneado(texto) {
@@ -166,6 +166,10 @@ async function iniciarCamara(target = 'codigo') {
                     filtroCodigo.value = codigo;
                     resetMobilePage();
                     showScannerDialog.value = false;
+                } else if (scanTarget.value === 'filtroUbicacion') {
+                    filtroUbicacion.value = codigo;
+                    resetMobilePage();
+                    showScannerDialog.value = false;
                 } else {
                     form.value[scanTarget.value] = codigo;
                 }
@@ -190,7 +194,11 @@ async function iniciarCamara(target = 'codigo') {
                     try { html5Scanner.clear(); } catch { /* */ }
                     html5Scanner = null;
                 }
-                html5Scanner = new Html5Qrcode(scanTarget.value === 'filtroCodigo' ? 'camara-filter-host' : CAMARA_HOST_ID);
+                html5Scanner = new Html5Qrcode(
+                    scanTarget.value === 'filtroCodigo' || scanTarget.value === 'filtroUbicacion'
+                        ? 'camara-filter-host'
+                        : CAMARA_HOST_ID
+                );
                 await html5Scanner.start(cam, cfg, onDecode, () => {});
                 lastErr = null;
                 break;
@@ -222,10 +230,11 @@ watch(showScannerDialog, async (abierto) => {
     }
 });
 
-async function abrirScannerFiltro() {
+async function abrirScannerFiltro(target = 'filtroCodigo') {
+    const realTarget = typeof target === 'string' ? target : 'filtroCodigo';
     showScannerDialog.value = true;
     await nextTick();
-    iniciarCamara('filtroCodigo');
+    iniciarCamara(realTarget);
 }
 
 const emptyForm = () => ({
@@ -472,15 +481,26 @@ onUnmounted(detenerCamara);
                                 @click="abrirScannerFiltro"
                             />
                         </div>
-                        <IconField class="w-full md:w-auto">
-                            <InputIcon><i class="pi pi-map" /></InputIcon>
-                            <InputText
-                                v-model="filtroUbicacion"
-                                placeholder="Buscar por ubicación..."
-                                class="w-full md:w-44"
-                                @input="resetMobilePage"
+                        <div class="flex gap-2 w-full md:w-auto">
+                            <IconField class="w-full md:w-auto">
+                                <InputIcon><i class="pi pi-map" /></InputIcon>
+                                <InputText
+                                    v-model="filtroUbicacion"
+                                    placeholder="Buscar por ubicación..."
+                                    class="w-full md:w-44"
+                                    @input="resetMobilePage"
+                                    @blur="filtroUbicacion = limpiarCodigoEscaneado(filtroUbicacion)"
+                                    @keydown.enter="filtroUbicacion = limpiarCodigoEscaneado(filtroUbicacion)"
+                                />
+                            </IconField>
+                            <Button
+                                icon="pi pi-camera"
+                                severity="secondary"
+                                outlined
+                                v-tooltip.top="'Escanear para buscar'"
+                                @click="abrirScannerFiltro('filtroUbicacion')"
                             />
-                        </IconField>
+                        </div>
                         <IconField class="w-full md:w-auto">
                             <InputIcon><i class="pi pi-building" /></InputIcon>
                             <InputText
@@ -701,7 +721,7 @@ onUnmounted(detenerCamara);
                             @click="iniciarCamara('codigo')"
                         />
                         <Button
-                            v-else
+                            v-else-if="scanTarget === 'codigo'"
                             icon="pi pi-stop"
                             severity="danger"
                             outlined
@@ -712,7 +732,7 @@ onUnmounted(detenerCamara);
                     <small class="form-hint">Escribe, escanea con pistola (Enter) o usa la cámara</small>
 
                     <!-- Panel de cámara -->
-                    <div v-if="cameraActiva || cameraLoading" class="camara-panel">
+                    <div v-if="(cameraActiva || cameraLoading) && scanTarget === 'codigo'" class="camara-panel">
                         <p v-if="cameraError" class="camara-error">
                             <i class="pi pi-exclamation-circle" /> {{ cameraError }}
                         </p>
@@ -721,7 +741,7 @@ onUnmounted(detenerCamara);
                             Apunta la cámara al código de barras. El código se llenará automáticamente.
                         </p>
                     </div>
-                    <p v-if="cameraError && !cameraActiva" class="camara-error mt-1">
+                    <p v-if="cameraError && !cameraActiva && scanTarget === 'codigo'" class="camara-error mt-1">
                         <i class="pi pi-exclamation-circle" /> {{ cameraError }}
                     </p>
                 </div>
@@ -748,8 +768,30 @@ onUnmounted(detenerCamara);
                             v-tooltip.top="'Escanear con cámara'"
                             @click="iniciarCamara('ubicacion')"
                         />
+                        <Button
+                            v-else-if="scanTarget === 'ubicacion'"
+                            icon="pi pi-stop"
+                            severity="danger"
+                            outlined
+                            v-tooltip.top="'Detener cámara'"
+                            @click="detenerCamara"
+                        />
                     </div>
                     <small class="form-hint">Descripción de la ubicación física (requerido)</small>
+
+                    <!-- Panel de cámara -->
+                    <div v-if="(cameraActiva || cameraLoading) && scanTarget === 'ubicacion'" class="camara-panel">
+                        <p v-if="cameraError" class="camara-error">
+                            <i class="pi pi-exclamation-circle" /> {{ cameraError }}
+                        </p>
+                        <div :id="CAMARA_HOST_ID" class="camara-host" />
+                        <p class="camara-hint">
+                            Apunta la cámara al código de barras. La ubicación se llenará automáticamente.
+                        </p>
+                    </div>
+                    <p v-if="cameraError && !cameraActiva && scanTarget === 'ubicacion'" class="camara-error mt-1">
+                        <i class="pi pi-exclamation-circle" /> {{ cameraError }}
+                    </p>
                 </div>
 
                 <!-- Localidad -->
@@ -818,7 +860,7 @@ onUnmounted(detenerCamara);
         <Dialog
             v-model:visible="showScannerDialog"
             :style="{ width: '400px' }"
-            header="Escanear Código"
+            :header="scanTarget === 'filtroUbicacion' ? 'Escanear Ubicación' : 'Escanear Código'"
             :modal="true"
         >
             <div class="camara-panel mt-3">
@@ -827,7 +869,7 @@ onUnmounted(detenerCamara);
                 </p>
                 <div id="camara-filter-host" class="camara-host" />
                 <p class="camara-hint">
-                    Apunta la cámara al código de barras para buscar la ubicación.
+                    {{ scanTarget === 'filtroUbicacion' ? 'Apunta la cámara al código de barras para buscar la ubicación.' : 'Apunta la cámara al código de barras para buscar por código.' }}
                 </p>
             </div>
         </Dialog>
