@@ -63,19 +63,11 @@ function resetMobilePage() {
 const filteredSincronizaciones = computed(() => {
     let list = sincStore.configuraciones;
     const currentGroupId = selectedItem.value.id;
-    list = [...list].sort((a, b) => {
-        const aBelongs = a.sincronizacionGroup?.id === currentGroupId;
-        const bBelongs = b.sincronizacionGroup?.id === currentGroupId;
-        if (aBelongs && !bBelongs) return -1;
-        if (!aBelongs && bBelongs) return 1;
-        
-        const aGeneral = !a.sincronizacionGroup;
-        const bGeneral = !b.sincronizacionGroup;
-        if (aGeneral && !bGeneral) return -1;
-        if (!aGeneral && bGeneral) return 1;
-        
-        return a.departamento.localeCompare(b.departamento);
-    });
+
+    // Filtrar para mostrar únicamente las sincronizaciones que pertenecen al grupo actual
+    list = list.filter(s => s.sincronizacionGroup?.id === currentGroupId);
+
+    list = [...list].sort((a, b) => a.departamento.localeCompare(b.departamento));
 
     if (sincSearchQuery.value) {
         const q = sincSearchQuery.value.toLowerCase();
@@ -91,7 +83,7 @@ const dialogHeader = computed(() =>
 );
 
 const seleccionarTodos = () => {
-    selectedSincronizaciones.value = sincStore.configuraciones.map(s => s.id);
+    selectedSincronizaciones.value = filteredSincronizaciones.value.map(s => s.id);
 };
 
 const deseleccionarTodos = () => {
@@ -606,7 +598,7 @@ onMounted(() => {
                 </div>
 
                 <div class="field col-12">
-                    <label class="font-bold mb-2 block">Asociar Sincronizaciones</label>
+                    <label class="font-bold mb-2 block">Sincronizaciones Asociadas al Grupo</label>
                     <div class="sinc-selector-container">
                         <div class="flex justify-between items-center mb-2 gap-2 flex-wrap" style="display: flex; justify-content: space-between; align-items: center;">
                             <IconField class="flex-1 min-w-[200px]" style="flex: 1;">
