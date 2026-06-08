@@ -135,10 +135,12 @@ async function verDetalle(orden) {
                         if (inv) {
                             it.r3Piso = inv.piso ?? 0;
                             it.r3Almacen = inv.almacen ?? 0;
+                            it.cedis = inv.cedis ?? 0;
                         }
                     } catch {
                         it.r3Piso = '-';
                         it.r3Almacen = '-';
+                        it.cedis = '-';
                     }
                 });
             await Promise.all(promises);
@@ -413,11 +415,13 @@ async function agregarProducto() {
 
     let r3Piso = 0;
     let r3Almacen = 0;
+    let cedis = 0;
     try {
         const inv = await operacionesService.obtenerInventarioUbicacion(codBarra);
         if (inv) {
             r3Piso = inv.piso ?? 0;
             r3Almacen = inv.almacen ?? 0;
+            cedis = inv.cedis ?? 0;
         }
     } catch {
         // fallo consulta inventario
@@ -427,6 +431,7 @@ async function agregarProducto() {
         existing.cantidad += nuevoProducto.value.cantidad;
         existing.r3Piso = r3Piso;
         existing.r3Almacen = r3Almacen;
+        existing.cedis = cedis;
     } else {
         newPreOrden.value.items.push({
             idProducto: p.id || codBarra,
@@ -445,6 +450,7 @@ async function agregarProducto() {
             atributo: nuevoProducto.value.atributo,
             r3Piso,
             r3Almacen,
+            cedis,
             ubicaciones: p.ubicaciones || []
         });
     }
@@ -557,12 +563,14 @@ async function abrirEditar(orden) {
                     if (inv) {
                         it.r3Piso = inv.piso ?? 0;
                         it.r3Almacen = inv.almacen ?? 0;
-                        console.log(`[abrirEditar] item actualizado: ${it.codigoBarra} → piso=${it.r3Piso} almacen=${it.r3Almacen}`);
+                        it.cedis = inv.cedis ?? 0;
+                        console.log(`[abrirEditar] item actualizado: ${it.codigoBarra} → piso=${it.r3Piso} almacen=${it.r3Almacen} cedis=${it.cedis}`);
                     }
                 } catch (e) {
                     console.log('[abrirEditar] error inventario para', it.codigoBarra, e);
                     it.r3Piso = '-';
                     it.r3Almacen = '-';
+                    it.cedis = '-';
                 }
             });
         await Promise.all(promises);
@@ -1155,6 +1163,11 @@ const exportarPDF = () => {
                             {{ data.r3Almacen ?? '-' }}
                         </template>
                     </Column>
+                    <Column field="cedis" header="Cedis" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.cedis ?? '-' }}
+                        </template>
+                    </Column>
                     <Column field="cantidad" header="Cant." style="min-width: 5rem" />
                     <Column field="estadoItem" header="Estado" style="min-width: 8rem">
                         <template #body="{ data }">
@@ -1368,6 +1381,11 @@ const exportarPDF = () => {
                         <Column field="r3Almacen" header="Almacén" style="width: 80px; text-align: center;">
                             <template #body="{ data }">
                                 {{ data.r3Almacen ?? '-' }}
+                            </template>
+                        </Column>
+                        <Column field="cedis" header="Cedis" style="width: 80px; text-align: center;">
+                            <template #body="{ data }">
+                                {{ data.cedis ?? '-' }}
                             </template>
                         </Column>
                         <Column field="cantidad" header="Cant." style="width: 140px; text-align: center;">

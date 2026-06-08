@@ -35,6 +35,7 @@ const origenFueCamara = ref(false);
 const cantidadInput = ref(null);
 const cantidadInventarioPiso = ref(null);
 const cantidadInventarioAlmacen = ref(null);
+const cantidadInventarioCedis = ref(null);
 const inventarioUbicacion = ref(null);
 
 const cameraActiva = ref(false);
@@ -171,10 +172,12 @@ async function verDetalle(orden) {
                         if (inv) {
                             it.r3Piso = inv.piso ?? 0;
                             it.r3Almacen = inv.almacen ?? 0;
+                            it.cedis = inv.cedis ?? 0;
                         }
                     } catch {
                         it.r3Piso = '-';
                         it.r3Almacen = '-';
+                        it.cedis = '-';
                     }
                 });
             await Promise.all(promises);
@@ -205,10 +208,12 @@ async function abrirSurtido(orden) {
                         if (inv) {
                             it.r3Piso = inv.piso ?? 0;
                             it.r3Almacen = inv.almacen ?? 0;
+                            it.cedis = inv.cedis ?? 0;
                         }
                     } catch {
                         it.r3Piso = '-';
                         it.r3Almacen = '-';
+                        it.cedis = '-';
                     }
                 });
             await Promise.all(promises);
@@ -297,16 +302,19 @@ async function procesarEscaneo(codigoDesdeCamara) {
     // Consulta dinámica del inventario desglosado por ubicación
     cantidadInventarioPiso.value = 'Calculando...';
     cantidadInventarioAlmacen.value = 'Calculando...';
+    cantidadInventarioCedis.value = 'Calculando...';
     inventarioUbicacion.value = null;
     try {
         const inv = await store.obtenerInventarioUbicacion(item.codigoBarra);
         inventarioUbicacion.value = inv;
         cantidadInventarioPiso.value = inv.piso;
         cantidadInventarioAlmacen.value = inv.almacen;
+        cantidadInventarioCedis.value = inv.cedis;
     } catch (e) {
         console.error('Error al consultar inventario por ubicación:', e);
         cantidadInventarioPiso.value = 'Error';
         cantidadInventarioAlmacen.value = 'Error';
+        cantidadInventarioCedis.value = 'Error';
     }
 
     await nextTick();
@@ -1084,6 +1092,10 @@ const finalizarOrden = async () => {
                             <span class="cantidad-info-label">Inventario Almacen: </span>
                             <span class="cantidad-info-value">{{ cantidadInventarioAlmacen }}</span>
                         </div>
+                        <div class="cantidad-info-row">
+                            <span class="cantidad-info-label">Inventario Cedis: </span>
+                            <span class="cantidad-info-value">{{ cantidadInventarioCedis }}</span>
+                        </div>
 
                         <div class="cantidad-acciones">
                             <Button
@@ -1178,6 +1190,11 @@ const finalizarOrden = async () => {
                     <Column field="r3Almacen" header="Almacén" style="min-width: 5rem">
                         <template #body="{ data }">
                             {{ data.r3Almacen ?? '-' }}
+                        </template>
+                    </Column>
+                    <Column field="cedis" header="Cedis" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.cedis ?? '-' }}
                         </template>
                     </Column>
                     <Column field="departamento" header="Dpto." />
@@ -1303,6 +1320,11 @@ const finalizarOrden = async () => {
                     <Column field="r3Almacen" header="Almacén" style="min-width: 5rem">
                         <template #body="{ data }">
                             {{ data.r3Almacen ?? '-' }}
+                        </template>
+                    </Column>
+                    <Column field="cedis" header="Cedis" style="min-width: 5rem">
+                        <template #body="{ data }">
+                            {{ data.cedis ?? '-' }}
                         </template>
                     </Column>
                     <Column field="departamento" header="Dpto." />
