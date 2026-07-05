@@ -6,10 +6,17 @@ import { FilterMatchMode } from '@primevue/core/api';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 
+const authStore = useAuthStore();
 const toast = useToast();
 const confirm = useConfirm();
 const userStore = useUserStore();
+
+const canWrite = computed(() => {
+    const perm = authStore.permissions.find(p => p.code === 'usuarios');
+    return perm ? !perm.isReadonly : false;
+});
 
 // Estados
 const roles = ref([]);
@@ -335,7 +342,7 @@ onMounted(() => {
                     <p class="subtitle">Administra los usuarios del sistema</p>
                 </div>
                 <div class="hidden md:block">
-                    <Button label="Nuevo Usuario" icon="pi pi-plus" class="p-button-success" @click="openNew" />
+                    <Button label="Nuevo Usuario" icon="pi pi-plus" class="p-button-success" @click="openNew" :disabled="!canWrite" />
                 </div>
             </div>
 
@@ -349,7 +356,7 @@ onMounted(() => {
                             icon="pi pi-trash"
                             severity="danger"
                             @click="confirmDeleteSelected"
-                            :disabled="!selectedUsers || !selectedUsers.length"
+                            :disabled="!selectedUsers || !selectedUsers.length || !canWrite"
                         />
                     </div>
                     <!-- Mobile: botón Nuevo Usuario -->
@@ -359,6 +366,7 @@ onMounted(() => {
                             icon="pi pi-plus"
                             class="w-full"
                             @click="openNew"
+                            :disabled="!canWrite"
                         />
                     </div>
                 </template>
@@ -452,6 +460,7 @@ onMounted(() => {
                                 class="mr-2"
                                 @click="editUser(data)"
                                 v-tooltip.top="'Editar'"
+                                :disabled="!canWrite"
                             />
                             <Button
                                 icon="pi pi-trash"
@@ -460,6 +469,7 @@ onMounted(() => {
                                 severity="danger"
                                 @click="confirmDeleteUser(data)"
                                 v-tooltip.top="'Eliminar'"
+                                :disabled="!canWrite"
                             />
                         </div>
                     </template>
@@ -526,6 +536,7 @@ onMounted(() => {
                                 severity="info"
                                 v-tooltip.top="'Editar'"
                                 @click="editUser(data)"
+                                :disabled="!canWrite"
                             />
                             <Button
                                 icon="pi pi-trash"
@@ -534,6 +545,7 @@ onMounted(() => {
                                 severity="danger"
                                 v-tooltip.top="'Eliminar'"
                                 @click="confirmDeleteUser(data)"
+                                :disabled="!canWrite"
                             />
                         </div>
                     </div>
@@ -648,7 +660,7 @@ onMounted(() => {
 
             <template #footer>
                 <Button label="Cancelar" icon="pi pi-times" text @click="hideDialog" />
-                <Button label="Guardar" icon="pi pi-check" @click="saveUser" />
+                <Button label="Guardar" icon="pi pi-check" @click="saveUser" :disabled="!canWrite" />
             </template>
         </Dialog>
 

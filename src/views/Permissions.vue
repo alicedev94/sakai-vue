@@ -2,7 +2,9 @@
 import { usePermissionStore } from '@/stores/permission';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 
+const authStore = useAuthStore();
 const toast = useToast();
 const permissionStore = usePermissionStore();
 const permissionDialog = ref(false);
@@ -11,6 +13,11 @@ const permission = ref({});
 const submitted = ref(false);
 const selectedPermissions = ref([]);
 const searchQuery = ref('');
+
+const canWrite = computed(() => {
+    const perm = authStore.permissions.find(p => p.code === 'permisos');
+    return perm ? !perm.isReadonly : false;
+});
 
 // Paginado móvil
 const mobileCurrentPage = ref(0);
@@ -118,7 +125,7 @@ onMounted(() => {
                 </div>
                 <!-- Solo visible en desktop -->
                 <div class="hidden md:block">
-                    <Button label="Nuevo Permiso" icon="pi pi-plus" class="p-button-success" @click="openNew" />
+                    <Button label="Nuevo Permiso" icon="pi pi-plus" class="p-button-success" @click="openNew" :disabled="!canWrite" />
                 </div>
             </div>
 
@@ -127,7 +134,7 @@ onMounted(() => {
                 <template #start>
                     <!-- Mobile: botón Nuevo Permiso centrado -->
                     <div class="block md:hidden w-full">
-                        <Button label="Nuevo Permiso" icon="pi pi-plus" class="w-full" @click="openNew" />
+                        <Button label="Nuevo Permiso" icon="pi pi-plus" class="w-full" @click="openNew" :disabled="!canWrite" />
                     </div>
                 </template>
                 <template #end>
@@ -187,8 +194,8 @@ onMounted(() => {
                 <Column :exportable="false" style="min-width: 10rem">
                     <template #body="{ data }">
                         <div class="action-buttons">
-                            <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editPermission(data)" v-tooltip.top="'Editar'" />
-                            <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeletePermission(data)" v-tooltip.top="'Eliminar'" />
+                            <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editPermission(data)" v-tooltip.top="'Editar'" :disabled="!canWrite" />
+                            <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeletePermission(data)" v-tooltip.top="'Eliminar'" :disabled="!canWrite" />
                         </div>
                     </template>
                 </Column>
@@ -244,8 +251,8 @@ onMounted(() => {
 
                         <!-- Acciones -->
                         <div class="perm-card-footer">
-                            <Button icon="pi pi-pencil" outlined rounded severity="info" v-tooltip.top="'Editar'" @click="editPermission(data)" />
-                            <Button icon="pi pi-trash" outlined rounded severity="danger" v-tooltip.top="'Eliminar'" @click="confirmDeletePermission(data)" />
+                            <Button icon="pi pi-pencil" outlined rounded severity="info" v-tooltip.top="'Editar'" @click="editPermission(data)" :disabled="!canWrite" />
+                            <Button icon="pi pi-trash" outlined rounded severity="danger" v-tooltip.top="'Eliminar'" @click="confirmDeletePermission(data)" :disabled="!canWrite" />
                         </div>
                     </div>
 
@@ -302,7 +309,7 @@ onMounted(() => {
             </div>
             <template #footer>
                 <Button label="Cancelar" icon="pi pi-times" text @click="hideDialog" />
-                <Button label="Guardar" icon="pi pi-check" @click="savePermission" :disabled="isSaveDisabled" />
+                <Button label="Guardar" icon="pi pi-check" @click="savePermission" :disabled="isSaveDisabled || !canWrite" />
             </template>
         </Dialog>
 
@@ -314,7 +321,7 @@ onMounted(() => {
             </div>
             <template #footer>
                 <Button label="Cancelar" icon="pi pi-times" text @click="deletePermissionDialog = false" />
-                <Button label="Eliminar" icon="pi pi-check" severity="danger" @click="deletePermission" />
+                <Button label="Eliminar" icon="pi pi-check" severity="danger" @click="deletePermission" :disabled="!canWrite" />
             </template>
         </Dialog>
     </div>

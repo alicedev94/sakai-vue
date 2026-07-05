@@ -3,7 +3,9 @@ import PermissionService from '@/service/PermissionService';
 import { useRoleStore } from '@/stores/role';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 
+const authStore = useAuthStore();
 const toast = useToast();
 const roleStore = useRoleStore();
 const permissions = ref([]);
@@ -13,6 +15,11 @@ const role = ref({ permissions: [] });
 const submitted = ref(false);
 const selectedRoles = ref([]);
 const searchQuery = ref('');
+
+const canWrite = computed(() => {
+    const perm = authStore.permissions.find(p => p.code === 'roles');
+    return perm ? !perm.isReadonly : false;
+});
 
 // Paginado móvil
 const mobileCurrentPage = ref(0);
@@ -132,7 +139,7 @@ onMounted(() => {
                 </div>
                 <!-- Botón solo visible en desktop -->
                 <div class="hidden md:block">
-                    <Button label="Nuevo Rol" icon="pi pi-plus" class="p-button-success" @click="openNew" />
+                    <Button label="Nuevo Rol" icon="pi pi-plus" class="p-button-success" @click="openNew" :disabled="!canWrite" />
                 </div>
             </div>
 
@@ -141,7 +148,7 @@ onMounted(() => {
                 <template #start>
                     <!-- Mobile: botón Nuevo Rol centrado -->
                     <div class="block md:hidden w-full">
-                        <Button label="Nuevo Rol" icon="pi pi-plus" class="w-full" @click="openNew" />
+                        <Button label="Nuevo Rol" icon="pi pi-plus" class="w-full" @click="openNew" :disabled="!canWrite" />
                     </div>
                 </template>
                 <template #end>
@@ -208,8 +215,8 @@ onMounted(() => {
                 <Column :exportable="false" style="min-width: 10rem">
                     <template #body="{ data }">
                         <div class="action-buttons">
-                            <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editRole(data)" v-tooltip.top="'Editar'" />
-                            <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteRole(data)" v-tooltip.top="'Eliminar'" />
+                            <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editRole(data)" v-tooltip.top="'Editar'" :disabled="!canWrite" />
+                            <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteRole(data)" v-tooltip.top="'Eliminar'" :disabled="!canWrite" />
                         </div>
                     </template>
                 </Column>
@@ -253,8 +260,8 @@ onMounted(() => {
 
                         <!-- Acciones -->
                         <div class="role-card-footer">
-                            <Button icon="pi pi-pencil" outlined rounded severity="info" v-tooltip.top="'Editar'" @click="editRole(data)" />
-                            <Button icon="pi pi-trash" outlined rounded severity="danger" v-tooltip.top="'Eliminar'" @click="confirmDeleteRole(data)" />
+                            <Button icon="pi pi-pencil" outlined rounded severity="info" v-tooltip.top="'Editar'" @click="editRole(data)" :disabled="!canWrite" />
+                            <Button icon="pi pi-trash" outlined rounded severity="danger" v-tooltip.top="'Eliminar'" @click="confirmDeleteRole(data)" :disabled="!canWrite" />
                         </div>
                     </div>
 
@@ -309,7 +316,7 @@ onMounted(() => {
             </div>
             <template #footer>
                 <Button label="Cancelar" icon="pi pi-times" text @click="hideDialog" />
-                <Button label="Guardar" icon="pi pi-check" @click="saveRole" :disabled="isSaveDisabled" />
+                <Button label="Guardar" icon="pi pi-check" @click="saveRole" :disabled="isSaveDisabled || !canWrite" />
             </template>
         </Dialog>
 

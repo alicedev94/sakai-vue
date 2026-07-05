@@ -1,4 +1,5 @@
 <script setup>
+import { useAuthStore } from '@/stores/auth';
 import { useOperacionesStore } from '@/stores/operaciones';
 import { useUbicationsStore } from '@/stores/ubications';
 import { FilterMatchMode } from '@primevue/core/api';
@@ -13,6 +14,13 @@ const toast = useToast();
 const store = useOperacionesStore();
 const ubiStore = useUbicationsStore();
 const confirm = useConfirm();
+const authStore = useAuthStore();
+
+// Permisos
+const canWrite = computed(() => {
+    const perm = authStore.permissions.find(p => p.code === 'orden' || p.code === 'ordenLectura');
+    return perm ? !perm.isReadonly : false;
+});
 
 const searchQuery = ref('');
 const filtroFecha = ref(new Date());
@@ -898,6 +906,7 @@ const finalizarOrden = async () => {
                                 rounded
                                 v-tooltip.top="data.estado === 'PENDIENTE' ? 'Iniciar surtido' : 'Continuar surtido'"
                                 @click="abrirSurtido(data)"
+                                :disabled="!canWrite"
                             />
                             <Button
                                 v-else
@@ -927,60 +936,61 @@ const finalizarOrden = async () => {
                     <div v-if="store.isLoading" class="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-black/60 backdrop-blur-sm rounded-xl">
                         <i class="pi pi-spin pi-spinner text-primary" style="font-size: 3rem" />
                     </div>
-                    <div v-for="data in ordenesFiltradas" :key="data.id" class="card p-4 mb-0 flex flex-col gap-3">
-                        <div class="flex justify-between items-center border-b border-surface-200 dark:border-surface-700 pb-3">
-                            <span class="font-semibold text-primary text-lg">{{ data.numeroOrden }}</span>
+                    <div v-for="data in ordenesFiltradas" :key="data.id" class="orden-card">
+                        <!-- Header -->
+                        <div class="orden-card-header">
+                            <div class="orden-card-header-left">
+                                <span class="font-semibold text-primary" style="font-size: 0.95rem;">{{ data.numeroOrden }}</span>
+                                <span class="id-badge">#{{ data.id }}</span>
+                            </div>
                             <span :class="['estado-badge', estadoConfig[data.estado]?.class]">
                                 <i :class="estadoConfig[data.estado]?.icon" />
                                 {{ estadoConfig[data.estado]?.label }}
                             </span>
                         </div>
                         
-                        <div class="flex flex-col gap-2 text-sm text-surface-700 dark:text-surface-0">
-                            <!-- <div class="flex justify-between">
-                                <span class="font-medium text-surface-500 dark:text-surface-400">ID:</span>
-                                <span>#{{ data.id }}</span>
-                            </div> -->
-                            <div class="flex justify-between">
-                                <span class="font-medium text-surface-500 dark:text-surface-400">Tipo Documento:</span>
-                                <span class="font-semibold">{{ data.tipoDocumento }}</span>
+                        <!-- Body -->
+                        <div class="orden-card-body">
+                            <div class="orden-card-row">
+                                <span class="orden-label">Tipo Documento</span>
+                                <span class="orden-value font-semibold">{{ data.tipoDocumento }}</span>
                             </div>
-                            <div class="flex justify-between items-center">
-                                <span class="font-medium text-surface-500 dark:text-surface-400">Departamento:</span>
-                                <div class="dept-info m-0" v-if="data.departamento">
-                                    <!-- <Avatar :label="data.departamento?.charAt(0).toUpperCase()" shape="circle" class="w-1rem h-1rem text-xs mr-2 bg-primary text-white" /> -->
-                                    <span>{{ data.departamento }}</span>
-                                </div>
-                                <span v-else class="text-surface-500 dark:text-surface-400">—</span>
+                            <div class="orden-card-row">
+                                <span class="orden-label">Departamento</span>
+                                <span class="orden-value">{{ data.departamento || '—' }}</span>
                             </div>
-                            <div class="flex justify-between items-center">
-                                <span class="font-medium text-surface-500 dark:text-surface-400">Productos:</span>
-                                <div class="progress-cell m-0 items-center">
-                                    <span class="progress-text mr-2">
+                            
+                            <!-- Progreso -->
+                            <div class="flex flex-col gap-1 mt-1">
+                                <div class="flex justify-between items-center">
+                                    <span class="orden-label">Productos</span>
+                                    <span class="progress-text text-xs" style="color: var(--text-color-secondary);">
                                         {{ data.itemsSurtidos || 0 }}/{{ data.totalItems || 0 }} reng.
                                         ({{ data.unidadesSurtidas || 0 }}/{{ data.totalUnidades || 0 }} unid.)
                                     </span>
-                                    <ProgressBar :value="progresoOrden(data)" style="height: 6px; width: 60px" :showValue="false" />
                                 </div>
+                                <ProgressBar :value="progresoOrden(data)" style="height: 6px; width: 100%;" :showValue="false" />
                             </div>
-                            <div class="flex justify-between">
-                                <span class="font-medium text-surface-500 dark:text-surface-400">Fecha Creación:</span>
-                                <span class="fecha-text">{{ formatFecha(data.fechaCreacion) }}</span>
+                            
+                            <div class="orden-card-row">
+                                <span class="orden-label">Fecha Creación</span>
+                                <span class="orden-value">{{ formatFecha(data.fechaCreacion) }}</span>
                             </div>
-                            <div class="flex justify-between" v-if="data.fechaFinalizacion">
-                                <span class="font-medium text-surface-500 dark:text-surface-400">Fecha Finalización:</span>
-                                <span class="fecha-text">{{ formatFecha(data.fechaFinalizacion) }}</span>
+                            <div class="orden-card-row" v-if="data.fechaFinalizacion">
+                                <span class="orden-label">Fecha Finalización</span>
+                                <span class="orden-value">{{ formatFecha(data.fechaFinalizacion) }}</span>
                             </div>
-                            <div class="flex justify-between">
-                                <span class="font-medium text-surface-500 dark:text-surface-400">Surtidor:</span>
-                                <span class="fecha-text">{{ data.usuarioSurtidor || '—' }}</span>
+                            <div class="orden-card-row">
+                                <span class="orden-label">Surtidor</span>
+                                <span class="orden-value">{{ data.usuarioSurtidor || '—' }}</span>
                             </div>
                         </div>
 
-                        <div class="flex justify-end gap-2 pt-3 border-t border-surface-200 dark:border-surface-700">
-                            <Button icon="pi pi-eye" outlined rounded severity="secondary" v-tooltip.top="'Ver detalle'" @click="verDetalle(data)" />
-                            <Button v-if="data.estado !== 'LISTA'" icon="pi pi-barcode" outlined rounded v-tooltip.top="data.estado === 'PENDIENTE' ? 'Iniciar surtido' : 'Continuar surtido'" @click="abrirSurtido(data)" />
-                            <Button v-else icon="pi pi-check-circle" outlined rounded severity="success" disabled />
+                        <!-- Footer -->
+                        <div class="orden-card-footer">
+                            <Button icon="pi pi-eye" outlined rounded severity="secondary" size="small" v-tooltip.top="'Ver detalle'" @click="verDetalle(data)" />
+                            <Button v-if="data.estado !== 'LISTA'" icon="pi pi-barcode" outlined rounded severity="info" size="small" v-tooltip.top="data.estado === 'PENDIENTE' ? 'Iniciar surtido' : 'Continuar surtido'" @click="abrirSurtido(data)" :disabled="!canWrite" />
+                            <Button v-else icon="pi pi-check-circle" outlined rounded severity="success" size="small" disabled />
                         </div>
                     </div>
                 </div>
@@ -1165,6 +1175,7 @@ const finalizarOrden = async () => {
 
                 <!-- Lista de ítems (Tabla con scroll horizontal) -->
                 <DataTable 
+                    class="hidden md:block"
                     :value="ordenSeleccionada.items" 
                     :rows="10" 
                     :paginator="ordenSeleccionada.items?.length > 10" 
@@ -1227,6 +1238,80 @@ const finalizarOrden = async () => {
                         </template>
                     </Column>
                 </DataTable>
+
+                <!-- Mobile cards display instead of table -->
+                <div class="block md:hidden mt-4">
+                    <div v-if="!ordenSeleccionada.items || ordenSeleccionada.items.length === 0" class="text-center p-3 text-secondary text-sm">
+                        No hay productos en esta orden
+                    </div>
+                    <div v-else class="flex flex-col gap-3" style="max-height: 400px; overflow-y: auto;">
+                        <div v-for="(item, index) in ordenSeleccionada.items" :key="index" class="product-mobile-card flex flex-col gap-2">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="font-bold text-base" style="word-break: break-word; color: var(--text-color);">{{ item.nombreProducto }}</div>
+                                    <div class="text-sm text-secondary mt-1">Cód: {{ item.codigoBarra }}</div>
+                                </div>
+                                <span :class="['item-estado text-sm', itemEstadoConfig[item.estadoItem]?.class]">
+                                    <i :class="itemEstadoConfig[item.estadoItem]?.icon" />
+                                    {{ itemEstadoConfig[item.estadoItem]?.label }}
+                                </span>
+                            </div>
+                            
+                            <!-- Barras adicionales si existen -->
+                            <div v-if="item.barra1 || item.barra2 || item.barra3 || item.barra4 || item.barra5 || item.barra6 || item.barra7" class="text-xs text-secondary flex flex-wrap gap-1 mt-1">
+                                <span v-if="item.barra1" class="bg-surface-100 px-1.5 py-0.5 rounded border border-surface-200">B1: {{ item.barra1 }}</span>
+                                <span v-if="item.barra2" class="bg-surface-100 px-1.5 py-0.5 rounded border border-surface-200">B2: {{ item.barra2 }}</span>
+                                <span v-if="item.barra3" class="bg-surface-100 px-1.5 py-0.5 rounded border border-surface-200">B3: {{ item.barra3 }}</span>
+                                <span v-if="item.barra4" class="bg-surface-100 px-1.5 py-0.5 rounded border border-surface-200">B4: {{ item.barra4 }}</span>
+                                <span v-if="item.barra5" class="bg-surface-100 px-1.5 py-0.5 rounded border border-surface-200">B5: {{ item.barra5 }}</span>
+                                <span v-if="item.barra6" class="bg-surface-100 px-1.5 py-0.5 rounded border border-surface-200">B6: {{ item.barra6 }}</span>
+                                <span v-if="item.barra7" class="bg-surface-100 px-1.5 py-0.5 rounded border border-surface-200">B7: {{ item.barra7 }}</span>
+                            </div>
+
+                            <div class="grid p-fluid gap-2 mt-1">
+                                <div class="col-4 mb-0">
+                                    <span class="text-xs font-semibold text-secondary">ATRIBUTO:</span>
+                                    <div class="text-sm font-semibold" style="color: var(--text-color);">{{ item.atributo || '—' }}</div>
+                                </div>
+                                <div class="col-4 mb-0">
+                                    <span class="text-xs font-semibold text-secondary">CANTIDAD:</span>
+                                    <div class="text-sm font-semibold" style="color: var(--text-color);">{{ item.cantidad }}</div>
+                                </div>
+                                <div class="col-4 mb-0">
+                                    <span class="text-xs font-semibold text-secondary">SURTIDO:</span>
+                                    <div class="text-sm font-semibold" style="color: var(--text-color);">{{ item.cantidadSurtida ?? 0 }}</div>
+                                </div>
+                            </div>
+
+                            <div class="mt-2">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-semibold text-secondary">PROGRESO:</span>
+                                    <span class="text-xs font-semibold text-primary">{{ progresoItem(item) }}%</span>
+                                </div>
+                                <ProgressBar :value="progresoItem(item)" style="height: 6px;" :showValue="false" />
+                            </div>
+
+                            <div class="text-sm text-secondary mt-1 flex flex-col gap-1 border-t border-surface-200 dark:border-surface-700 pt-2">
+                                <div>
+                                    <span class="font-semibold">Dpto:</span>
+                                    <span class="ml-1">{{ item.departamento || '—' }}</span>
+                                </div>
+                                <div>
+                                    <span class="font-semibold">Ubicación:</span>
+                                    <span v-if="item.ubicaciones && item.ubicaciones.length > 0" class="ml-1">
+                                        {{ item.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ') }}
+                                    </span>
+                                    <span v-else class="ml-1 italic">Sin ubicación</span>
+                                </div>
+                                <div class="flex gap-4">
+                                    <span><strong>Piso:</strong> {{ item.r3Piso ?? '-' }}</span>
+                                    <span><strong>Almacén:</strong> {{ item.r3Almacen ?? '-' }}</span>
+                                    <span><strong>Cedis:</strong> {{ item.cedis ?? '-' }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <template #footer>
@@ -1301,7 +1386,7 @@ const finalizarOrden = async () => {
                 <Divider />
                 <p class="items-title"><i class="pi pi-list" /> Productos de la orden</p>
 
-                <DataTable :value="ordenSeleccionada.items" :rows="10" :paginator="ordenSeleccionada.items?.length > 10" size="small" stripedRows>
+                <DataTable class="hidden md:block" :value="ordenSeleccionada.items" :rows="10" :paginator="ordenSeleccionada.items?.length > 10" size="small" stripedRows>
                     <Column field="codigoBarra" header="Código" />
                     <Column field="barra1" header="Barra 1" />
                     <Column field="barra2" header="Barra 2" />
@@ -1357,6 +1442,80 @@ const finalizarOrden = async () => {
                         </template>
                     </Column>
                 </DataTable>
+
+                <!-- Mobile cards display instead of table -->
+                <div class="block md:hidden mt-4">
+                    <div v-if="!ordenSeleccionada.items || ordenSeleccionada.items.length === 0" class="text-center p-3 text-secondary text-sm">
+                        No hay productos en esta orden
+                    </div>
+                    <div v-else class="flex flex-col gap-3" style="max-height: 400px; overflow-y: auto;">
+                        <div v-for="(item, index) in ordenSeleccionada.items" :key="index" class="product-mobile-card flex flex-col gap-2">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="font-bold text-base" style="word-break: break-word; color: var(--text-color);">{{ item.nombreProducto }}</div>
+                                    <div class="text-sm text-secondary mt-1">Cód: {{ item.codigoBarra }}</div>
+                                </div>
+                                <span :class="['item-estado text-sm', itemEstadoConfig[item.estadoItem]?.class]">
+                                    <i :class="itemEstadoConfig[item.estadoItem]?.icon" />
+                                    {{ itemEstadoConfig[item.estadoItem]?.label }}
+                                </span>
+                            </div>
+                            
+                            <!-- Barras adicionales si existen -->
+                            <div v-if="item.barra1 || item.barra2 || item.barra3 || item.barra4 || item.barra5 || item.barra6 || item.barra7" class="text-xs text-secondary flex flex-wrap gap-1 mt-1">
+                                <span v-if="item.barra1" class="bg-surface-100 px-1.5 py-0.5 rounded border border-surface-200">B1: {{ item.barra1 }}</span>
+                                <span v-if="item.barra2" class="bg-surface-100 px-1.5 py-0.5 rounded border border-surface-200">B2: {{ item.barra2 }}</span>
+                                <span v-if="item.barra3" class="bg-surface-100 px-1.5 py-0.5 rounded border border-surface-200">B3: {{ item.barra3 }}</span>
+                                <span v-if="item.barra4" class="bg-surface-100 px-1.5 py-0.5 rounded border border-surface-200">B4: {{ item.barra4 }}</span>
+                                <span v-if="item.barra5" class="bg-surface-100 px-1.5 py-0.5 rounded border border-surface-200">B5: {{ item.barra5 }}</span>
+                                <span v-if="item.barra6" class="bg-surface-100 px-1.5 py-0.5 rounded border border-surface-200">B6: {{ item.barra6 }}</span>
+                                <span v-if="item.barra7" class="bg-surface-100 px-1.5 py-0.5 rounded border border-surface-200">B7: {{ item.barra7 }}</span>
+                            </div>
+
+                            <div class="grid p-fluid gap-2 mt-1">
+                                <div class="col-4 mb-0">
+                                    <span class="text-xs font-semibold text-secondary">ATRIBUTO:</span>
+                                    <div class="text-sm font-semibold" style="color: var(--text-color);">{{ item.atributo || '—' }}</div>
+                                </div>
+                                <div class="col-4 mb-0">
+                                    <span class="text-xs font-semibold text-secondary">CANTIDAD:</span>
+                                    <div class="text-sm font-semibold" style="color: var(--text-color);">{{ item.cantidad }}</div>
+                                </div>
+                                <div class="col-4 mb-0">
+                                    <span class="text-xs font-semibold text-secondary">SURTIDO:</span>
+                                    <div class="text-sm font-semibold" style="color: var(--text-color);">{{ item.cantidadSurtida ?? 0 }}</div>
+                                </div>
+                            </div>
+
+                            <div class="mt-2">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-semibold text-secondary">PROGRESO:</span>
+                                    <span class="text-xs font-semibold text-primary">{{ progresoItem(item) }}%</span>
+                                </div>
+                                <ProgressBar :value="progresoItem(item)" style="height: 6px;" :showValue="false" />
+                            </div>
+
+                            <div class="text-sm text-secondary mt-1 flex flex-col gap-1 border-t border-surface-200 dark:border-surface-700 pt-2">
+                                <div>
+                                    <span class="font-semibold">Dpto:</span>
+                                    <span class="ml-1">{{ item.departamento || '—' }}</span>
+                                </div>
+                                <div>
+                                    <span class="font-semibold">Ubicación:</span>
+                                    <span v-if="item.ubicaciones && item.ubicaciones.length > 0" class="ml-1">
+                                        {{ item.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ') }}
+                                    </span>
+                                    <span v-else class="ml-1 italic">Sin ubicación</span>
+                                </div>
+                                <div class="flex gap-4">
+                                    <span><strong>Piso:</strong> {{ item.r3Piso ?? '-' }}</span>
+                                    <span><strong>Almacén:</strong> {{ item.r3Almacen ?? '-' }}</span>
+                                    <span><strong>Cedis:</strong> {{ item.cedis ?? '-' }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <template #footer>
@@ -1368,12 +1527,14 @@ const finalizarOrden = async () => {
                     icon="pi pi-check" 
                     severity="success"
                     @click="finalizarOrden" 
+                    :disabled="!canWrite"
                 />
                 <Button
                     v-if="ordenSeleccionada?.estado !== 'LISTA'"
                     label="Surtir Orden"
                     icon="pi pi-barcode"
                     @click="() => { detailDialog = false; abrirSurtido(ordenSeleccionada); }"
+                    :disabled="!canWrite"
                 />
             </template>
         </Dialog>
@@ -1998,5 +2159,79 @@ const finalizarOrden = async () => {
 .cantidad-fade-leave-to {
     opacity: 0;
     transform: translateY(-8px);
+}
+
+.product-mobile-card {
+    background: var(--surface-50);
+    border: 1px solid var(--surface-300);
+    border-left: 4px solid var(--primary-color);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+/* Orden Cards mobile */
+.orden-card {
+    background: var(--surface-card);
+    border-radius: 12px;
+    border: 1px solid var(--surface-200);
+    overflow: hidden;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+
+.orden-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--surface-200);
+    background: color-mix(in srgb, var(--primary-color) 4%, var(--surface-card));
+    gap: 0.5rem;
+}
+
+.orden-card-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.orden-card-body {
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.orden-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.88rem;
+    gap: 0.5rem;
+}
+
+.orden-label {
+    font-weight: 600;
+    color: var(--text-color-secondary);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+
+.orden-value {
+    color: var(--text-color);
+    font-size: 0.88rem;
+    text-align: right;
+    word-break: break-word;
+}
+
+.orden-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0.65rem 1rem;
+    border-top: 1px solid var(--surface-200);
+    background: var(--surface-50);
 }
 </style>

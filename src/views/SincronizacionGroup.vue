@@ -1,4 +1,6 @@
 <script setup>
+import { sincronizacionService } from '@/service/SincronizacionService';
+import { useAuthStore } from '@/stores/auth';
 import { useSincronizacionStore } from '@/stores/sincronizacion';
 import { useSincronizacionGroupStore } from '@/stores/sincronizacionGroup';
 import { FilterMatchMode } from '@primevue/core/api';
@@ -11,6 +13,12 @@ const toast = useToast();
 const confirm = useConfirm();
 const store = useSincronizacionGroupStore();
 const sincStore = useSincronizacionStore();
+const authStore = useAuthStore();
+
+const canWrite = computed(() => {
+    const perm = authStore.permissions.find(p => p.code === 'sincronizacion');
+    return perm ? !perm.isReadonly : false;
+});
 
 // ─── State de la vista ────────────────────────────────────────────────────────
 const configDialog = ref(false);
@@ -29,7 +37,8 @@ const FORM_DEFAULTS = {
     nombre: '',
     descripcion: '',
     esActivo: true,
-    intervaloMinutos: 30
+    intervaloMinutos: 30,
+    prioridad: 'MEDIA'
 };
 
 // ─── Filtros de búsqueda ─────────────────────────────────────────────────────
@@ -104,10 +113,20 @@ const formatFecha = (value) => {
 };
 
 // ─── Acciones CRUD ────────────────────────────────────────────────────────────
+const refreshSelectedGroup = () => {
+    if (selectedGroupForSincList.value?.id) {
+        const updated = store.grupos.find(g => g.id === selectedGroupForSincList.value.id);
+        if (updated) {
+            selectedGroupForSincList.value = updated;
+        }
+    }
+};
+
 const cargarDatos = async () => {
     try {
         await store.fetchGrupos();
         await sincStore.fetchConfiguraciones();
+        refreshSelectedGroup();
     } catch (err) {
         toast.add({
             severity: 'error',
@@ -131,6 +150,11 @@ const editarItem = (item) => {
     selectedSincronizaciones.value = sincStore.configuraciones
         .filter(s => s.sincronizacionGroup?.id === item.id)
         .map(s => s.id);
+    
+    // Asignar prioridad basada en la primera sincronización asociada o 'MEDIA'
+    const associatedSyncs = sincStore.configuraciones.filter(s => s.sincronizacionGroup?.id === item.id);
+    selectedItem.value.prioridad = associatedSyncs.length > 0 ? (associatedSyncs[0].prioridad ?? 'MEDIA') : 'MEDIA';
+
     sincSearchQuery.value = '';
     submitted.value = false;
     configDialog.value = true;
@@ -165,6 +189,7 @@ const ejecutarGuardar = async (payload) => {
         // Recargar los datos de los stores para sincronizar el estado
         await sincStore.fetchConfiguraciones();
         await store.fetchGrupos();
+        refreshSelectedGroup();
 
         cerrarDialog();
     } catch (err) {
@@ -195,7 +220,8 @@ const guardar = async () => {
         descripcion: selectedItem.value.descripcion?.trim() || '',
         esActivo: selectedItem.value.esActivo ?? true,
         intervaloMinutos: selectedItem.value.intervaloMinutos ?? 30,
-        sincronizacionesIds: selectedSincronizaciones.value
+        sincronizacionesIds: selectedSincronizaciones.value,
+        prioridad: selectedItem.value.prioridad || 'MEDIA'
     };
 
     await ejecutarGuardar(payload);
@@ -267,6 +293,11 @@ const ejecutarPeticionToggle = async (item, nuevoEstado) => {
             detail: `Grupo "${item.nombre}" ${nuevoEstado ? 'activado' : 'desactivado'}`,
             life: 2500
         });
+        
+        // Recargar los datos de los stores para sincronizar el estado
+        await store.fetchGrupos();
+        await sincStore.fetchConfiguraciones();
+        refreshSelectedGroup();
     } catch (err) {
         // Revertir si la petición falla
         store.toggleActivoOptimista(item.id, !nuevoEstado);
@@ -275,6 +306,243 @@ const ejecutarPeticionToggle = async (item, nuevoEstado) => {
             summary: 'Error',
             detail: err.userMessage || 'No se pudo cambiar el estado',
             life: 4000
+        });
+    }
+};
+
+// ─── State de Sincronizaciones (Anidadas) ──────────────────────────────────
+const sincListDialog = ref(false);
+const sincConfigDialog = ref(false);
+const sincDeleteDialog = ref(false);
+const sincSubmitted = ref(false);
+const selectedSinc = ref({});
+const selectedGroupForSincList = ref({});
+const sincTableSearchQuery = ref('');
+const sincMobileCurrentPage = ref(0);
+const sincMobileRowsPerPage = 6;
+const departamentos = ref([]);
+const isDepartamentosLoading = ref(false);
+
+const PRIORIDADES = [
+    { label: 'Alta', value: 'ALTA' },
+    { label: 'Media', value: 'MEDIA' },
+    { label: 'Baja', value: 'BAJA' }
+];
+
+const TIPOS_DOCUMENTO = [
+    { id: 1, nombre: 'Orden' },
+    { id: 2, nombre: 'PreOrden' }
+];
+
+const SINC_FORM_DEFAULTS = {
+    departamento: null,
+    intervaloMinutos: 5,
+    esActivo: true,
+    prioridad: 'MEDIA',
+    tipoDocumento: null,
+    sincronizacionGroup: null
+};
+
+const prioridadIcono = (prioridad) => {
+    const map = {
+        ALTA: 'pi pi-arrow-up-right',
+        MEDIA: 'pi pi-minus',
+        BAJA: 'pi pi-arrow-down-right'
+    };
+    return map[prioridad] ?? 'pi pi-minus';
+};
+
+const sincronizacionesDelGrupo = computed(() => {
+    if (!selectedGroupForSincList.value?.id) return [];
+    let list = sincStore.configuraciones.filter(
+        (s) => s.sincronizacionGroup?.id === selectedGroupForSincList.value.id
+    );
+    if (sincTableSearchQuery.value) {
+        const q = sincTableSearchQuery.value.toLowerCase();
+        list = list.filter((s) => s.departamento?.toLowerCase().includes(q));
+    }
+    return list;
+});
+
+const sincMobilePagedConfiguraciones = computed(() => {
+    const start = sincMobileCurrentPage.value * sincMobileRowsPerPage;
+    return sincronizacionesDelGrupo.value.slice(start, start + sincMobileRowsPerPage);
+});
+
+const sincMobileTotalPages = computed(() =>
+    Math.ceil(sincronizacionesDelGrupo.value.length / sincMobileRowsPerPage)
+);
+
+function resetSincMobilePage() {
+    sincMobileCurrentPage.value = 0;
+}
+
+const fetchDepartamentos = async () => {
+    if (departamentos.value.length > 0) return;
+    isDepartamentosLoading.value = true;
+    try {
+        const { data } = await sincronizacionService.getDepartamentos();
+        departamentos.value = data;
+    } catch (err) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Advertencia',
+            detail: 'No se pudieron cargar los departamentos',
+            life: 4000
+        });
+    } finally {
+        isDepartamentosLoading.value = false;
+    }
+};
+
+const verSincronizaciones = (grupo) => {
+    selectedGroupForSincList.value = grupo;
+    resetSincMobilePage();
+    sincTableSearchQuery.value = '';
+    sincListDialog.value = true;
+};
+
+const abrirNuevaSinc = () => {
+    selectedSinc.value = { 
+        ...SINC_FORM_DEFAULTS, 
+        sincronizacionGroup: selectedGroupForSincList.value 
+    };
+    sincSubmitted.value = false;
+    fetchDepartamentos();
+    sincConfigDialog.value = true;
+};
+
+const editarSincItem = (item) => {
+    fetchDepartamentos().then(() => {
+        const deptObj = departamentos.value.find((d) => d.descripcion === item.departamento);
+        selectedSinc.value = {
+            ...item,
+            departamento: deptObj ?? item.departamento,
+            prioridad: item.prioridad ?? 'MEDIA',
+            tipoDocumento: item.tipoDocumento ?? null,
+            sincronizacionGroup: item.sincronizacionGroup ?? selectedGroupForSincList.value
+        };
+    });
+    sincSubmitted.value = false;
+    sincConfigDialog.value = true;
+};
+
+const cerrarSincConfigDialog = () => {
+    sincConfigDialog.value = false;
+    sincSubmitted.value = false;
+    selectedSinc.value = {};
+};
+
+const guardarSinc = async () => {
+    sincSubmitted.value = true;
+
+    const deptValor = typeof selectedSinc.value.departamento === 'object'
+        ? selectedSinc.value.departamento?.descripcion
+        : selectedSinc.value.departamento;
+
+    if (!deptValor?.trim()) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Campo requerido',
+            detail: 'Debes seleccionar un departamento',
+            life: 3000
+        });
+        return;
+    }
+
+    if (!selectedSinc.value.intervaloMinutos || selectedSinc.value.intervaloMinutos < 1) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Campo inválido',
+            detail: 'El intervalo debe ser al menos 1 minuto',
+            life: 3000
+        });
+        return;
+    }
+
+    if (!selectedSinc.value.tipoDocumento) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Campo requerido',
+            detail: 'Debes seleccionar un tipo de documento',
+            life: 3000
+        });
+        return;
+    }
+
+    const payload = {
+        departamento: deptValor.trim(),
+        intervaloMinutos: Number(selectedSinc.value.intervaloMinutos),
+        esActivo: selectedSinc.value.esActivo ?? true,
+        prioridad: selectedSinc.value.prioridad ?? 'MEDIA',
+        tipoDocumento: selectedSinc.value.tipoDocumento,
+        sincronizacionGroup: selectedSinc.value.sincronizacionGroup
+    };
+
+    try {
+        const isEditingSinc = !!selectedSinc.value.id;
+        if (isEditingSinc) {
+            await sincStore.actualizarConfiguracion(selectedSinc.value.id, payload);
+            toast.add({
+                severity: 'success',
+                summary: 'Actualizado',
+                detail: `La configuración de "${payload.departamento}" fue actualizada`,
+                life: 3000
+            });
+        } else {
+            await sincStore.crearConfiguracion(payload);
+            toast.add({
+                severity: 'success',
+                summary: 'Creado',
+                detail: `La configuración de "${payload.departamento}" fue creada`,
+                life: 3000
+            });
+        }
+        
+        // Recargar grupos en el store para asegurar consistencia
+        await store.fetchGrupos();
+        await sincStore.fetchConfiguraciones();
+        refreshSelectedGroup();
+        
+        cerrarSincConfigDialog();
+    } catch (err) {
+        toast.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: err.userMessage || 'No se pudo guardar la configuración',
+            life: 5000
+        });
+    }
+};
+
+const confirmarEliminarSinc = (item) => {
+    selectedSinc.value = item;
+    sincDeleteDialog.value = true;
+};
+
+const eliminarSinc = async () => {
+    try {
+        await sincStore.eliminarConfiguracion(selectedSinc.value.id);
+        sincDeleteDialog.value = false;
+        selectedSinc.value = {};
+        
+        // Recargar grupos en el store para asegurar consistencia
+        await store.fetchGrupos();
+        await sincStore.fetchConfiguraciones();
+        refreshSelectedGroup();
+
+        toast.add({
+            severity: 'success',
+            summary: 'Eliminado',
+            detail: 'La configuración fue eliminada correctamente',
+            life: 3000
+        });
+    } catch (err) {
+        toast.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: err.userMessage || 'No se pudo eliminar la configuración',
+            life: 5000
         });
     }
 };
@@ -301,6 +569,7 @@ onMounted(() => {
                         icon="pi pi-plus"
                         class="p-button-success"
                         @click="abrirNuevo"
+                        :disabled="!canWrite"
                     />
                 </div>
             </div>
@@ -329,19 +598,12 @@ onMounted(() => {
                     <div class="hidden md:flex gap-2">
                         <Button
                             id="btn-refrescar"
-                            icon="pi pi-refresh"
+                            label="Actualizar"
                             severity="secondary"
                             outlined
                             v-tooltip.top="'Actualizar'"
                             :loading="store.isLoading"
                             @click="cargarDatos"
-                        />
-                        <Button
-                            label="Regresar"
-                            icon="pi pi-arrow-left"
-                            severity="secondary"
-                            outlined
-                            @click="$router.push('/v1/sincronizacion')"
                         />
                     </div>
                     <div class="block md:hidden w-full flex flex-col gap-2">
@@ -350,14 +612,7 @@ onMounted(() => {
                             icon="pi pi-plus"
                             class="p-button-success w-full"
                             @click="abrirNuevo"
-                        />
-                        <Button
-                            label="Regresar"
-                            icon="pi pi-arrow-left"
-                            severity="secondary"
-                            class="w-full"
-                            outlined
-                            @click="$router.push('/v1/sincronizacion')"
+                            :disabled="!canWrite"
                         />
                     </div>
                 </template>
@@ -440,7 +695,7 @@ onMounted(() => {
                                 :id="`toggle-sinc-${data.id}`"
                                 :modelValue="data.esActivo"
                                 @update:modelValue="() => toggleActivo(data)"
-                                :disabled="store.isLoading"
+                                :disabled="store.isLoading || !canWrite"
                             />
                             <span :class="['estado-label', data.esActivo ? 'activo' : 'inactivo']">
                                 {{ data.esActivo ? 'Activo' : 'Inactivo' }}
@@ -449,9 +704,18 @@ onMounted(() => {
                     </template>
                 </Column>
 
-                <Column :exportable="false" style="min-width: 9rem" header="Acciones">
+                <Column :exportable="false" style="min-width: 12rem" header="Acciones">
                     <template #body="{ data }">
                         <div class="action-buttons">
+                            <Button
+                                :id="`btn-listado-${data.id}`"
+                                icon="pi pi-list"
+                                outlined
+                                rounded
+                                severity="info"
+                                @click="verSincronizaciones(data)"
+                                v-tooltip.top="'Ver Sincronizaciones'"
+                            />
                             <Button
                                 :id="`btn-editar-${data.id}`"
                                 icon="pi pi-pencil"
@@ -459,6 +723,7 @@ onMounted(() => {
                                 rounded
                                 @click="editarItem(data)"
                                 v-tooltip.top="'Editar'"
+                                :disabled="!canWrite"
                             />
                             <Button
                                 :id="`btn-eliminar-${data.id}`"
@@ -468,6 +733,7 @@ onMounted(() => {
                                 severity="danger"
                                 @click="confirmarEliminar(data)"
                                 v-tooltip.top="'Eliminar'"
+                                :disabled="!canWrite"
                             />
                         </div>
                     </template>
@@ -478,10 +744,10 @@ onMounted(() => {
             <div class="block md:hidden">
                 <div class="mobile-actions">
                     <Button
-                        icon="pi pi-refresh"
                         severity="secondary"
                         outlined
                         size="small"
+                        class="w-full"
                         :loading="store.isLoading"
                         @click="cargarDatos"
                         label="Actualizar"
@@ -511,7 +777,7 @@ onMounted(() => {
                                 <ToggleSwitch
                                     :modelValue="data.esActivo"
                                     @update:modelValue="() => toggleActivo(data)"
-                                    :disabled="store.isLoading"
+                                    :disabled="store.isLoading || !canWrite"
                                 />
                             </div>
                         </div>
@@ -528,8 +794,9 @@ onMounted(() => {
                         </div>
 
                         <div class="sinc-card-footer">
-                            <Button icon="pi pi-pencil" outlined rounded severity="info" size="small" @click="editarItem(data)" />
-                            <Button icon="pi pi-trash" outlined rounded severity="danger" size="small" @click="confirmarEliminar(data)" />
+                            <Button icon="pi pi-list" outlined rounded severity="secondary" size="small" @click="verSincronizaciones(data)" v-tooltip.top="'Ver Sincronizaciones'" />
+                            <Button icon="pi pi-pencil" outlined rounded severity="info" size="small" @click="editarItem(data)" :disabled="!canWrite" />
+                            <Button icon="pi pi-trash" outlined rounded severity="danger" size="small" @click="confirmarEliminar(data)" :disabled="!canWrite" />
                         </div>
                     </div>
 
@@ -597,6 +864,34 @@ onMounted(() => {
                     </small>
                 </div>
 
+                <!-- Prioridad del Grupo -->
+                <div class="field col-12">
+                    <label for="grupo-prioridad">Prioridad del Grupo *</label>
+                    <Select
+                        id="grupo-prioridad"
+                        v-model="selectedItem.prioridad"
+                        :options="PRIORIDADES"
+                        optionLabel="label"
+                        optionValue="value"
+                        placeholder="Selecciona la prioridad para el grupo..."
+                        class="w-full"
+                    >
+                        <template #option="{ option }">
+                            <div class="prioridad-option">
+                                <i :class="prioridadIcono(option.value)" />
+                                <span>{{ option.label }}</span>
+                            </div>
+                        </template>
+                        <template #value="{ value }">
+                            <div v-if="value" class="prioridad-option">
+                                <i :class="prioridadIcono(value)" />
+                                <span>{{ PRIORIDADES.find(p => p.value === value)?.label ?? value }}</span>
+                            </div>
+                            <span v-else>Selecciona la prioridad...</span>
+                        </template>
+                    </Select>
+                </div>
+
                 <div class="field col-12">
                     <label class="font-bold mb-2 block">Sincronizaciones Asociadas al Grupo</label>
                     <div class="sinc-selector-container">
@@ -620,6 +915,7 @@ onMounted(() => {
                                     size="small"
                                     @click="seleccionarTodos"
                                     v-tooltip.top="'Seleccionar todos'"
+                                    :disabled="!canWrite"
                                 />
                                 <Button
                                     label="Ninguno"
@@ -629,6 +925,7 @@ onMounted(() => {
                                     size="small"
                                     @click="deseleccionarTodos"
                                     v-tooltip.top="'Deseleccionar todos'"
+                                    :disabled="!canWrite"
                                 />
                             </div>
                         </div>
@@ -639,6 +936,7 @@ onMounted(() => {
                                     :inputId="`sinc-chk-${s.id}`"
                                     :name="`sinc-group`"
                                     :value="s.id"
+                                    :disabled="!canWrite"
                                 />
                                 <label :for="`sinc-chk-${s.id}`" class="sinc-checkbox-label ml-2">
                                     <span class="depto-name">{{ s.departamento }}</span>
@@ -700,6 +998,7 @@ onMounted(() => {
                     icon="pi pi-check"
                     :loading="store.isLoading"
                     @click="guardar"
+                    :disabled="!canWrite"
                 />
             </template>
         </Dialog>
@@ -729,6 +1028,442 @@ onMounted(() => {
                     severity="danger"
                     :loading="store.isLoading"
                     @click="eliminar"
+                />
+            </template>
+        </Dialog>
+
+        <!-- ── Dialog Listado de Sincronizaciones del Grupo ─────────────────── -->
+        <Dialog
+            v-model:visible="sincListDialog"
+            :style="{ width: '80vw' }"
+            :breakpoints="{ '1199px': '90vw', '575px': '95vw' }"
+            :header="`Sincronizaciones del Grupo: ${selectedGroupForSincList?.nombre || ''}`"
+            :modal="true"
+            class="sinc-list-dialog"
+        >
+            <div class="p-4">
+                <!-- Toolbar del listado -->
+                <Toolbar class="mb-4 toolbar-responsive">
+                    <template #start>
+                        <Button
+                            label="Nueva Sincronización"
+                            icon="pi pi-plus"
+                            class="p-button-success"
+                            @click="abrirNuevaSinc"
+                            :disabled="!canWrite"
+                        />
+                    </template>
+                    <template #end>
+                        <IconField>
+                            <InputIcon>
+                                <i class="pi pi-search" />
+                            </InputIcon>
+                            <InputText
+                                v-model="sincTableSearchQuery"
+                                placeholder="Buscar departamento..."
+                                @input="resetSincMobilePage"
+                            />
+                        </IconField>
+                    </template>
+                </Toolbar>
+
+                <!-- Tabla principal en Desktop -->
+                <DataTable
+                    :value="sincronizacionesDelGrupo"
+                    :loading="sincStore.isLoading"
+                    dataKey="id"
+                    :paginator="true"
+                    :rows="5"
+                    :rowsPerPageOptions="[5, 10, 20]"
+                    paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+                    currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} sincronizaciones"
+                    responsiveLayout="scroll"
+                    stripedRows
+                    class="sinc-table hidden md:block"
+                >
+                    <template #empty>
+                        <div class="empty-state">
+                            <i class="pi pi-inbox" style="font-size: 2.5rem; color: var(--text-color-secondary)" />
+                            <p>No hay sincronizaciones asociadas a este grupo</p>
+                            <Button label="Crear primera sincronización" icon="pi pi-plus" text @click="abrirNuevaSinc" />
+                        </div>
+                    </template>
+
+                    <Column field="id" header="ID" :sortable="true" style="min-width: 4rem">
+                        <template #body="{ data }">
+                            <span class="id-badge">#{{ data.id }}</span>
+                        </template>
+                    </Column>
+
+                    <Column field="departamento" header="Departamento" :sortable="true" style="min-width: 10rem">
+                        <template #body="{ data }">
+                            <div class="dept-info">
+                                <Avatar
+                                    :label="data.departamento?.charAt(3).toUpperCase()"
+                                    shape="circle"
+                                    class="dept-avatar"
+                                />
+                                <span class="font-semibold">{{ data.departamento }}</span>
+                            </div>
+                        </template>
+                    </Column>
+
+                    <Column field="tipoDocumento.nombre" header="Tipo Documento" :sortable="true" style="min-width: 9rem">
+                        <template #body="{ data }">
+                            <span class="font-semibold">{{ data.tipoDocumento?.nombre || '-' }}</span>
+                        </template>
+                    </Column>
+
+                    <Column field="intervaloMinutos" header="Intervalo" :sortable="true" style="min-width: 8rem">
+                        <template #body="{ data }">
+                            <div class="interval-cell">
+                                <i class="pi pi-clock interval-icon" />
+                                <span>{{ data.intervaloMinutos }} min</span>
+                            </div>
+                        </template>
+                    </Column>
+
+                    <Column field="ultimaEjecucion" header="Última Ejecución" :sortable="true" style="min-width: 11rem">
+                        <template #body="{ data }">
+                            <span class="fecha-text">{{ formatFecha(data.ultimaEjecucion) }}</span>
+                        </template>
+                    </Column>
+
+                    <Column field="esActivo" header="Estado" :sortable="true" style="min-width: 8rem">
+                        <template #body="{ data }">
+                            <div class="toggle-cell">
+                                <ToggleSwitch
+                                    :modelValue="data.esActivo"
+                                    readonly
+                                />
+                                <span :class="['estado-label', data.esActivo ? 'activo' : 'inactivo']">
+                                    {{ data.esActivo ? 'Activo' : 'Inactivo' }}
+                                </span>
+                            </div>
+                        </template>
+                    </Column>
+
+                    <Column field="prioridad" header="Prioridad" :sortable="true" style="min-width: 7rem">
+                        <template #body="{ data }">
+                            <span :class="['prioridad-badge', `prioridad-${data.prioridad?.toLowerCase()}`]">
+                                <i :class="prioridadIcono(data.prioridad)" />
+                                {{ data.prioridad }}
+                            </span>
+                        </template>
+                    </Column>
+
+                    <Column field="enEjecucion" header="Ejecución" :sortable="true" style="min-width: 8rem">
+                        <template #body="{ data }">
+                            <span :class="['ejecucion-badge', data.enEjecucion ? 'running' : 'idle']">
+                                <i :class="data.enEjecucion ? 'pi pi-spin pi-spinner' : 'pi pi-pause-circle'" />
+                                {{ data.enEjecucion ? 'Corriendo' : 'En espera' }}
+                            </span>
+                        </template>
+                    </Column>
+
+                    <Column :exportable="false" style="min-width: 8rem" header="Acciones">
+                        <template #body="{ data }">
+                            <div class="action-buttons">
+                                <Button
+                                    icon="pi pi-pencil"
+                                    outlined
+                                    rounded
+                                    @click="editarSincItem(data)"
+                                    v-tooltip.top="'Editar'"
+                                    :disabled="!canWrite"
+                                />
+                                <Button
+                                    icon="pi pi-trash"
+                                    outlined
+                                    rounded
+                                    severity="danger"
+                                    @click="confirmarEliminarSinc(data)"
+                                    v-tooltip.top="'Eliminar'"
+                                    :disabled="!canWrite"
+                                />
+                            </div>
+                        </template>
+                    </Column>
+                </DataTable>
+
+                <!-- Cards en Mobile -->
+                <div class="block md:hidden">
+                    <div v-if="sincStore.isLoading && sincronizacionesDelGrupo.length === 0" class="loading-state">
+                        <i class="pi pi-spin pi-spinner" style="font-size: 2rem; color: var(--primary-color)" />
+                        <p>Cargando sincronizaciones...</p>
+                    </div>
+                    <div v-else-if="!sincStore.isLoading && sincronizacionesDelGrupo.length === 0" class="empty-state">
+                        <i class="pi pi-inbox" style="font-size: 2.5rem; color: var(--text-color-secondary)" />
+                        <p>No hay sincronizaciones</p>
+                    </div>
+                    <div v-else class="flex flex-col gap-4 relative">
+                        <div v-if="sincStore.isLoading" class="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-black/60 backdrop-blur-sm rounded-xl">
+                            <i class="pi pi-spin pi-spinner" style="font-size: 2.5rem; color: var(--primary-color)" />
+                        </div>
+
+                        <div v-for="data in sincMobilePagedConfiguraciones" :key="data.id" class="sinc-card">
+                            <div class="sinc-card-header">
+                                <div class="sinc-card-header-left">
+                                    <span class="font-semibold text-primary">{{ data.departamento }}</span>
+                                    <span class="id-badge">#{{ data.id }}</span>
+                                </div>
+                                <div class="toggle-cell">
+                                    <ToggleSwitch
+                                        :modelValue="data.esActivo"
+                                        readonly
+                                    />
+                                </div>
+                            </div>
+
+                            <div class="sinc-card-body">
+                                <div class="sinc-card-row">
+                                    <span class="sinc-label">Tipo Doc</span>
+                                    <span class="sinc-value">{{ data.tipoDocumento?.nombre || '-' }}</span>
+                                </div>
+                                <div class="sinc-card-row">
+                                    <span class="sinc-label">Intervalo</span>
+                                    <div class="interval-cell">
+                                        <i class="pi pi-clock interval-icon" />
+                                        <span>{{ data.intervaloMinutos }} min</span>
+                                    </div>
+                                </div>
+                                <div class="sinc-card-row">
+                                    <span class="sinc-label">Prioridad</span>
+                                    <span :class="['prioridad-badge', `prioridad-${data.prioridad?.toLowerCase()}`]">
+                                        <i :class="prioridadIcono(data.prioridad)" />
+                                        {{ data.prioridad }}
+                                    </span>
+                                </div>
+                                <div class="sinc-card-row">
+                                    <span class="sinc-label">Ejecución</span>
+                                    <span :class="['ejecucion-badge', data.enEjecucion ? 'running' : 'idle']">
+                                        <i :class="data.enEjecucion ? 'pi pi-spin pi-spinner' : 'pi pi-pause-circle'" />
+                                        {{ data.enEjecucion ? 'Corriendo' : 'En espera' }}
+                                    </span>
+                                </div>
+                                <div class="sinc-card-row">
+                                    <span class="sinc-label">Última Ejec.</span>
+                                    <span class="preorden-value">{{ formatFecha(data.ultimaEjecucion) }}</span>
+                                </div>
+                            </div>
+
+                            <div class="sinc-card-footer">
+                                <Button icon="pi pi-pencil" outlined rounded severity="info" size="small" @click="editarSincItem(data)" :disabled="!canWrite" />
+                                <Button icon="pi pi-trash" outlined rounded severity="danger" size="small" @click="confirmarEliminarSinc(data)" :disabled="!canWrite" />
+                            </div>
+                        </div>
+
+                        <!-- Paginación móvil de sincronizaciones -->
+                        <div v-if="sincMobileTotalPages > 1" class="flex justify-center items-center gap-3 mt-2">
+                            <Button icon="pi pi-chevron-left" outlined rounded size="small" :disabled="sincMobileCurrentPage === 0" @click="sincMobileCurrentPage--" />
+                            <span class="text-sm" style="color: var(--text-color-secondary)">
+                                Página {{ sincMobileCurrentPage + 1 }} de {{ sincMobileTotalPages }}
+                            </span>
+                            <Button icon="pi pi-chevron-right" outlined rounded size="small" :disabled="sincMobileCurrentPage >= sincMobileTotalPages - 1" @click="sincMobileCurrentPage++" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Cerrar" icon="pi pi-times" outlined @click="sincListDialog = false" />
+            </template>
+        </Dialog>
+
+        <!-- ── Dialog Crear / Editar Sincronización ─────────────────────────── -->
+        <Dialog
+            v-model:visible="sincConfigDialog"
+            :style="{ width: '520px' }"
+            :breakpoints="{ '1199px': '75vw', '575px': '92vw' }"
+            :header="selectedSinc.id ? 'Editar Sincronización' : 'Nueva Sincronización'"
+            :modal="true"
+            class="p-fluid sinc-dialog"
+            @hide="cerrarSincConfigDialog"
+        >
+            <div class="formgrid grid">
+                <!-- Departamento -->
+                <div class="field col-12">
+                    <label for="sinc-departamento">Departamento *</label>
+                    <Select
+                        id="sinc-departamento"
+                        v-model="selectedSinc.departamento"
+                        :options="departamentos"
+                        optionLabel="descripcion"
+                        placeholder="Selecciona un departamento..."
+                        :loading="isDepartamentosLoading"
+                        :filter="true"
+                        filterPlaceholder="Buscar departamento..."
+                        :invalid="sincSubmitted && !selectedSinc.departamento"
+                        class="w-full"
+                        autofocus
+                    />
+                    <small class="p-error" v-if="sincSubmitted && !selectedSinc.departamento">
+                        Debes seleccionar un departamento.
+                    </small>
+                </div>
+
+                <!-- Tipo Documento -->
+                <div class="field col-12">
+                    <label for="sinc-tipoDocumento">Tipo Documento *</label>
+                    <Select
+                        id="sinc-tipoDocumento"
+                        v-model="selectedSinc.tipoDocumento"
+                        :options="TIPOS_DOCUMENTO"
+                        optionLabel="nombre"
+                        dataKey="id"
+                        placeholder="Selecciona el tipo de documento..."
+                        :invalid="sincSubmitted && !selectedSinc.tipoDocumento"
+                        class="w-full"
+                    />
+                    <small class="p-error" v-if="sincSubmitted && !selectedSinc.tipoDocumento">
+                        Debes seleccionar un tipo de documento.
+                    </small>
+                </div>
+
+                <!-- Grupo de Sincronización (Solo lectura / Preseleccionado) -->
+                <div class="field col-12">
+                    <label for="sinc-grupo">Grupo de Sincronización</label>
+                    <InputText
+                        id="sinc-grupo"
+                        :value="selectedGroupForSincList?.nombre || 'Sin grupo'"
+                        readonly
+                        class="p-readonly"
+                        tabindex="-1"
+                    />
+                </div>
+
+                <!-- Intervalo -->
+                <div class="field col-12">
+                    <label for="sinc-intervalo">Intervalo de sincronización (minutos) *</label>
+                    <InputNumber
+                        id="sinc-intervalo"
+                        v-model="selectedSinc.intervaloMinutos"
+                        :min="1"
+                        :max="1440"
+                        showButtons
+                        suffix=" min"
+                        :invalid="sincSubmitted && (!selectedSinc.intervaloMinutos || selectedSinc.intervaloMinutos < 1)"
+                    />
+                    <small class="p-error" v-if="sincSubmitted && (!selectedSinc.intervaloMinutos || selectedSinc.intervaloMinutos < 1)">
+                        El intervalo debe ser mínimo 1 minuto.
+                    </small>
+                    <small class="field-hint">Rango permitido: 1 min – 1440 min (24 horas)</small>
+                </div>
+
+                <!-- Prioridad -->
+                <div class="field col-12">
+                    <label for="sinc-prioridad">Prioridad *</label>
+                    <Select
+                        id="sinc-prioridad"
+                        v-model="selectedSinc.prioridad"
+                        :options="PRIORIDADES"
+                        optionLabel="label"
+                        optionValue="value"
+                        placeholder="Selecciona la prioridad..."
+                        class="w-full"
+                    >
+                        <template #option="{ option }">
+                            <div class="prioridad-option">
+                                <i :class="prioridadIcono(option.value)" />
+                                <span>{{ option.label }}</span>
+                            </div>
+                        </template>
+                        <template #value="{ value }">
+                            <div v-if="value" class="prioridad-option">
+                                <i :class="prioridadIcono(value)" />
+                                <span>{{ PRIORIDADES.find(p => p.value === value)?.label ?? value }}</span>
+                            </div>
+                            <span v-else>Selecciona la prioridad...</span>
+                        </template>
+                    </Select>
+                </div>
+
+                <!-- Campos de auditoría (solo al editar) -->
+                <template v-if="selectedSinc.id">
+                    <div class="field col-12">
+                        <div class="readonly-divider">
+                            <span>Información de auditoría (solo lectura)</span>
+                        </div>
+                    </div>
+
+                    <div class="field col-12 md:col-6">
+                        <label>Fecha de Creación</label>
+                        <InputText
+                            :value="formatFecha(selectedSinc.fechaCreacion)"
+                            readonly
+                            class="p-readonly"
+                            tabindex="-1"
+                        />
+                    </div>
+
+                    <div class="field col-12 md:col-6">
+                        <label>Última Modificación</label>
+                        <InputText
+                            :value="formatFecha(selectedSinc.fechaModificacion)"
+                            readonly
+                            class="p-readonly"
+                            tabindex="-1"
+                        />
+                    </div>
+
+                    <div class="field col-12 md:col-6">
+                        <label>Última Ejecución</label>
+                        <InputText
+                            :value="formatFecha(selectedSinc.ultimaEjecucion)"
+                            readonly
+                            class="p-readonly"
+                            tabindex="-1"
+                        />
+                    </div>
+
+                    <div class="field col-12 md:col-6">
+                        <label>Usuario Modificación</label>
+                        <InputText
+                            :value="selectedSinc.usuarioModificacion || 'Sin registrar'"
+                            readonly
+                            class="p-readonly"
+                            tabindex="-1"
+                        />
+                    </div>
+                </template>
+            </div>
+
+            <template #footer>
+                <Button label="Cancelar" icon="pi pi-times" text @click="cerrarSincConfigDialog" />
+                <Button
+                    :label="selectedSinc.id ? 'Actualizar' : 'Guardar'"
+                    icon="pi pi-check"
+                    :loading="sincStore.isLoading"
+                    @click="guardarSinc"
+                    :disabled="!canWrite"
+                />
+            </template>
+        </Dialog>
+
+        <!-- ── Dialog Confirmar Eliminación Sincronización ──────────────────── -->
+        <Dialog
+            v-model:visible="sincDeleteDialog"
+            :style="{ width: '440px' }"
+            header="Confirmar eliminación"
+            :modal="true"
+        >
+            <div class="confirmation-content">
+                <i class="pi pi-exclamation-triangle" style="font-size: 2.5rem; color: var(--red-400)" />
+                <div class="confirmation-text">
+                    <p>
+                        ¿Estás seguro de que deseas eliminar la configuración del departamento
+                        <strong>{{ selectedSinc.departamento }}</strong>?
+                    </p>
+                    <small class="text-color-secondary">Esta acción no se puede deshacer.</small>
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Cancelar" icon="pi pi-times" text @click="sincDeleteDialog = false" />
+                <Button
+                    label="Eliminar"
+                    icon="pi pi-trash"
+                    severity="danger"
+                    :loading="sincStore.isLoading"
+                    @click="eliminarSinc"
                 />
             </template>
         </Dialog>
@@ -1196,5 +1931,92 @@ onMounted(() => {
         color: var(--text-color-secondary);
         border: 1px solid var(--surface-300);
     }
+}
+
+/* ── Estilos Agregados para Sincronizaciones ───────────────────────────────── */
+.dept-info {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.dept-avatar {
+    background: var(--primary-color) !important;
+    color: white !important;
+    font-weight: 700;
+    width: 2rem !important;
+    height: 2rem !important;
+    font-size: 0.85rem !important;
+    flex-shrink: 0;
+}
+
+.interval-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--text-color);
+}
+
+.interval-icon {
+    color: var(--primary-color);
+    font-size: 0.9rem;
+}
+
+.prioridad-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.28rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+
+    &.prioridad-alta {
+        background: color-mix(in srgb, var(--red-500) 12%, transparent);
+        color: var(--red-500);
+        border: 1px solid color-mix(in srgb, var(--red-500) 30%, transparent);
+    }
+
+    &.prioridad-media {
+        background: color-mix(in srgb, var(--orange-400) 12%, transparent);
+        color: var(--orange-500);
+        border: 1px solid color-mix(in srgb, var(--orange-400) 30%, transparent);
+    }
+
+    &.prioridad-baja {
+        background: color-mix(in srgb, var(--blue-400) 12%, transparent);
+        color: var(--blue-500);
+        border: 1px solid color-mix(in srgb, var(--blue-400) 30%, transparent);
+    }
+}
+
+.ejecucion-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.28rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+
+    &.running {
+        background: color-mix(in srgb, var(--green-500) 14%, transparent);
+        color: var(--green-600);
+        border: 1px solid color-mix(in srgb, var(--green-500) 30%, transparent);
+    }
+
+    &.idle {
+        background: var(--surface-100);
+        color: var(--text-color-secondary);
+        border: 1px solid var(--surface-200);
+    }
+}
+
+.prioridad-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 </style>

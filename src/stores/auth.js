@@ -142,8 +142,8 @@ export const useAuthStore = defineStore('auth', () => {
         try {
             const data = await getMenu();
             menu.value = data || [];
-            role.value = data.role || null;
-            permissions.value = data.permissions || [];
+            role.value = user.value?.role || null;
+            permissions.value = data || [];
             
             // Guardar en localStorage para persistencia
             localStorage.setItem('menu', JSON.stringify(menu.value));

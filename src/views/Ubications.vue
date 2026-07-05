@@ -11,6 +11,11 @@ const confirm = useConfirm();
 const store = useUbicationsStore();
 const authStore = useAuthStore();
 
+const canWrite = computed(() => {
+    const perm = authStore.permissions.find(p => p.code === 'ubicaciones');
+    return perm ? !perm.isReadonly : false;
+});
+
 // ─── Filtros ────────────────────────────────────────────────────────────────
 const filtroCodigo = ref('');
 const filtroUbicacion = ref('');
@@ -408,6 +413,7 @@ onUnmounted(detenerCamara);
                     icon="pi pi-plus"
                     class="btn-nueva hidden md:flex"
                     @click="abrirCrear"
+                    :disabled="!canWrite"
                 />
             </div>
 
@@ -456,6 +462,7 @@ onUnmounted(detenerCamara);
                             class="flex-1 md:hidden"
                             v-tooltip.top="'Nueva ubicación'"
                             @click="abrirCrear"
+                            :disabled="!canWrite"
                         />
                     </div>
                 </template>
@@ -594,6 +601,7 @@ onUnmounted(detenerCamara);
                                 severity="info"
                                 v-tooltip.top="'Editar'"
                                 @click="abrirEditar(data)"
+                                :disabled="!canWrite"
                             />
                             <Button
                                 icon="pi pi-trash"
@@ -602,6 +610,7 @@ onUnmounted(detenerCamara);
                                 severity="danger"
                                 v-tooltip.top="'Eliminar'"
                                 @click="confirmarEliminar(data)"
+                                :disabled="!canWrite"
                             />
                         </div>
                     </template>
@@ -657,8 +666,8 @@ onUnmounted(detenerCamara);
                         </div>
 
                         <div class="flex justify-end gap-2 pt-3 border-t border-surface-200 dark:border-surface-700">
-                            <Button icon="pi pi-pencil" outlined rounded severity="info" v-tooltip.top="'Editar'" @click="abrirEditar(data)" />
-                            <Button icon="pi pi-trash" outlined rounded severity="danger" v-tooltip.top="'Eliminar'" @click="confirmarEliminar(data)" />
+                            <Button icon="pi pi-pencil" outlined rounded severity="info" v-tooltip.top="'Editar'" @click="abrirEditar(data)" :disabled="!canWrite" />
+                            <Button icon="pi pi-trash" outlined rounded severity="danger" v-tooltip.top="'Eliminar'" @click="confirmarEliminar(data)" :disabled="!canWrite" />
                         </div>
                     </div>
 
@@ -830,7 +839,7 @@ onUnmounted(detenerCamara);
                         <i class="pi pi-power-off" /> Estado
                     </label>
                     <div class="flex items-center gap-3">
-                        <ToggleSwitch v-model="form.activo" inputId="activo-switch" />
+                        <ToggleSwitch v-model="form.activo" inputId="activo-switch" :disabled="!canWrite" />
                         <label for="activo-switch" class="cursor-pointer select-none text-sm font-medium">
                             {{ form.activo ? 'Activo' : 'Inactivo' }}
                         </label>
@@ -852,6 +861,7 @@ onUnmounted(detenerCamara);
                     :icon="isEditing ? 'pi pi-check' : 'pi pi-plus'"
                     :loading="saving"
                     @click="guardar"
+                    :disabled="!canWrite"
                 />
             </template>
         </Dialog>

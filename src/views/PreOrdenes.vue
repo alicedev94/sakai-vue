@@ -16,6 +16,11 @@ const confirm = useConfirm();
 const store = usePreOrdenStore();
 const authStore = useAuthStore();
 
+const canWrite = computed(() => {
+    const perm = authStore.permissions.find(p => p.code === 'preorden');
+    return perm ? !perm.isReadonly : false;
+});
+
 const searchQuery = ref('');
 const filtroFecha = ref(new Date());
 const filters = ref({ global: { value: null, matchMode: FilterMatchMode.CONTAINS } });
@@ -458,7 +463,19 @@ async function agregarProducto() {
 }
 
 function removerProducto(index) {
-    newPreOrden.value.items.splice(index, 1);
+    const item = newPreOrden.value.items[index];
+    confirm.require({
+        message: `¿Estás seguro de que deseas quitar "${item.nombreProducto}" de la lista?`,
+        header: 'Quitar Producto',
+        icon: 'pi pi-exclamation-triangle',
+        acceptClass: 'p-button-danger',
+        acceptLabel: 'Quitar',
+        rejectLabel: 'Cancelar',
+        accept: () => {
+            newPreOrden.value.items.splice(index, 1);
+            toast.add({ severity: 'info', summary: 'Quitado', detail: 'Producto quitado de la lista', life: 2000 });
+        }
+    });
 }
 
 /** Busca el código escaneado en cualquiera de los 7 campos de barra */
@@ -811,13 +828,13 @@ const exportarPDF = () => {
                 <template #start>
                     <!-- Desktop: botones de acción -->
                     <div class="hidden md:flex gap-2">
-                        <Button label="Nueva PreOrden" icon="pi pi-plus" severity="primary" @click="openCreateDialog" />
+                        <Button label="Nueva PreOrden" icon="pi pi-plus" severity="primary" @click="openCreateDialog" :disabled="!canWrite" />
                         <Button icon="pi pi-refresh" severity="secondary" outlined v-tooltip.top="'Actualizar'" :loading="store.isLoading" @click="cargarDatos" />
                         <Button icon="pi pi-filter-slash" severity="secondary" outlined v-tooltip.top="'Limpiar filtros'" @click="() => { clearFilters(); resetMobilePage(); }" />
                     </div>
                     <!-- Mobile: botón Nueva PreOrden -->
                     <div class="block md:hidden w-full">
-                        <Button label="Nueva PreOrden" icon="pi pi-plus" severity="primary" class="w-full" @click="openCreateDialog" />
+                        <Button label="Nueva PreOrden" icon="pi pi-plus" severity="primary" class="w-full" @click="openCreateDialog" :disabled="!canWrite" />
                     </div>
                 </template>
                 <template #end>
@@ -970,6 +987,7 @@ const exportarPDF = () => {
                                 severity="info"
                                 v-tooltip.top="'Editar'"
                                 @click="abrirEditar(data)"
+                                :disabled="!canWrite"
                             />
                             <Button
                                 v-if="data.estado === 'PENDIENTE'"
@@ -979,6 +997,7 @@ const exportarPDF = () => {
                                 severity="success"
                                 v-tooltip.top="'Aprobar (Convertir a Orden)'"
                                 @click="confirmarAprobar(data)"
+                                :disabled="!canWrite"
                             />
                             <Button
                                 v-if="data.estado === 'PENDIENTE'"
@@ -988,6 +1007,7 @@ const exportarPDF = () => {
                                 severity="danger"
                                 v-tooltip.top="'Eliminar'"
                                 @click="confirmarEliminar(data)"
+                                :disabled="!canWrite"
                             />
 
                         </div>
@@ -1060,9 +1080,9 @@ const exportarPDF = () => {
                         <!-- Footer acciones -->
                         <div class="preorden-card-footer">
                             <Button icon="pi pi-eye" outlined rounded severity="secondary" size="small" v-tooltip.top="'Ver detalle'" @click="verDetalle(data)" />
-                            <Button v-if="data.estado !== 'LISTA' && data.estado !== 'EN_PROCESO'" icon="pi pi-pencil" outlined rounded severity="info" size="small" v-tooltip.top="'Editar'" @click="abrirEditar(data)" />
-                            <Button v-if="data.estado === 'PENDIENTE'" icon="pi pi-check" outlined rounded severity="success" size="small" v-tooltip.top="'Aprobar'" @click="confirmarAprobar(data)" />
-                            <Button v-if="data.estado === 'PENDIENTE'" icon="pi pi-trash" outlined rounded severity="danger" size="small" v-tooltip.top="'Eliminar'" @click="confirmarEliminar(data)" />
+                            <Button v-if="data.estado !== 'LISTA' && data.estado !== 'EN_PROCESO'" icon="pi pi-pencil" outlined rounded severity="info" size="small" v-tooltip.top="'Editar'" @click="abrirEditar(data)" :disabled="!canWrite" />
+                            <Button v-if="data.estado === 'PENDIENTE'" icon="pi pi-check" outlined rounded severity="success" size="small" v-tooltip.top="'Aprobar'" @click="confirmarAprobar(data)" :disabled="!canWrite" />
+                            <Button v-if="data.estado === 'PENDIENTE'" icon="pi pi-trash" outlined rounded severity="danger" size="small" v-tooltip.top="'Eliminar'" @click="confirmarEliminar(data)" :disabled="!canWrite" />
                         </div>
                     </div>
 
@@ -1138,7 +1158,7 @@ const exportarPDF = () => {
                 <Divider />
                 <p class="items-title"><i class="pi pi-list" /> Productos de la PreOrden</p>
 
-                <DataTable :value="preOrdenSeleccionada.items" :rows="10" :paginator="preOrdenSeleccionada.items?.length > 10" size="small" stripedRows>
+                <DataTable class="hidden md:block" :value="preOrdenSeleccionada.items" :rows="10" :paginator="preOrdenSeleccionada.items?.length > 10" size="small" stripedRows>
                     <Column field="codigoBarra" header="Código" />
                     <Column field="nombreProducto" header="Producto" />
                     <Column field="atributo" header="Atributo" />
@@ -1178,6 +1198,57 @@ const exportarPDF = () => {
                         </template>
                     </Column>
                 </DataTable>
+
+                <!-- Mobile cards display instead of table -->
+                <div class="block md:hidden mt-4">
+                    <div v-if="!preOrdenSeleccionada.items || preOrdenSeleccionada.items.length === 0" class="text-center p-3 text-secondary text-sm">
+                        No hay productos en esta PreOrden
+                    </div>
+                    <div v-else class="flex flex-col gap-3" style="max-height: 400px; overflow-y: auto;">
+                        <div v-for="(item, index) in preOrdenSeleccionada.items" :key="index" class="product-mobile-card flex flex-col gap-2">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="font-bold text-base" style="word-break: break-word; color: var(--text-color);">{{ item.nombreProducto }}</div>
+                                    <div class="text-sm text-secondary mt-1">Cód: {{ item.codigoBarra }}</div>
+                                </div>
+                                <span :class="['item-estado text-sm', itemEstadoConfig[item.estadoItem]?.class]">
+                                    <i :class="itemEstadoConfig[item.estadoItem]?.icon" />
+                                    {{ itemEstadoConfig[item.estadoItem]?.label }}
+                                </span>
+                            </div>
+                            
+                            <div class="grid p-fluid gap-2 mt-1">
+                                <div class="col-6 mb-0">
+                                    <span class="text-sm font-semibold text-secondary">Atributo:</span>
+                                    <div class="text-base font-semibold" style="color: var(--text-color);">{{ item.atributo || '—' }}</div>
+                                </div>
+                                <div class="col-6 mb-0">
+                                    <span class="text-sm font-semibold text-secondary">Cantidad:</span>
+                                    <div class="text-base font-semibold" style="color: var(--text-color);">{{ item.cantidad }}</div>
+                                </div>
+                            </div>
+
+                            <div class="text-sm text-secondary mt-1 flex flex-col gap-1 border-t border-surface-200 dark:border-surface-700 pt-2">
+                                <div>
+                                    <span class="font-semibold">Dpto:</span>
+                                    <span class="ml-1">{{ item.departamento || '—' }}</span>
+                                </div>
+                                <div>
+                                    <span class="font-semibold">Ubicación:</span>
+                                    <span v-if="item.ubicaciones && item.ubicaciones.length > 0" class="ml-1">
+                                        {{ item.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ') }}
+                                    </span>
+                                    <span v-else class="ml-1 italic">Sin ubicación</span>
+                                </div>
+                                <div class="flex gap-4">
+                                    <span><strong>Piso:</strong> {{ item.r3Piso ?? '-' }}</span>
+                                    <span><strong>Almacén:</strong> {{ item.r3Almacen ?? '-' }}</span>
+                                    <span><strong>Cedis:</strong> {{ item.cedis ?? '-' }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <template #footer>
@@ -1190,7 +1261,7 @@ const exportarPDF = () => {
         <Dialog
             v-model:visible="createDialog"
             :style="{ width: '800px' }"
-            :breakpoints="{ '1199px': '85vw', '575px': '92vw' }"
+            :breakpoints="{ '1199px': '85vw', '575px': '96vw' }"
             :header="isEditing ? 'Editar PreOrden' : 'Crear Nueva PreOrden'"
             :modal="true"
         >
@@ -1333,7 +1404,7 @@ const exportarPDF = () => {
                     </div>
 
                     <DataTable 
-                        class="mt-4"
+                        class="hidden md:block mt-4"
                         :value="newPreOrden.items" 
                         :rows="5" 
                         :paginator="newPreOrden.items.length > 5" 
@@ -1405,12 +1476,66 @@ const exportarPDF = () => {
                             </template>
                         </Column>
                     </DataTable>
+
+                    <!-- Mobile cards display instead of table -->
+                    <div class="block md:hidden mt-4">
+                        <div v-if="newPreOrden.items.length === 0" class="text-center p-3 text-secondary text-sm">
+                            No se han agregado productos
+                        </div>
+                        <div v-else class="flex flex-col gap-3" style="max-height: 400px; overflow-y: auto;">
+                            <div v-for="(item, index) in newPreOrden.items" :key="index" class="product-mobile-card flex flex-col gap-3">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <div class="font-bold text-base" style="word-break: break-word; color: var(--text-color);">{{ item.nombreProducto }}</div>
+                                        <div class="text-sm text-secondary mt-1">Cód: {{ item.codigoBarra }}</div>
+                                    </div>
+                                    <Button icon="pi pi-trash" severity="danger" text rounded aria-label="Eliminar" @click="removerProducto(index)" />
+                                </div>
+                                
+                                <div class="grid p-fluid gap-2 mt-1">
+                                    <div class="col-6 mb-0">
+                                        <label class="text-sm font-semibold">Atributo</label>
+                                        <InputText
+                                            v-model="item.atributo"
+                                            placeholder="Color, talla..."
+                                            class="w-full mt-1 p-inputtext-sm"
+                                        />
+                                    </div>
+                                    <div class="col-6 mb-0">
+                                        <label class="text-sm font-semibold">Cantidad</label>
+                                        <InputNumber
+                                            v-model="item.cantidad"
+                                            :min="1"
+                                            showButtons
+                                            class="w-full mt-1 p-inputnumber-sm"
+                                            inputClass="text-center"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div class="text-sm text-secondary mt-1 flex flex-col gap-1 border-t border-surface-200 dark:border-surface-700 pt-2">
+                                    <div>
+                                        <span class="font-semibold">Ubicación:</span>
+                                        <span v-if="item.ubicaciones && item.ubicaciones.length > 0" class="ml-1">
+                                            {{ item.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ') }}
+                                        </span>
+                                        <span v-else class="ml-1 italic">Sin ubicación</span>
+                                    </div>
+                                    <div class="flex gap-4">
+                                        <span><strong>Piso:</strong> {{ item.r3Piso ?? '-' }}</span>
+                                        <span><strong>Almacén:</strong> {{ item.r3Almacen ?? '-' }}</span>
+                                        <span><strong>Cedis:</strong> {{ item.cedis ?? '-' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <template #footer>
                 <!-- <Button label="Cancelar" icon="pi pi-times" text @click="createDialog = false" :disabled="creando" /> -->
-                <Button label="Guardar" icon="pi pi-save" @click="guardarPreOrden" :loading="creando" />
+                <Button label="Guardar" icon="pi pi-save" @click="guardarPreOrden" :loading="creando" :disabled="!canWrite" />
             </template>
         </Dialog>
         <ConfirmDialog />
@@ -2084,5 +2209,14 @@ const exportarPDF = () => {
 
 .product-item-content {
     width: 100%;
+}
+
+.product-mobile-card {
+    background: var(--surface-50);
+    border: 1px solid var(--surface-300);
+    border-left: 4px solid var(--primary-color);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 </style>
