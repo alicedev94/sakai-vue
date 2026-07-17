@@ -172,12 +172,15 @@ const itemEstadoConfig = {
     NO_SURTIDO: { label: 'No Surtido', class: 'no-surtido', icon: 'pi pi-times' }
 };
 
-const getEfectividadColor = (valor) => {
-    if (valor >= 100) return 'text-green-600 font-bold';
-    if (valor >= 80) return 'text-blue-600 font-bold';
-    if (valor >= 50) return 'text-orange-500 font-bold';
-    return 'text-red-600 font-bold';
+const getEfectividadNivel = (p) => {
+    if (p == null || isNaN(p) || p <= 0) return { nivel: 'vacio',  label: 'Sin surtir',   class: 'efect-vacia'    };
+    if (p >= 95)                   return { nivel: 'alta',  label: 'Excelente',   class: 'efect-alta'    };
+    if (p >= 80)                   return { nivel: 'buena', label: 'Buena',       class: 'efect-buena'   };
+    if (p >= 50)                   return { nivel: 'media', label: 'Aceptable',   class: 'efect-media'   };
+    return                                   { nivel: 'baja', label: 'Baja',       class: 'efect-baja'    };
 };
+
+const getEfectividadColor = (p) => getEfectividadNivel(p).class;
 
 const formatDateForApi = (dateStr) => {
     if (!dateStr) return null;
@@ -1097,6 +1100,13 @@ const finalizarOrden = async () => {
                             <i :class="estadoConfig[ordenSeleccionada.estado]?.icon" />
                             {{ estadoConfig[ordenSeleccionada.estado]?.label }}
                         </span>
+                        <span
+                            :class="['efect-pill', getEfectividadColor(progresoOrden(ordenSeleccionada))]"
+                            v-tooltip.top="'Efectividad: ' + getEfectividadNivel(progresoOrden(ordenSeleccionada)).label"
+                            style="margin-left: 0.5rem;"
+                        >
+                            {{ progresoOrden(ordenSeleccionada) }}% efectivo
+                        </span>
                     </div>
                     <span class="scan-progress-label">
                         {{ ordenSeleccionada.items?.filter(i => (i.cantidadSurtida || 0) >= (i.cantidad || 0)).length || 0 }}/{{ ordenSeleccionada.items?.length || 0 }} renglones con
@@ -1430,8 +1440,9 @@ const finalizarOrden = async () => {
                     </div>
                     <div class="detail-field">
                         <label>Efectividad de Surtido</label>
-                        <span :class="getEfectividadColor(progresoOrden(ordenSeleccionada))">
+                        <span :class="['efect-pill', getEfectividadColor(progresoOrden(ordenSeleccionada))]">
                             {{ progresoOrden(ordenSeleccionada) }}%
+                            <small>{{ getEfectividadNivel(progresoOrden(ordenSeleccionada)).label }}</small>
                         </span>
                     </div>
                     <div class="detail-field">
@@ -2466,4 +2477,29 @@ const finalizarOrden = async () => {
 .audit-opt.selected.opt-danger  { border-color: #dc2626; background: #fef2f2; }
 .audit-opt.selected.opt-info    { border-color: #2563eb; background: #eff6ff; }
 .audit-textarea { width: 100%; }
+
+/* --- Pill de efectividad de surtido (detalle + surtido header) --- */
+.efect-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+}
+.efect-pill small {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    opacity: 0.85;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+.efect-pill.efect-vacia { background: #f3f4f6; color: #6b7280; }
+.efect-pill.efect-alta  { background: #dcfce7; color: #166534; }
+.efect-pill.efect-buena { background: #ecfeff; color: #155e75; }
+.efect-pill.efect-media { background: #fef3c7; color: #92400e; }
+.efect-pill.efect-baja  { background: #fee2e2; color: #991b1b; }
 </style>
