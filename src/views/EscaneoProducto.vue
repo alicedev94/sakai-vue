@@ -152,39 +152,34 @@ onBeforeUnmount(async () => {
 
         <section class="escaneo-card">
             <div class="escaneo-header">
-                <h2 class="escaneo-title">📦 Escaneo de producto</h2>
-                <Button icon="pi pi-sign-out" severity="secondary" text rounded aria-label="Cerrar sesión" @click="logout" />
+                <h2 class="escaneo-title">Escaneo de producto</h2>
+                <Button label="Cerrar sesión" severity="secondary" text @click="logout" />
             </div>
 
             <div class="escaneo-search">
-                <IconField iconPosition="left" class="flex-1">
-                    <InputIcon class="pi pi-search" />
-                    <InputText
-                        v-model="code"
-                        placeholder="Escanea o escribe el código de barras (o código maestro) y presiona Enter"
-                        class="w-full"
-                        @keydown.enter="buscar"
-                    />
-                </IconField>
-                <Button label="Buscar" icon="pi pi-search" @click="buscar" />
-                <Button :label="qrVisible ? 'Detener' : '📷 Escanear'" :severity="qrVisible ? 'danger' : 'secondary'" @click="toggleScanner" />
+                <InputText
+                    v-model="code"
+                    placeholder="Escanea o escribe el código de barras (o código maestro) y presiona Enter"
+                    class="escaneo-input"
+                    @keydown.enter="buscar"
+                />
+                <Button label="Buscar" @click="buscar" />
+                <Button :label="qrVisible ? 'Detener cámara' : 'Escanear'" :severity="qrVisible ? 'danger' : 'secondary'" @click="toggleScanner" />
             </div>
 
             <div v-show="qrVisible" id="escaneo-qr-host" class="escaneo-qr-host" />
 
-            <p class="escaneo-hint">
-                <i class="pi pi-info-circle" /> El token se reutiliza del login del SPA.
-            </p>
+            <p class="escaneo-hint">El token se reutiliza del login del SPA.</p>
         </section>
 
-        <section v-if="loading" class="escaneo-card">
+        <section v-if="loading" class="escaneo-card escaneo-loading">
             <ProgressSpinner style="width: 50px; height: 50px" strokeWidth="4" />
             <p style="margin-top: 1rem">Buscando <code>{{ code }}</code>…</p>
         </section>
 
         <section v-else-if="product" class="escaneo-card">
             <div class="escaneo-product-header">
-                <div>
+                <div class="escaneo-product-info">
                     <h3 class="escaneo-product-title">{{ product.descripcion || '(sin descripción)' }}</h3>
                     <div class="escaneo-product-meta">
                         <span><strong>Código:</strong> <code>{{ product.codigo || '—' }}</code></span>
@@ -193,8 +188,8 @@ onBeforeUnmount(async () => {
                         </span>
                     </div>
                 </div>
-                <div class="escaneo-price">
-                    <div v-if="product.enOferta && product.precioOferta && product.precio1">
+                <div class="escaneo-price-block">
+                    <div v-if="product.enOferta && product.precioOferta && product.precio1" class="escaneo-price-offer-wrap">
                         <div class="escaneo-price-old"><s>{{ fmtMoney(product.precio1) }}</s></div>
                         <div class="escaneo-price-offer">
                             {{ fmtMoney(product.precioOferta) }}
@@ -219,38 +214,19 @@ onBeforeUnmount(async () => {
                 v-else
                 :value="tiendas"
                 class="escaneo-tiendas"
-                striped-rows
-                scrollable
-                scroll-height="400px"
             >
-                <Column field="departamento" header="Tienda / Departamento" />
-                <Column field="piso" header="Piso" :body-style="{ textAlign: 'right' }">
-                    <template #body="{ data }">
-                        <span :class="{ 'escaneo-zero': (data.total || 0) === 0 }">{{ fmt(data.piso) }}</span>
-                    </template>
-                </Column>
-                <Column field="almacen" header="Almacén" :body-style="{ textAlign: 'right' }">
-                    <template #body="{ data }">
-                        <span :class="{ 'escaneo-zero': (data.total || 0) === 0 }">{{ fmt(data.almacen) }}</span>
-                    </template>
-                </Column>
-                <Column field="cedis" header="CEDIS" :body-style="{ textAlign: 'right' }">
-                    <template #body="{ data }">
-                        <span :class="{ 'escaneo-zero': (data.total || 0) === 0 }">{{ fmt(data.cedis) }}</span>
-                    </template>
-                </Column>
-                <Column field="total" header="Total" :body-style="{ textAlign: 'right', fontWeight: '700' }">
-                    <template #body="{ data }">
-                        {{ fmt(data.total) }}
-                    </template>
-                </Column>
+                <Column field="departamento" header="Tienda" :header-style="{ textAlign: 'left', background: '#f9fafb' }"></Column>
+                <Column field="piso"      header="Piso"     :header-style="{ textAlign: 'right', background: '#f9fafb' }" :body-style="{ textAlign: 'right' }"></Column>
+                <Column field="almacen"   header="Almacén"  :header-style="{ textAlign: 'right', background: '#f9fafb' }" :body-style="{ textAlign: 'right' }"></Column>
+                <Column field="cedis"     header="Cedis"    :header-style="{ textAlign: 'right', background: '#f9fafb' }" :body-style="{ textAlign: 'right' }"></Column>
+                <Column field="total"     header="Total"    :header-style="{ textAlign: 'right', background: '#f9fafb', fontWeight: '700' }" :body-style="{ textAlign: 'right', fontWeight: '700' }"></Column>
                 <ColumnGroup type="footer">
                     <Row>
-                        <Column :footer="totalLabel" />
-                        <Column :footer="fmt(totales.piso)" :footerStyle="{ textAlign: 'right' }" />
-                        <Column :footer="fmt(totales.almacen)" :footerStyle="{ textAlign: 'right' }" />
-                        <Column :footer="fmt(totales.cedis)" :footerStyle="{ textAlign: 'right' }" />
-                        <Column :footer="fmt(totales.total)" :footerStyle="{ textAlign: 'right', fontWeight: '700' }" />
+                        <Column :footer="totalLabel" :footer-style="{ textAlign: 'left', fontWeight: '700' }" />
+                        <Column :footer="fmt(totales.piso)"      :footer-style="{ textAlign: 'right' }" />
+                        <Column :footer="fmt(totales.almacen)"   :footer-style="{ textAlign: 'right' }" />
+                        <Column :footer="fmt(totales.cedis)"     :footer-style="{ textAlign: 'right' }" />
+                        <Column :footer="fmt(totales.total)"     :footer-style="{ textAlign: 'right', fontWeight: '700' }" />
                     </Row>
                 </ColumnGroup>
             </DataTable>
@@ -287,6 +263,9 @@ onBeforeUnmount(async () => {
     margin-bottom: 0.75rem;
     align-items: center;
 }
+.escaneo-search :deep(.escaneo-input) {
+    flex: 1;
+}
 .escaneo-qr-host {
     max-width: 420px;
     margin: 0.75rem 0;
@@ -299,12 +278,24 @@ onBeforeUnmount(async () => {
     font-size: 0.8125rem;
     margin: 0;
 }
+.escaneo-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
 .escaneo-product-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 1rem;
+    gap: 1.5rem;
     flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+}
+.escaneo-product-info {
+    flex: 1 1 360px;
+    min-width: 0;
 }
 .escaneo-product-title {
     margin: 0 0 0.5rem 0;
@@ -313,7 +304,7 @@ onBeforeUnmount(async () => {
 }
 .escaneo-product-meta {
     display: flex;
-    gap: 1rem;
+    gap: 1.25rem;
     color: var(--text-muted-color, #6b7280);
     font-size: 0.8125rem;
     flex-wrap: wrap;
@@ -324,29 +315,37 @@ onBeforeUnmount(async () => {
     border-radius: 4px;
     font-size: 0.75rem;
 }
-.escaneo-price {
+.escaneo-price-block {
+    flex: 0 0 auto;
     text-align: right;
+    min-width: 180px;
+}
+.escaneo-price-offer-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
 }
 .escaneo-price-old {
     color: var(--text-muted-color, #6b7280);
+    font-size: 0.95rem;
 }
 .escaneo-price-offer {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     color: var(--green-600, #16a34a);
     font-weight: 700;
     font-size: 1.5rem;
     background: var(--green-50, #ecfdf5);
     padding: 6px 12px;
     border-radius: 6px;
-    display: inline-block;
-    margin-top: 4px;
 }
 .escaneo-price-main {
     font-size: 1.5rem;
     font-weight: 700;
 }
 .escaneo-badge {
-    display: inline-block;
-    margin-left: 6px;
     padding: 3px 10px;
     border-radius: 999px;
     font-size: 0.6875rem;
@@ -356,21 +355,72 @@ onBeforeUnmount(async () => {
     color: var(--green-700, #15803d);
 }
 .escaneo-section-title {
-    margin: 1rem 0 0.5rem;
+    margin: 1rem 0 0.75rem;
     font-size: 1.0625rem;
+    font-weight: 700;
 }
-.escaneo-zero {
-    color: var(--surface-300, #d1d5db);
+/* DataTable clean look: sin striped, sin scroll, padding uniforme */
+.escaneo-tiendas :deep(.p-datatable-table) {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
 }
+.escaneo-tiendas :deep(.p-datatable-thead > tr > th) {
+    text-transform: none;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+.escaneo-tiendas :deep(.p-datatable-tbody > tr > td) {
+    padding: 12px 16px;
+    font-size: 0.875rem;
+    vertical-align: middle;
+    border-bottom: 1px solid #f3f4f6;
+}
+.escaneo-tiendas :deep(.p-datatable-tfoot > tr > td) {
+    padding: 14px 16px;
+    font-size: 0.875rem;
+    background: #f9fafb;
+    border-top: 2px solid #e5e7eb;
+}
+.escaneo-tiendas :deep(.p-datatable-tbody > tr:last-child > td) {
+    border-bottom: none;
+}
+/* Anchos fijos por columna para que no haya wrapping raro */
+.escaneo-tiendas :deep(.p-datatable-tbody > tr > td:nth-child(1)),
+.escaneo-tiendas :deep(.p-datatable-thead > tr > th:nth-child(1)) {
+    width: 50%;
+    text-align: left;
+}
+.escaneo-tiendas :deep(.p-datatable-thead > tr > th:nth-child(2)),
+.escaneo-tiendas :deep(.p-datatable-thead > tr > th:nth-child(3)),
+.escaneo-tiendas :deep(.p-datatable-thead > tr > th:nth-child(4)),
+.escaneo-tiendas :deep(.p-datatable-thead > tr > th:nth-child(5)),
+.escaneo-tiendas :deep(.p-datatable-tbody > tr > td:nth-child(2)),
+.escaneo-tiendas :deep(.p-datatable-tbody > tr > td:nth-child(3)),
+.escaneo-tiendas :deep(.p-datatable-tbody > tr > td:nth-child(4)),
+.escaneo-tiendas :deep(.p-datatable-tbody > tr > td:nth-child(5)) {
+    width: 12.5%;
+    text-align: right;
+}
+
 @media (max-width: 640px) {
     .escaneo-search {
         flex-wrap: wrap;
     }
+    .escaneo-search :deep(.escaneo-input) {
+        flex: 1 0 100%;
+    }
     .escaneo-product-header {
         flex-direction: column;
     }
-    .escaneo-price {
+    .escaneo-price-block {
         text-align: left;
+        width: 100%;
+    }
+    .escaneo-tiendas :deep(.p-datatable-tbody > tr > td:nth-child(1)),
+    .escaneo-tiendas :deep(.p-datatable-thead > tr > th:nth-child(1)) {
         width: 100%;
     }
 }
