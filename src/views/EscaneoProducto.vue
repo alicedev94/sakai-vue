@@ -360,8 +360,12 @@ onBeforeUnmount(async () => {
     font-weight: 700;
 }
 /* DataTable clean look: sin striped, sin scroll, padding uniforme */
+.escaneo-tiendas :deep(.p-datatable-wrapper) {
+    overflow-x: auto;
+}
 .escaneo-tiendas :deep(.p-datatable-table) {
     width: 100%;
+    min-width: 680px;
     table-layout: fixed;
     border-collapse: collapse;
 }
@@ -371,18 +375,24 @@ onBeforeUnmount(async () => {
     font-weight: 700;
     padding: 12px 16px;
     border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
+    white-space: nowrap;
 }
 .escaneo-tiendas :deep(.p-datatable-tbody > tr > td) {
     padding: 12px 16px;
     font-size: 0.875rem;
     vertical-align: middle;
     border-bottom: 1px solid #f3f4f6;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .escaneo-tiendas :deep(.p-datatable-tfoot > tr > td) {
     padding: 14px 16px;
     font-size: 0.875rem;
     background: #f9fafb;
     border-top: 2px solid #e5e7eb;
+    white-space: nowrap;
 }
 .escaneo-tiendas :deep(.p-datatable-tbody > tr:last-child > td) {
     border-bottom: none;
@@ -390,7 +400,7 @@ onBeforeUnmount(async () => {
 /* Anchos fijos por columna para que no haya wrapping raro */
 .escaneo-tiendas :deep(.p-datatable-tbody > tr > td:nth-child(1)),
 .escaneo-tiendas :deep(.p-datatable-thead > tr > th:nth-child(1)) {
-    width: 50%;
+    width: 52%;
     text-align: left;
 }
 .escaneo-tiendas :deep(.p-datatable-thead > tr > th:nth-child(2)),
@@ -401,11 +411,11 @@ onBeforeUnmount(async () => {
 .escaneo-tiendas :deep(.p-datatable-tbody > tr > td:nth-child(3)),
 .escaneo-tiendas :deep(.p-datatable-tbody > tr > td:nth-child(4)),
 .escaneo-tiendas :deep(.p-datatable-tbody > tr > td:nth-child(5)) {
-    width: 12.5%;
+    width: 12%;
     text-align: right;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 760px) {
     .escaneo-search {
         flex-wrap: wrap;
     }
@@ -419,9 +429,8 @@ onBeforeUnmount(async () => {
         text-align: left;
         width: 100%;
     }
-    .escaneo-tiendas :deep(.p-datatable-tbody > tr > td:nth-child(1)),
-    .escaneo-tiendas :deep(.p-datatable-thead > tr > th:nth-child(1)) {
-        width: 100%;
+    .escaneo-tiendas :deep(.p-datatable-table) {
+        min-width: 560px;
     }
 }
 </style>
