@@ -1,6 +1,7 @@
 <script setup>
 import { useAuthStore } from '@/stores/auth';
 import { useOperacionesStore } from '@/stores/operaciones';
+import OperacionesService from '@/service/OperacionesService';
 import { useUbicationsStore } from '@/stores/ubications';
 import { FilterMatchMode } from '@primevue/core/api';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
@@ -21,6 +22,78 @@ const canWrite = computed(() => {
     const perm = authStore.permissions.find(p => p.code === 'orden' || p.code === 'ordenLectura');
     return perm ? !perm.isReadonly : false;
 });
+
+const canAudit = computed(() => {
+    const perm = authStore.permissions.find(p => p.code === 'AUDITAR_ORDEN');
+    return perm ? !perm.isReadonly : false;
+});
+
+// --- Estado para el dialog de auditoria/recepcion por piso ---
+const auditDialog = ref(false);
+const auditResultado = ref(null);
+const auditComentario = ref('');
+const auditLoading = ref(false);
+
+const auditOpciones = [
+    { label: 'Recibido OK', value: 'RECIBIDO_OK', severity: 'success', icon: 'pi pi-check' },
+    { label: 'Faltante', value: 'FALTANTE', severity: 'warn', icon: 'pi pi-exclamation-triangle' },
+    { label: 'Dañado', value: 'DANADO', severity: 'danger', icon: 'pi pi-times-circle' },
+    { label: 'Parcial', value: 'PARCIAL', severity: 'info', icon: 'pi pi-info-circle' }
+];
+
+function abrirDialogAuditar() {
+    if (!ordenSeleccionada.value) return;
+    auditResultado.value = null;
+    auditComentario.value = '';
+    auditDialog.value = true;
+}
+
+async function enviarAuditoria() {
+    if (!ordenSeleccionada.value) return;
+    if (!auditResultado.value) {
+        toast.add({ severity: 'warn', summary: 'Selecciona un resultado', life: 3000 });
+        return;
+    }
+    auditLoading.value = true;
+    try {
+        await OperacionesService.auditarOrden(ordenSeleccionada.value.id, {
+            resultado: auditResultado.value,
+            comentario: auditComentario.value && auditComentario.value.trim() !== '' ? auditComentario.value.trim() : null
+        });
+        toast.add({ severity: 'success', summary: 'Auditoria registrada', detail: 'Tu feedback quedo guardado.', life: 3500 });
+        auditDialog.value = false;
+        // refrescar la orden para que aparezca la nueva auditoria en el detalle
+        ordenSeleccionada.value = await OperacionesService.obtenerPorId(ordenSeleccionada.value.id);
+    } catch (e) {
+        toast.add({
+            severity: 'error',
+            summary: 'No se pudo registrar la auditoria',
+            detail: e?.response?.data?.message || e?.message || 'Error desconocido',
+            life: 5000
+        });
+    } finally {
+        auditLoading.value = false;
+    }
+}
+
+function resultadoLabel(v) {
+    switch (v) {
+        case 'RECIBIDO_OK': return 'Recibido OK';
+        case 'FALTANTE':    return 'Faltante';
+        case 'DANADO':      return 'Dañado';
+        case 'PARCIAL':     return 'Parcial';
+        default: return v;
+    }
+}
+function resultadoSeverity(v) {
+    switch (v) {
+        case 'RECIBIDO_OK': return 'success';
+        case 'FALTANTE':    return 'warn';
+        case 'DANADO':      return 'danger';
+        case 'PARCIAL':     return 'info';
+        default: return 'info';
+    }
+}
 
 const searchQuery = ref('');
 const filtroFecha = ref(new Date());
@@ -1521,12 +1594,20 @@ const finalizarOrden = async () => {
             <template #footer>
                 <!-- <Button label="Cerrar" icon="pi pi-times" text @click="detailDialog = false" /> -->
                 <Button label="Imprimir PDF" icon="pi pi-file-pdf" @click="exportarPDF" />
-                <Button 
+                <Button
+                    v-if="ordenSeleccionada?.estado === 'LISTA' && canAudit"
+                    label="Auditar Recepcion"
+                    icon="pi pi-check-square"
+                    severity="info"
+                    outlined
+                    @click="abrirDialogAuditar"
+                />
+                <Button
                     v-if="ordenSeleccionada?.estado !== 'LISTA' && ordenSeleccionada?.estado !== 'PENDIENTE'"
-                    label="Finalizar Orden" 
-                    icon="pi pi-check" 
+                    label="Finalizar Orden"
+                    icon="pi pi-check"
                     severity="success"
-                    @click="finalizarOrden" 
+                    @click="finalizarOrden"
                     :disabled="!canWrite"
                 />
                 <Button
@@ -1538,6 +1619,75 @@ const finalizarOrden = async () => {
                 />
             </template>
         </Dialog>
+
+        <!-- Dialog: Auditoria / Recepcion de orden (feedback de piso) -->
+        <Dialog
+            v-model:visible="auditDialog"
+            :style="{ width: '560px' }"
+            :breakpoints="{ '1199px': '90vw', '575px': '98vw' }"
+            header="Auditoria de Recepcion"
+            :modal="true"
+        >
+            <div v-if="ordenSeleccionada" class="audit-form">
+                <div class="audit-info">
+                    <div><strong>Orden:</strong> {{ ordenSeleccionada.numeroOrden }}</div>
+                    <div><strong>Estado:</strong> {{ ordenSeleccionada.estado }}</div>
+                    <div v-if="ordenSeleccionada.auditorias && ordenSeleccionada.auditorias.length > 0" class="audit-prev">
+                        <strong>Auditorias previas:</strong> {{ ordenSeleccionada.auditorias.length }}
+                        <ul>
+                            <li v-for="a in ordenSeleccionada.auditorias" :key="a.id">
+                                <span :class="['audit-tag', 'tag-' + resultadoSeverity(a.resultado)]">
+                                    {{ resultadoLabel(a.resultado) }}
+                                </span>
+                                <span class="audit-when">{{ new Date(a.fechaAuditoria).toLocaleString() }}</span>
+                                <span class="audit-who">{{ a.usuarioEmail }}</span>
+                                <span v-if="a.comentario" class="audit-comment">"{{ a.comentario }}"</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="audit-section">
+                    <label class="audit-label">Resultado de la recepcion</label>
+                    <div class="audit-options">
+                        <button
+                            v-for="opt in auditOpciones"
+                            :key="opt.value"
+                            type="button"
+                            :class="['audit-opt', 'opt-' + opt.severity, { selected: auditResultado === opt.value }]"
+                            @click="auditResultado = opt.value"
+                        >
+                            <i :class="opt.icon"></i>
+                            <span>{{ opt.label }}</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="audit-section">
+                    <label class="audit-label" for="audit-comentario">Comentario (opcional)</label>
+                    <Textarea
+                        id="audit-comentario"
+                        v-model="auditComentario"
+                        rows="3"
+                        autoResize
+                        placeholder="Detalle lo que paso: faltantes, danados, etc."
+                        class="audit-textarea"
+                    />
+                </div>
+            </div>
+
+            <template #footer>
+                <Button label="Cancelar" text @click="auditDialog = false" :disabled="auditLoading" />
+                <Button
+                    label="Registrar Auditoria"
+                    icon="pi pi-check"
+                    :loading="auditLoading"
+                    :disabled="!auditResultado"
+                    @click="enviarAuditoria"
+                />
+            </template>
+        </Dialog>
+
         <ConfirmDialog />
     </div>
 </template>
@@ -2234,4 +2384,86 @@ const finalizarOrden = async () => {
     border-top: 1px solid var(--surface-200);
     background: var(--surface-50);
 }
+
+/* --- Dialog de auditoria / feedback de piso --- */
+.audit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+.audit-info {
+    background: var(--surface-50, #f9fafb);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+.audit-prev {
+    margin-top: 0.5rem;
+}
+.audit-prev ul {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+.audit-prev li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    font-size: 0.8125rem;
+}
+.audit-tag {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+.audit-tag.tag-success { background: #dcfce7; color: #166534; }
+.audit-tag.tag-warn    { background: #fef3c7; color: #92400e; }
+.audit-tag.tag-danger  { background: #fee2e2; color: #991b1b; }
+.audit-tag.tag-info    { background: #dbeafe; color: #1e40af; }
+.audit-when   { color: var(--text-muted-color, #6b7280); }
+.audit-who    { color: var(--text-muted-color, #6b7280); }
+.audit-comment {
+    width: 100%;
+    color: var(--text-color, #374151);
+    font-style: italic;
+}
+
+.audit-section { display: flex; flex-direction: column; gap: 0.5rem; }
+.audit-label   {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-color, #374151);
+}
+.audit-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+}
+.audit-opt {
+    background: var(--surface-0, #fff);
+    border: 1px solid var(--surface-300, #d1d5db);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: border-color 0.15s, background 0.15s;
+    text-align: left;
+    color: var(--text-color, #374151);
+}
+.audit-opt:hover { background: var(--surface-50, #f9fafb); }
+.audit-opt.selected.opt-success { border-color: #16a34a; background: #f0fdf4; }
+.audit-opt.selected.opt-warn    { border-color: #f59e0b; background: #fffbeb; }
+.audit-opt.selected.opt-danger  { border-color: #dc2626; background: #fef2f2; }
+.audit-opt.selected.opt-info    { border-color: #2563eb; background: #eff6ff; }
+.audit-textarea { width: 100%; }
 </style>

@@ -103,6 +103,26 @@ class OperacionesService {
             throw error;
         }
     }
+
+    static async auditarOrden(id, body) {
+        try {
+            const response = await apiClient.post(`${BASE}/${id}/auditoria`, body);
+            return response.data;
+        } catch (error) {
+            this.handleError(error, 'registrar auditoria');
+            throw error;
+        }
+    }
+
+    static async listarAuditoria(id) {
+        try {
+            const response = await apiClient.get(`${BASE}/${id}/auditoria`);
+            return response.data;
+        } catch (error) {
+            this.handleError(error, 'listar auditoria');
+            throw error;
+        }
+    }
 }
 
 export default OperacionesService;
@@ -114,5 +134,7 @@ export const operacionesService = {
     iniciarOrden: (id) => OperacionesService.iniciarOrden(id),
     escanearProducto: (ordenId, codigoBarra, cantidad) => OperacionesService.escanearProducto(ordenId, codigoBarra, cantidad),
     obtenerInventarioFinal: (codigoBarra) => OperacionesService.obtenerInventarioFinal(codigoBarra),
-    obtenerInventarioUbicacion: (codigoBarra) => OperacionesService.obtenerInventarioUbicacion(codigoBarra)
+    obtenerInventarioUbicacion: (codigoBarra) => OperacionesService.obtenerInventarioUbicacion(codigoBarra),
+    auditarOrden: (id, body) => OperacionesService.auditarOrden(id, body),
+    listarAuditoria: (id) => OperacionesService.listarAuditoria(id)
 };
