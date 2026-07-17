@@ -56,6 +56,11 @@ const router = createRouter({
                     component: () => import('@/views/Operaciones.vue')
                 },
                 {
+                    path: '/v1/escaneo-producto',
+                    name: 'escaneoProducto',
+                    component: () => import('@/views/EscaneoProducto.vue')
+                },
+                {
                     path: '/v1/preorden',
                     name: 'preorden',
                     component: () => import('@/views/PreOrdenes.vue')
