@@ -1467,6 +1467,30 @@ const finalizarOrden = async () => {
                     </div>
                 </div>
 
+                <!-- Auditorias de Recepcion (visible sin abrir el dialog de audit) -->
+                <div class="detail-audit-block" v-if="ordenSeleccionada.auditorias && ordenSeleccionada.auditorias.length > 0">
+                    <div class="detail-audit-header">
+                        <i class="pi pi-check-square" />
+                        <span>Auditoria de Recepcion ({{ ordenSeleccionada.auditorias.length }})</span>
+                    </div>
+                    <div class="detail-audit-list">
+                        <div v-for="a in ordenSeleccionada.auditorias" :key="a.id" class="detail-audit-row">
+                            <div class="detail-audit-row-head">
+                                <span :class="['detail-audit-tag', 'tag-' + resultadoSeverity(a.resultado)]">
+                                    {{ resultadoLabel(a.resultado) }}
+                                </span>
+                                <span class="detail-audit-when">{{ new Date(a.fechaAuditoria).toLocaleString() }}</span>
+                                <span class="detail-audit-who">{{ a.usuarioEmail }}</span>
+                            </div>
+                            <div v-if="a.comentario" class="detail-audit-comment">"{{ a.comentario }}"</div>
+                        </div>
+                    </div>
+                </div>
+                <div v-else-if="ordenSeleccionada.estado === 'LISTA' && canAudit" class="detail-audit-block detail-audit-empty">
+                    <i class="pi pi-info-circle" />
+                    <span>Aun no hay auditoria de recepcion. Hace click en <strong>Auditar Recepcion</strong> abajo para registrar la primera.</span>
+                </div>
+
                 <Divider />
                 <p class="items-title"><i class="pi pi-list" /> Productos de la orden</p>
 
@@ -2502,4 +2526,73 @@ const finalizarOrden = async () => {
 .efect-pill.efect-buena { background: #ecfeff; color: #155e75; }
 .efect-pill.efect-media { background: #fef3c7; color: #92400e; }
 .efect-pill.efect-baja  { background: #fee2e2; color: #991b1b; }
+
+/* --- Bloque de auditorias de recepcion en el detail dialog --- */
+.detail-audit-block {
+    background: var(--surface-50, #f9fafb);
+    border: 1px solid var(--surface-200, #e5e7eb);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    margin: 0.5rem 0 0.5rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+.detail-audit-block.detail-audit-empty {
+    flex-direction: row;
+    align-items: center;
+    color: var(--text-muted-color, #6b7280);
+    font-size: 0.875rem;
+    background: #f0f9ff;
+    border-color: #bae6fd;
+}
+.detail-audit-block.detail-audit-empty i { color: #2563eb; margin-right: 0.4rem; }
+
+.detail-audit-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    color: var(--text-color, #374151);
+    font-size: 0.9375rem;
+}
+.detail-audit-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.detail-audit-row {
+    background: var(--surface-0, #fff);
+    border: 1px solid var(--surface-200, #e5e7eb);
+    border-radius: 6px;
+    padding: 0.6rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+.detail-audit-row-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+}
+.detail-audit-tag {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+.detail-audit-tag.tag-success { background: #dcfce7; color: #166534; }
+.detail-audit-tag.tag-warn    { background: #fef3c7; color: #92400e; }
+.detail-audit-tag.tag-danger  { background: #fee2e2; color: #991b1b; }
+.detail-audit-tag.tag-info    { background: #dbeafe; color: #1e40af; }
+.detail-audit-when   { color: var(--text-muted-color, #6b7280); }
+.detail-audit-who    { color: var(--text-muted-color, #6b7280); }
+.detail-audit-comment {
+    color: var(--text-color, #374151);
+    font-style: italic;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    border-left: 3px solid var(--surface-300, #d1d5db);
+    padding-left: 0.6rem;
+    margin-top: 0.2rem;
+}
 </style>
