@@ -158,7 +158,16 @@ export async function setupOneSignalForUser(user) {
                 const tags = await OneSignal.User.getTags();
                 console.info('[OneSignal] Tags confirmados:', tags);
 
-                const aliasResult = await OneSignal.User.getAliases();
+                // getAliases() fue removido de OneSignal SDK v16+. El
+                // external_id se setea arriba con OneSignal.login() y
+                // eso es suficiente para identificar al user en el
+                // dashboard. Si en el futuro OneSignal expone otra
+                // forma de leer los aliases (por ejemplo via API
+                // REST), se puede agregar aca con try/catch.
+                let aliasResult = null;
+                if (typeof OneSignal.User.getAliases === 'function') {
+                    try { aliasResult = await OneSignal.User.getAliases(); } catch (_) { /* noop */ }
+                }
                 console.info('[OneSignal] Alias confirmados:', aliasResult);
 
                 const result = {
