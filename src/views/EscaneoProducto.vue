@@ -39,12 +39,12 @@ function logout() {
 
 function fmtMoney(n) {
     if (n == null) return '—';
-    return 'Bs. ' + Number(n).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function fmt(n) {
     if (n == null || isNaN(n)) return '—';
-    return Number(n).toLocaleString('es-VE', { maximumFractionDigits: 2 });
+    return Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
 function showError(t) { toast.add({ severity: 'error', summary: 'Error', detail: t, life: 4000 }); }
@@ -133,7 +133,14 @@ async function toggleScanner() {
         qrVisible.value = true;
     } catch (e) {
         html5Scanner = null;
-        showError('No se pudo abrir la cámara: ' + (e?.message || e));
+        const msg = String(e?.message || e || '');
+        if (/Permission|NotAllowedError|denied/i.test(msg)) {
+            showError('El navegador bloqueo el acceso a la camara. Habilita los permisos de camara para este sitio y reintenta.');
+        } else if (/NotFoundError|device|not.*found/i.test(msg)) {
+            showError('No se detecto ninguna camara en este dispositivo.');
+        } else {
+            showError('No se pudo abrir la camara: ' + (msg || 'error desconocido'));
+        }
     }
 }
 
@@ -267,11 +274,24 @@ onBeforeUnmount(async () => {
     flex: 1;
 }
 .escaneo-qr-host {
-    max-width: 420px;
+    position: relative;
+    min-height: 320px;
+    max-width: 100%;
+    width: 100%;
     margin: 0.75rem 0;
     border: 1px dashed var(--surface-300, #d1d5db);
     border-radius: 8px;
     padding: 8px;
+    background: #000;
+    overflow: hidden;
+}
+.escaneo-qr-host :deep(video) {
+    max-width: 100% !important;
+    height: auto !important;
+}
+.escaneo-qr-host :deep(#escaneo-qr-host__dashboard_section_csr button),
+.escaneo-qr-host :deep(#escaneo-qr-host__dashboard_section_swaplink) {
+    color: #fff;
 }
 .escaneo-hint {
     color: var(--text-muted-color, #6b7280);
