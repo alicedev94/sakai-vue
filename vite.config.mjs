@@ -1,7 +1,4 @@
 import { fileURLToPath, URL } from 'node:url';
-import fs from 'node:fs';
-import path from 'node:path';
-
 import { PrimeVueResolver } from '@primevue/auto-import-resolver';
 //import basicSsl from '@vitejs/plugin-basic-ssl';
 import vue from '@vitejs/plugin-vue';
@@ -17,31 +14,6 @@ export default defineConfig({
     plugins: [
         //basicSsl(),
         vue(),
-        {
-            name: 'onesignal-root-worker-dev',
-            configureServer(server) {
-                const workerMap = {
-                    '/OneSignalSDKWorker.js': path.resolve(process.cwd(), 'public', 'OneSignalSDKWorker.js'),
-                    '/OneSignalSDKUpdaterWorker.js': path.resolve(process.cwd(), 'public', 'OneSignalSDKUpdaterWorker.js')
-                };
-
-                server.middlewares.use((req, res, next) => {
-                    const reqPath = req.url?.split('?')[0];
-                    const filePath = reqPath ? workerMap[reqPath] : null;
-                    if (!filePath) {
-                        next();
-                        return;
-                    }
-                    if (!fs.existsSync(filePath)) {
-                        res.statusCode = 404;
-                        res.end('Not found');
-                        return;
-                    }
-                    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-                    res.end(fs.readFileSync(filePath, 'utf8'));
-                });
-            }
-        },
         Components({
             resolvers: [PrimeVueResolver()]
         })

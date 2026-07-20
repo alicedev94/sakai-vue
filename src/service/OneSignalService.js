@@ -3,12 +3,11 @@ const SDK_URL = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
 
 // Origins en los que OneSignal esta autorizado a correr.
 // El appId 5c02a63a... esta configurado en el dashboard de OneSignal
-// solo para https://resurtidoredu.site:3000 (entorno dev con Vite).
-// En produccion (https://resurtidoredu.site) el SDK falla con
-// 'Can only be used on: https://resurtidoredu.site:3000'.
-// Hasta que se actualice el dashboard, silenciamos el setup fuera de
-// los origins autorizados y solo logueamos un warning.
+// para correr en estos origins. Si en el futuro el dashboard se
+// reconfigura para otro origin especifico, ajustar esta lista.
 const ONESIGNAL_ALLOWED_ORIGINS = [
+    'https://resurtidoredu.site',
+    'https://www.resurtidoredu.site',
     'http://localhost:3000',
     'https://resurtidoredu.site:3000',
     'http://127.0.0.1:3000'
@@ -27,10 +26,13 @@ async function initOneSignal(OneSignal) {
     }
 
     try {
+        // El init del dashboard ya no incluye serviceWorkerPath /
+        // serviceWorkerUpdaterPath: OneSignal usa su propio service
+        // worker desde el CDN. Los archivos OneSignalSDKWorker.js /
+        // OneSignalSDKUpdaterWorker.js que teniamos en /public son
+        // obsoletos y se pueden eliminar.
         await OneSignal.init({
-            appId: APP_ID,
-            serviceWorkerPath: '/OneSignalSDKWorker.js',
-            serviceWorkerUpdaterPath: '/OneSignalSDKUpdaterWorker.js'
+            appId: APP_ID
         });
     } catch (error) {
         const msg = String(error?.message || error || '');
