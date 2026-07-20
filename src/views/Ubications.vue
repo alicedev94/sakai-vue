@@ -51,6 +51,11 @@ function limpiarCodigoEscaneado(texto) {
     if (!texto) return '';
     let limpio = texto.trim();
 
+    // Strip AIM symbology identifiers (]C0, ]C1, ]A0, etc.) and custom
+    // prefixes ([C, [)) that some QR/barcode labels carry. These are
+    // not part of the actual code.
+    limpio = limpio.replace(/^[[\]][A-Za-z]\d*\s*/, '');
+
     const esUrl = limpio.toLowerCase().startsWith('http://') || limpio.toLowerCase().startsWith('https://');
     const esRutaAbsoluta = limpio.startsWith('/');
     const contienePrefijoUbicacion = limpio.toLowerCase().includes('v1/ubicaciones') || limpio.toLowerCase().includes('ubicaciones/');
