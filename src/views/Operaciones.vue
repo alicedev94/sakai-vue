@@ -391,9 +391,19 @@ async function procesarEscaneo(codigoDesdeCamara) {
     try {
         const inv = await store.obtenerInventarioUbicacion(item.codigoBarra);
         inventarioUbicacion.value = inv;
-        cantidadInventarioPiso.value = inv.piso;
-        cantidadInventarioAlmacen.value = inv.almacen;
-        cantidadInventarioCedis.value = inv.cedis;
+        // Guard: si el backend devolvio error (4xx/5xx), el service
+        // re-lanza y caemos al catch. si por algun motivo llego aqui
+        // con inv null/undefined, mostramos 'No disponible' en vez de
+        // crashear con 'Cannot read properties of null (reading piso)'.
+        if (inv && typeof inv.piso === 'number') {
+            cantidadInventarioPiso.value = inv.piso;
+            cantidadInventarioAlmacen.value = inv.almacen;
+            cantidadInventarioCedis.value = inv.cedis;
+        } else {
+            cantidadInventarioPiso.value = 'N/D';
+            cantidadInventarioAlmacen.value = 'N/D';
+            cantidadInventarioCedis.value = 'N/D';
+        }
     } catch (e) {
         console.error('Error al consultar inventario por ubicación:', e);
         cantidadInventarioPiso.value = 'Error';
