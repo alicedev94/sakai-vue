@@ -1,6 +1,24 @@
 const APP_ID = import.meta.env.VITE_ONESIGNAL_APP_ID || '5c02a63a-c3ed-4f01-b4b6-b6e50cbab837';
 const SDK_URL = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
 
+// Origins en los que OneSignal esta autorizado a correr.
+// El appId 5c02a63a... esta configurado en el dashboard de OneSignal
+// solo para https://resurtidoredu.site:3000 (entorno dev con Vite).
+// En produccion (https://resurtidoredu.site) el SDK falla con
+// 'Can only be used on: https://resurtidoredu.site:3000'.
+// Hasta que se actualice el dashboard, silenciamos el setup fuera de
+// los origins autorizados y solo logueamos un warning.
+const ONESIGNAL_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'https://resurtidoredu.site:3000',
+    'http://127.0.0.1:3000'
+];
+
+function isOneSignalOriginAllowed() {
+    if (typeof window === 'undefined') return false;
+    return ONESIGNAL_ALLOWED_ORIGINS.includes(window.location.origin);
+}
+
 let loadingPromise = null;
 
 async function initOneSignal(OneSignal) {
@@ -15,7 +33,13 @@ async function initOneSignal(OneSignal) {
             serviceWorkerUpdaterPath: '/OneSignalSDKUpdaterWorker.js'
         });
     } catch (error) {
-        if (!String(error?.message || error).includes('SDK already initialized')) {
+        const msg = String(error?.message || error || '');
+        // Si el error es por origin no autorizado, no seguir intentando
+        if (/Can only be used on|origin/i.test(msg)) {
+            console.warn('[OneSignal] Origin no autorizado (' + window.location.origin + '). Setup cancelado silenciosamente.');
+            return;
+        }
+        if (!msg.includes('SDK already initialized')) {
             throw error;
         }
     }
@@ -70,6 +94,14 @@ async function getOneSignalTags(OneSignal) {
 
 export async function setupOneSignalForUser(user) {
     if (!APP_ID || !user) return { ok: false, reason: 'missing-user-or-app' };
+
+    // Guard: si el origin actual no esta autorizado para este appId,
+    // skip silenciosamente para no llenar la consola de errores.
+    if (!isOneSignalOriginAllowed()) {
+        console.info('[OneSignal] Setup saltado: origin no autorizado -> ' + (typeof window !== 'undefined' ? window.location.origin : 'N/A'));
+        return { ok: false, reason: 'origin-not-allowed' };
+    }
+
     await loadSdk();
 
     return new Promise((resolve) => {

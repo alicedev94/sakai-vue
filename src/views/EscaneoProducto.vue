@@ -14,12 +14,18 @@ const product = ref(null);
 const tiendas = ref([]);
 const totales = ref({ piso: 0, almacen: 0, cedis: 0, total: 0 });
 const qrVisible = ref(false);
+const qrLoading = ref(false);
+const cameraSupported = ref(true);
 
 const totalLabel = computed(() =>
     `TOTAL (${tiendas.value.length} tienda${tiendas.value.length === 1 ? '' : 's'})`
 );
 
 let html5Scanner = null;
+// timeout de 6s para detectar cuando la camara no se inicializa
+// (algunos navegadores quedan en silencio con un container negro sin
+// nunca terminar de reproducir el video).
+const SCANNER_START_TIMEOUT_MS = 6000;
 
 const FORMATOS_BARRAS = [
     Html5QrcodeSupportedFormats.EAN_13,
@@ -105,42 +111,91 @@ async function buscar() {
 
 async function toggleScanner() {
     if (qrVisible.value) {
-        if (html5Scanner) {
-            try { await html5Scanner.stop(); } catch (_) { /* noop */ }
-            try { await html5Scanner.clear(); } catch (_) { /* noop */ }
-            html5Scanner = null;
-        }
-        qrVisible.value = false;
+        await stopScanner();
         return;
     }
     if (typeof Html5Qrcode === 'undefined') {
-        showError('Librería de cámara no disponible en este navegador.');
+        showError('Libreria de camara no disponible en este navegador.');
         return;
     }
+    // Detectar si el navegador expone getUserMedia (algunos navegadores
+    // móviles viejos o contextos inseguros no lo hacen).
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        cameraSupported.value = false;
+        showError('Tu navegador no expone la API de camara (getUserMedia). Usa el boton "Subir imagen" para escanear desde un archivo.');
+        return;
+    }
+
+    qrLoading.value = true;
+    qrVisible.value = true;
     const hostId = 'escaneo-qr-host';
     html5Scanner = new Html5Qrcode(hostId);
+
+    // timeout: si la camara no se inicializa en 6s, mostrar fallback
+    let timedOut = false;
+    const timeoutId = setTimeout(() => {
+        timedOut = true;
+        showWarn('La camara tarda en inicializar. Si sigue en negro, usa el boton "Subir imagen" abajo.');
+    }, SCANNER_START_TIMEOUT_MS);
+
     try {
         await html5Scanner.start(
             { facingMode: 'environment' },
             { fps: 10, qrbox: 250, formatsToSupport: FORMATOS_BARRAS },
             (txt) => {
                 code.value = txt;
-                toggleScanner();
+                stopScanner();
                 buscar();
             },
             () => {}
         );
-        qrVisible.value = true;
+        clearTimeout(timeoutId);
+        qrLoading.value = false;
     } catch (e) {
-        html5Scanner = null;
+        clearTimeout(timeoutId);
+        await stopScanner();
+        qrLoading.value = false;
         const msg = String(e?.message || e || '');
         if (/Permission|NotAllowedError|denied/i.test(msg)) {
-            showError('El navegador bloqueo el acceso a la camara. Habilita los permisos de camara para este sitio y reintenta.');
+            showError('El navegador bloqueo el acceso a la camara. Habilita los permisos de camara para este sitio y reintenta. Tambien puedes usar "Subir imagen".');
         } else if (/NotFoundError|device|not.*found/i.test(msg)) {
-            showError('No se detecto ninguna camara en este dispositivo.');
+            cameraSupported.value = false;
+            showError('No se detecto ninguna camara en este dispositivo. Usa "Subir imagen" para escanear un barcode desde un archivo.');
         } else {
-            showError('No se pudo abrir la camara: ' + (msg || 'error desconocido'));
+            showError('No se pudo abrir la camara: ' + (msg || 'error desconocido') + '. Prueba con "Subir imagen".');
         }
+    } finally {
+        if (!html5Scanner || (html5Scanner && !html5Scanner.isScanning)) {
+            qrLoading.value = false;
+        }
+        if (timedOut) qrLoading.value = false;
+    }
+}
+
+async function stopScanner() {
+    if (html5Scanner) {
+        try { await html5Scanner.stop(); } catch (_) { /* noop */ }
+        try { await html5Scanner.clear(); } catch (_) { /* noop */ }
+        html5Scanner = null;
+    }
+    qrVisible.value = false;
+    qrLoading.value = false;
+}
+
+async function escanearArchivo(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+        if (html5Scanner) await stopScanner();
+        const scanner = new Html5Qrcode('escaneo-qr-host');
+        const result = await scanner.scanFile(file, true);
+        await scanner.clear();
+        code.value = result;
+        buscar();
+    } catch (e) {
+        showError('No se pudo leer el codigo de la imagen: ' + (e?.message || e));
+    } finally {
+        event.target.value = '';
     }
 }
 
@@ -171,10 +226,29 @@ onBeforeUnmount(async () => {
                     @keydown.enter="buscar"
                 />
                 <Button label="Buscar" @click="buscar" />
-                <Button :label="qrVisible ? 'Detener cámara' : 'Escanear'" :severity="qrVisible ? 'danger' : 'secondary'" @click="toggleScanner" />
+                <Button :label="qrVisible ? 'Detener cámara' : 'Escanear'" :severity="qrVisible ? 'danger' : 'secondary'" :loading="qrLoading" @click="toggleScanner" />
             </div>
 
-            <div v-show="qrVisible" id="escaneo-qr-host" class="escaneo-qr-host" />
+            <div v-show="qrVisible" id="escaneo-qr-host" class="escaneo-qr-host">
+                <div v-if="qrLoading" class="escaneo-qr-loading">
+                    <ProgressSpinner style="width: 50px; height: 50px" strokeWidth="4" />
+                    <span>Inicializando camara...</span>
+                </div>
+            </div>
+
+            <div class="escaneo-upload-row">
+                <label for="escaneo-file" class="escaneo-upload-label">
+                    <i class="pi pi-image" /> Escanear desde imagen (si la camara no funciona)
+                </label>
+                <input
+                    id="escaneo-file"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    class="escaneo-upload-input"
+                    @change="escanearArchivo"
+                />
+            </div>
 
             <p class="escaneo-hint">El token se reutiliza del login del SPA.</p>
         </section>
@@ -292,6 +366,55 @@ onBeforeUnmount(async () => {
 .escaneo-qr-host :deep(#escaneo-qr-host__dashboard_section_csr button),
 .escaneo-qr-host :deep(#escaneo-qr-host__dashboard_section_swaplink) {
     color: #fff;
+}
+.escaneo-qr-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.85rem;
+    color: #fff;
+    font-size: 0.875rem;
+}
+.escaneo-upload-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.5rem 0 0.5rem 0;
+    padding: 0.5rem 0.75rem;
+    background: var(--surface-50, #f9fafb);
+    border-radius: 6px;
+    border: 1px dashed var(--surface-300, #d1d5db);
+}
+.escaneo-upload-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8125rem;
+    color: var(--text-muted-color, #6b7280);
+    cursor: pointer;
+}
+.escaneo-upload-label i {
+    color: var(--primary-color, #2563eb);
+}
+.escaneo-upload-input {
+    display: none;
+}
+.escaneo-upload-label::after {
+    content: 'Elegir archivo';
+    margin-left: auto;
+    padding: 4px 10px;
+    background: var(--primary-color, #2563eb);
+    color: #fff;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.escaneo-upload-input:focus-visible + .escaneo-upload-label {
+    outline: 2px solid var(--primary-color, #2563eb);
+    outline-offset: 2px;
 }
 .escaneo-hint {
     color: var(--text-muted-color, #6b7280);

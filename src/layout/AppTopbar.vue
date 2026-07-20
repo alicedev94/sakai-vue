@@ -100,7 +100,7 @@ onMounted(async () => {
             toast.add({
                 severity: 'warn',
                 summary: 'Push notifications no activas',
-                detail,
+                detail: detalle,
                 life: 5000
             });
         }
