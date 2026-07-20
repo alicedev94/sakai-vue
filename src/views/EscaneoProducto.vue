@@ -1,7 +1,7 @@
 <script setup>
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { useToast } from 'primevue/usetoast';
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref } from 'vue';
 
 import { useAuthStore } from '@/stores/auth';
 
@@ -111,6 +111,9 @@ async function buscar() {
 
 async function toggleScanner() {
     if (qrVisible.value) {
+        // El scanner esta activo. Limpiar ANTES de cambiar el state
+        // para que Vue no desmonte el <div> mientras html5-qrcode lo
+        // sigue usando.
         await stopScanner();
         return;
     }
@@ -118,20 +121,20 @@ async function toggleScanner() {
         showError('Libreria de camara no disponible en este navegador.');
         return;
     }
-    // Detectar si el navegador expone getUserMedia (algunos navegadores
-    // móviles viejos o contextos inseguros no lo hacen).
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         cameraSupported.value = false;
         showError('Tu navegador no expone la API de camara (getUserMedia). Usa el boton "Subir imagen" para escanear desde un archivo.');
         return;
     }
 
+    // Mostrar el container PRIMERO (con v-if, Vue lo monta) y luego
+    // esperar un tick antes de inicializar html5-qrcode, asi el nodo
+    // ya esta en el DOM cuando la libreria intenta hacer appendChild.
     qrLoading.value = true;
     qrVisible.value = true;
-    const hostId = 'escaneo-qr-host';
-    html5Scanner = new Html5Qrcode(hostId);
+    await nextTick();
 
-    // timeout: si la camara no se inicializa en 6s, mostrar fallback
+    const hostId = 'escaneo-qr-host';
     let timedOut = false;
     const timeoutId = setTimeout(() => {
         timedOut = true;
@@ -139,6 +142,7 @@ async function toggleScanner() {
     }, SCANNER_START_TIMEOUT_MS);
 
     try {
+        html5Scanner = new Html5Qrcode(hostId);
         await html5Scanner.start(
             { facingMode: 'environment' },
             { fps: 10, qrbox: 250, formatsToSupport: FORMATOS_BARRAS },
@@ -186,12 +190,28 @@ async function escanearArchivo(event) {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
+        // Asegurar que el scanner de camara este cerrado antes de usar el
+        // container para scanFile (html5-qrcode necesita el container libre)
         if (html5Scanner) await stopScanner();
-        const scanner = new Html5Qrcode('escaneo-qr-host');
-        const result = await scanner.scanFile(file, true);
-        await scanner.clear();
-        code.value = result;
-        buscar();
+
+        // Crear un container temporal separado para que html5-qrcode no
+        // manipule nuestro <div id="escaneo-qr-host"> (que puede estar
+        // siendo controlado por Vue).
+        const tempId = 'escaneo-file-temp-' + Date.now();
+        const tempHost = document.createElement('div');
+        tempHost.id = tempId;
+        tempHost.style.display = 'none';
+        document.body.appendChild(tempHost);
+
+        try {
+            const scanner = new Html5Qrcode(tempId);
+            const result = await scanner.scanFile(file, true);
+            code.value = result;
+            buscar();
+        } finally {
+            try { await scanner.clear(); } catch (_) { /* noop */ }
+            document.body.removeChild(tempHost);
+        }
     } catch (e) {
         showError('No se pudo leer el codigo de la imagen: ' + (e?.message || e));
     } finally {
@@ -210,8 +230,6 @@ onBeforeUnmount(async () => {
 
 <template>
     <div class="escaneo-wrap">
-        <Toast position="top-right" />
-
         <section class="escaneo-card">
             <div class="escaneo-header">
                 <h2 class="escaneo-title">Escaneo de producto</h2>
@@ -229,7 +247,11 @@ onBeforeUnmount(async () => {
                 <Button :label="qrVisible ? 'Detener cámara' : 'Escanear'" :severity="qrVisible ? 'danger' : 'secondary'" :loading="qrLoading" @click="toggleScanner" />
             </div>
 
-            <div v-show="qrVisible" id="escaneo-qr-host" class="escaneo-qr-host">
+            <!-- v-if (no v-show) para que Vue desmonte el nodo al cerrar el
+                 scanner. html5-qrcode manipula este DOM directamente y si
+                 queda display:none+con hijos, Vue pierde la referencia al
+                 nodo original y tira 'Cannot read insertBefore'. -->
+            <div v-if="qrVisible" id="escaneo-qr-host" class="escaneo-qr-host">
                 <div v-if="qrLoading" class="escaneo-qr-loading">
                     <ProgressSpinner style="width: 50px; height: 50px" strokeWidth="4" />
                     <span>Inicializando camara...</span>
