@@ -13,8 +13,8 @@ const loading = ref(false);
 const product = ref(null);
 const tiendas = ref([]);
 const totales = ref({ piso: 0, almacen: 0, cedis: 0, total: 0 });
-const qrVisible = ref(false);
-const qrLoading = ref(false);
+const cameraVisible = ref(false);
+const cameraLoading = ref(false);
 const cameraSupported = ref(true);
 
 const totalLabel = computed(() =>
@@ -37,12 +37,6 @@ const FORMATOS_BARRAS = [
     Html5QrcodeSupportedFormats.QR_CODE
 ];
 
-function logout() {
-    authStore.logout?.();
-    localStorage.clear();
-    location.href = '/v1/auth/login';
-}
-
 function fmtMoney(n) {
     if (n == null) return '—';
     return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -57,16 +51,34 @@ function showError(t) { toast.add({ severity: 'error', summary: 'Error', detail:
 function showWarn(t)  { toast.add({ severity: 'warn',  summary: 'Atención', detail: t, life: 4000 }); }
 function showInfo(t)  { toast.add({ severity: 'info',  summary: 'Info', detail: t, life: 3000 }); }
 
+/**
+ * Normaliza lo que llega del scanner o de tipeo manual.
+ *  - trim
+ *  - strip de prefijos de simbologia AIM (]C0, ]C1, [C, etc.)
+ *  - strip de prefijos de Code 39 (]A0..]A6)
+ *  - strip de brackets residuales al inicio
+ */
+function normalizarCodigo(texto) {
+    if (!texto) return '';
+    let limpio = String(texto).trim();
+    // AIM identifiers: ]X, ]XN, [X, [XN donde X es letra y N opcional
+    limpio = limpio.replace(/^[\[\]][A-Za-z]\d*\s*/, '');
+    // Brackets residuales tipo [C], [01], etc.
+    limpio = limpio.replace(/^\[[A-Za-z0-9]+\]\s*/, '');
+    return limpio.trim();
+}
+
 async function buscar() {
     if (!authStore.token) {
         showWarn('No hay sesión activa. Inicia sesión en /v1/.');
         return;
     }
-    const value = (code.value || '').trim();
+    const value = normalizarCodigo(code.value);
     if (!value) {
         showWarn('Ingresa un código o código de barras.');
         return;
     }
+    code.value = value; // reflejar normalizado en el input
     product.value = null;
     tiendas.value = [];
     totales.value = { piso: 0, almacen: 0, cedis: 0, total: 0 };
@@ -110,7 +122,7 @@ async function buscar() {
 }
 
 async function toggleScanner() {
-    if (qrVisible.value) {
+    if (cameraVisible.value) {
         // El scanner esta activo. Limpiar ANTES de cambiar el state
         // para que Vue no desmonte el <div> mientras html5-qrcode lo
         // sigue usando.
@@ -130,8 +142,8 @@ async function toggleScanner() {
     // Mostrar el container PRIMERO (con v-if, Vue lo monta) y luego
     // esperar un tick antes de inicializar html5-qrcode, asi el nodo
     // ya esta en el DOM cuando la libreria intenta hacer appendChild.
-    qrLoading.value = true;
-    qrVisible.value = true;
+    cameraLoading.value = true;
+    cameraVisible.value = true;
     await nextTick();
 
     const hostId = 'escaneo-qr-host';
@@ -154,11 +166,11 @@ async function toggleScanner() {
             () => {}
         );
         clearTimeout(timeoutId);
-        qrLoading.value = false;
+        cameraLoading.value = false;
     } catch (e) {
         clearTimeout(timeoutId);
         await stopScanner();
-        qrLoading.value = false;
+        cameraLoading.value = false;
         const msg = String(e?.message || e || '');
         if (/Permission|NotAllowedError|denied/i.test(msg)) {
             showError('El navegador bloqueo el acceso a la camara. Habilita los permisos de camara para este sitio y reintenta. Tambien puedes usar "Subir imagen".');
@@ -170,9 +182,9 @@ async function toggleScanner() {
         }
     } finally {
         if (!html5Scanner || (html5Scanner && !html5Scanner.isScanning)) {
-            qrLoading.value = false;
+            cameraLoading.value = false;
         }
-        if (timedOut) qrLoading.value = false;
+        if (timedOut) cameraLoading.value = false;
     }
 }
 
@@ -182,8 +194,8 @@ async function stopScanner() {
         try { await html5Scanner.clear(); } catch (_) { /* noop */ }
         html5Scanner = null;
     }
-    qrVisible.value = false;
-    qrLoading.value = false;
+    cameraVisible.value = false;
+    cameraLoading.value = false;
 }
 
 async function escanearArchivo(event) {
@@ -233,26 +245,35 @@ onBeforeUnmount(async () => {
         <section class="escaneo-card">
             <div class="escaneo-header">
                 <h2 class="escaneo-title">Escaneo de producto</h2>
-                <Button label="Cerrar sesión" severity="secondary" text @click="logout" />
             </div>
 
-            <div class="escaneo-search">
+            <!-- form con @submit.prevent para que Enter dispare buscar
+                 de forma confiable cross-browser (Safari/iOS a veces no
+                 propaga keydown.enter desde InputText). Ademas dejamos
+                 keyup.enter como red de seguridad. -->
+            <form class="escaneo-search" @submit.prevent="buscar">
                 <InputText
                     v-model="code"
-                    placeholder="Escanea o escribe el código de barras (o código maestro) y presiona Enter"
+                    placeholder="Escanea o escribe el código (Enter para buscar)"
                     class="escaneo-input"
-                    @keydown.enter="buscar"
+                    @keyup.enter.prevent="buscar"
                 />
-                <Button label="Buscar" @click="buscar" />
-                <Button :label="qrVisible ? 'Detener cámara' : 'Escanear'" :severity="qrVisible ? 'danger' : 'secondary'" :loading="qrLoading" @click="toggleScanner" />
-            </div>
+                <Button type="submit" label="Buscar" />
+                <Button
+                    type="button"
+                    :label="cameraVisible ? 'Detener cámara' : 'Escanear'"
+                    :severity="cameraVisible ? 'danger' : 'secondary'"
+                    :loading="cameraLoading"
+                    @click="toggleScanner"
+                />
+            </form>
 
             <!-- v-if (no v-show) para que Vue desmonte el nodo al cerrar el
                  scanner. html5-qrcode manipula este DOM directamente y si
                  queda display:none+con hijos, Vue pierde la referencia al
                  nodo original y tira 'Cannot read insertBefore'. -->
-            <div v-if="qrVisible" id="escaneo-qr-host" class="escaneo-qr-host">
-                <div v-if="qrLoading" class="escaneo-qr-loading">
+            <div v-if="cameraVisible" id="escaneo-qr-host" class="escaneo-qr-host">
+                <div v-if="cameraLoading" class="escaneo-qr-loading">
                     <ProgressSpinner style="width: 50px; height: 50px" strokeWidth="4" />
                     <span>Inicializando camara...</span>
                 </div>
