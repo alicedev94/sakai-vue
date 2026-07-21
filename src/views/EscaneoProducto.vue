@@ -268,15 +268,17 @@ onBeforeUnmount(async () => {
                 />
             </form>
 
-            <!-- v-if (no v-show) para que Vue desmonte el nodo al cerrar el
-                 scanner. html5-qrcode manipula este DOM directamente y si
-                 queda display:none+con hijos, Vue pierde la referencia al
-                 nodo original y tira 'Cannot read insertBefore'. -->
-            <div v-if="cameraVisible" id="escaneo-qr-host" class="escaneo-qr-host">
+            <!-- wrapper con position:relative. adentro:
+                 - el spinner mientras carga (no lo mete Vue dentro del
+                   host porque html5-qrcode va a hacer appendChild al
+                   mismo nodo y se pierde la referencia -> nextSibling null)
+                 - el host del scanner (vacia, html5-qrcode la controla) -->
+            <div v-if="cameraVisible" class="escaneo-camera-wrap">
                 <div v-if="cameraLoading" class="escaneo-qr-loading">
                     <ProgressSpinner style="width: 50px; height: 50px" strokeWidth="4" />
                     <span>Inicializando camara...</span>
                 </div>
+                <div id="escaneo-qr-host" class="escaneo-qr-host"></div>
             </div>
 
             <div class="escaneo-upload-row">
@@ -390,12 +392,16 @@ onBeforeUnmount(async () => {
 .escaneo-search :deep(.escaneo-input) {
     flex: 1;
 }
+.escaneo-camera-wrap {
+    position: relative;
+    margin: 0.75rem 0;
+    width: 100%;
+}
 .escaneo-qr-host {
     position: relative;
     min-height: 320px;
     max-width: 100%;
     width: 100%;
-    margin: 0.75rem 0;
     border: 1px dashed var(--surface-300, #d1d5db);
     border-radius: 8px;
     padding: 8px;
@@ -413,6 +419,7 @@ onBeforeUnmount(async () => {
 .escaneo-qr-loading {
     position: absolute;
     inset: 0;
+    z-index: 10;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -420,6 +427,8 @@ onBeforeUnmount(async () => {
     gap: 0.85rem;
     color: #fff;
     font-size: 0.875rem;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 8px;
 }
 .escaneo-upload-row {
     display: flex;
