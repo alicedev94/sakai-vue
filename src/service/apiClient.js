@@ -34,6 +34,11 @@ apiClient.interceptors.request.use(
 );
 
 // ─── Interceptor de RESPONSE: refresh token y manejo de errores ──────────────
+// IMPORTANTE: la sesión SOLO se cierra cuando el usuario hace click en
+// "Cerrar sesión" desde AppTopbar. Los errores transitorios (red caída,
+// timeout, 403) NO cierran sesión ni redirigen. Si el refresh token falla,
+// redirigimos al login pero NO limpiamos localStorage — el próximo login
+// del usuario sobrescribe los tokens viejos.
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -50,41 +55,25 @@ apiClient.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
-        // Backend caído (sin respuesta)
+        // Backend caído / timeout / CORS / sin respuesta.
+        // ANTES: cerraba sesión y redirigía al login. AHORA: solo loggea
+        // y rechaza la request — la sesión sigue viva en localStorage.
         if (!error.response) {
-            console.error('❌ Backend no disponible o timeout:', error.message);
-            
-            // 🔥 EVITAMOS cerrar sesión si es un simple Timeout de una consulta pesada
-            if (error.code !== 'ECONNABORTED') {
-                try {
-                    const authStore = useAuthStore();
-                    if (authStore.token && typeof window !== 'undefined') {
-                        console.warn('⚠️ Backend no responde. Limpiando sesión...');
-                        authStore.logout();
-                        if (!window.location.pathname.includes('/v1/auth/login')) {
-                            window.location.href = '/v1/auth/login?error=backend_unavailable';
-                        }
-                    }
-                } catch { /* store no disponible */ }
-            }
+            console.warn('⚠️ Backend no disponible o timeout:', error.message || error.code);
             return Promise.reject(error);
         }
 
-        // 403 → Acceso denegado / No autorizado
+        // 403: log y rechaza, pero NO cierra sesión. Un 403 transitorio
+        // (race post-login cuando los permisos aún no están cargados, o
+        // un endpoint que devuelve 403 por bug) ya no echa al usuario.
         if (error.response?.status === 403) {
-            console.warn('⚠️ Acceso denegado (403). Redirigiendo al login...');
-            try {
-                const authStore = useAuthStore();
-                authStore.logout();
-            } catch { /* store no disponible */ }
-
-            if (typeof window !== 'undefined' && !window.location.pathname.includes('/v1/auth/login')) {
-                window.location.href = '/v1/auth/login?error=forbidden';
-            }
+            console.warn('⚠️ Acceso denegado (403):', error.config?.url);
             return Promise.reject(error);
         }
 
-        // 401 → intentar refresh token
+        // 401 → intentar refresh token. ESTE es el único path que puede
+        // terminar redirigiendo al login (cuando ni el refresh token sirve),
+        // pero igual NO limpiamos localStorage.
         if (error.response?.status === 401 && !originalRequest._retry) {
             if (
                 originalRequest.url.includes('/auth/login') ||
@@ -114,10 +103,10 @@ apiClient.interceptors.response.use(
             const refreshToken = authStore?.refreshToken || localStorage.getItem('refreshToken');
 
             if (!refreshToken) {
-                console.warn('⚠️ No hay refresh token disponible');
+                console.warn('⚠️ No hay refresh token disponible — redirigiendo al login');
                 isRefreshing = false;
-                authStore?.logout();
-                if (typeof window !== 'undefined') {
+                if (typeof window !== 'undefined'
+                    && !window.location.pathname.includes('/v1/auth/login')) {
                     window.location.href = '/v1/auth/login?error=no_refresh_token';
                 }
                 return Promise.reject(error);
@@ -137,8 +126,8 @@ apiClient.interceptors.response.use(
             } catch (refreshError) {
                 console.error('❌ Error al refrescar token:', refreshError.response?.status || refreshError.message);
                 processQueue(refreshError, null);
-                authStore?.logout();
-                if (typeof window !== 'undefined') {
+                if (typeof window !== 'undefined'
+                    && !window.location.pathname.includes('/v1/auth/login')) {
                     window.location.href = '/v1/auth/login?error=session_expired';
                 }
                 return Promise.reject(refreshError);

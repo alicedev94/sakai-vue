@@ -121,12 +121,20 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-    // Función para verificar la salud de la sesión
+    // Función para verificar la salud de la sesión.
+    // ANTES: si había token pero no refreshToken, llamaba a logout().
+    // AHORA: re-intenta leer de localStorage antes de decidir. Esto cubre
+    // el race donde Pinia aún no terminó de hidratarse en el primer guard
+    // post-recarga. NO cerramos sesión automáticamente — el usuario cierra
+    // manualmente desde el topbar.
     function validateSession() {
-        if (token.value && !refreshToken.value) {
-            console.warn('⚠️ Token sin refresh token, limpiando sesión...');
-            logout();
-            return false;
+        if (!refreshToken.value) {
+            const stored = localStorage.getItem('refreshToken');
+            if (stored) refreshToken.value = stored;
+        }
+        if (!token.value) {
+            const stored = localStorage.getItem('token');
+            if (stored) token.value = stored;
         }
         return isAuthenticated.value;
     }

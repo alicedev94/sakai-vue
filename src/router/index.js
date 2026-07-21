@@ -213,10 +213,9 @@ router.beforeEach((to, from, next) => {
     if (to.meta.requiresAuth && !isAuthenticated) {
         console.log('🔒 Ruta protegida, redirigiendo al login...');
 
-        // Limpiar cualquier dato corrupto
-        authStore.logout();
-
-        // Redirigir al login
+        // NO cerramos sesión aquí. La sesión queda en localStorage; si el
+        // usuario ya está autenticado y esto es un race, validateSession()
+        // re-hidrata desde localStorage antes de devolver false.
         next({
             name: 'login',
             query: { redirect: to.fullPath }
