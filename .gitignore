@@ -12,3 +12,9 @@ dist
 .eslintcache
 api-generator/typedoc.json
 **/.DS_Store
+.agents
+aidlc-docs
+graphify-out
+graphify-output
+.graphify_detect.json
+.graphify_uncached.txt

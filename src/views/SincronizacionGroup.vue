@@ -38,6 +38,7 @@ const FORM_DEFAULTS = {
     descripcion: '',
     esActivo: true,
     intervaloMinutos: 30,
+    horaInicio: null,
     prioridad: 'MEDIA'
 };
 
@@ -112,6 +113,15 @@ const formatFecha = (value) => {
     return `${day}/${month}/${year} ${hours}:${mins}`;
 };
 
+const formatHora = (value) => {
+    if (!value) return 'Sin fijar';
+    if (typeof value === 'string' && value.includes(':')) {
+        const parts = value.split(':');
+        return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')} hrs`;
+    }
+    return value;
+};
+
 // ─── Acciones CRUD ────────────────────────────────────────────────────────────
 const refreshSelectedGroup = () => {
     if (selectedGroupForSincList.value?.id) {
@@ -147,6 +157,9 @@ const abrirNuevo = () => {
 
 const editarItem = (item) => {
     selectedItem.value = { ...item };
+    if (item.horaInicio && typeof item.horaInicio === 'string') {
+        selectedItem.value.horaInicio = item.horaInicio.substring(0, 5);
+    }
     selectedSincronizaciones.value = sincStore.configuraciones
         .filter(s => s.sincronizacionGroup?.id === item.id)
         .map(s => s.id);
@@ -215,11 +228,18 @@ const guardar = async () => {
         return;
     }
 
+    let horaInicioFormatted = null;
+    if (selectedItem.value.horaInicio && typeof selectedItem.value.horaInicio === 'string' && selectedItem.value.horaInicio.trim()) {
+        const val = selectedItem.value.horaInicio.trim();
+        horaInicioFormatted = val.length === 5 ? `${val}:00` : val;
+    }
+
     const payload = {
         nombre: selectedItem.value.nombre.trim(),
         descripcion: selectedItem.value.descripcion?.trim() || '',
         esActivo: selectedItem.value.esActivo ?? true,
         intervaloMinutos: selectedItem.value.intervaloMinutos ?? 30,
+        horaInicio: horaInicioFormatted,
         sincronizacionesIds: selectedSincronizaciones.value,
         prioridad: selectedItem.value.prioridad || 'MEDIA'
     };
@@ -682,6 +702,15 @@ onMounted(() => {
                     </template>
                 </Column>
 
+                <Column field="horaInicio" header="Hora de Inicio" :sortable="true" style="min-width: 10rem">
+                    <template #body="{ data }">
+                        <span class="font-medium text-sm">
+                            <i class="pi pi-clock mr-1 text-primary" />
+                            {{ formatHora(data.horaInicio) }}
+                        </span>
+                    </template>
+                </Column>
+
                 <Column field="fechaCreacion" header="Creado" :sortable="true" style="min-width: 11rem">
                     <template #body="{ data }">
                         <span class="fecha-text text-secondary">{{ formatFecha(data.fechaCreacion) }}</span>
@@ -788,6 +817,13 @@ onMounted(() => {
                                 <span class="sinc-value" style="text-align: left;">{{ data.descripcion }}</span>
                             </div>
                             <div class="sinc-card-row">
+                                <span class="sinc-label">Hora de Inicio</span>
+                                <span class="sinc-value font-medium">
+                                    <i class="pi pi-clock mr-1 text-primary" />
+                                    {{ formatHora(data.horaInicio) }}
+                                </span>
+                            </div>
+                            <div class="sinc-card-row">
                                 <span class="sinc-label">Creado</span>
                                 <span class="sinc-value">{{ formatFecha(data.fechaCreacion) }}</span>
                             </div>
@@ -848,7 +884,7 @@ onMounted(() => {
                     />
                 </div>
 
-                <div class="field col-12">
+                <div class="field col-12 md:col-6">
                     <label for="intervaloMinutos">Temporalidad (Minutos) *</label>
                     <InputNumber
                         id="intervaloMinutos"
@@ -861,6 +897,20 @@ onMounted(() => {
                     />
                     <small class="p-error" v-if="submitted && !selectedItem.intervaloMinutos">
                         La temporalidad es obligatoria.
+                    </small>
+                </div>
+
+                <div class="field col-12 md:col-6">
+                    <label for="horaInicio">Hora de Inicio Estricta</label>
+                    <InputText
+                        id="horaInicio"
+                        type="time"
+                        step="60"
+                        v-model="selectedItem.horaInicio"
+                        class="w-full"
+                    />
+                    <small class="text-secondary block mt-1 font-normal">
+                        Punto de inicio para ventanas de ejecución exactas (ej. 08:00).
                     </small>
                 </div>
 

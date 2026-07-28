@@ -399,6 +399,13 @@ async function procesarEscaneo(codigoDesdeCamara) {
             cantidadInventarioPiso.value = inv.piso;
             cantidadInventarioAlmacen.value = inv.almacen;
             cantidadInventarioCedis.value = inv.cedis;
+
+            if (typeof inv.almacen === 'number' && inv.almacen >= 0) {
+                cantidadMax.value = Math.min(cantidadRestante, inv.almacen);
+                if (cantidadSurtir.value > cantidadMax.value) {
+                    cantidadSurtir.value = Math.max(1, cantidadMax.value);
+                }
+            }
         } else {
             cantidadInventarioPiso.value = 'N/D';
             cantidadInventarioAlmacen.value = 'N/D';
@@ -418,7 +425,19 @@ async function procesarEscaneo(codigoDesdeCamara) {
 async function confirmarSurtido() {
     if (!codigoPendiente.value || !ordenSeleccionada.value) return;
 
+    const stockAlmacen = typeof cantidadInventarioAlmacen.value === 'number' ? cantidadInventarioAlmacen.value : null;
+    if (stockAlmacen !== null && stockAlmacen >= 0 && cantidadSurtir.value > stockAlmacen) {
+        toast.add({
+            severity: 'error',
+            summary: 'Exceso sobre Almacén',
+            detail: `No se puede realizar el picking de ${cantidadSurtir.value} unidad(es). Disponibilidad en almacén: ${stockAlmacen} unidad(es).`,
+            life: 4000
+        });
+        return;
+    }
+
     const cantidad = Math.max(1, Math.min(cantidadSurtir.value, cantidadMax.value));
+
 
     isScanning.value = true;
     mostrarCantidad.value = false;
@@ -968,6 +987,12 @@ const finalizarOrden = async () => {
                     </template>
                 </Column>
 
+                <Column field="usuarioSolicitante" header="Solicitante" :sortable="true" style="min-width: 10rem">
+                    <template #body="{ data }">
+                        <span class="fecha-text text-secondary">{{ data.usuarioSolicitante || '—' }}</span>
+                    </template>
+                </Column>
+
                 <Column field="usuarioSurtidor" header="Surtidor" :sortable="true" style="min-width: 10rem">
                     <template #body="{ data }">
                         <span class="fecha-text text-secondary">{{ data.usuarioSurtidor || '—' }}</span>
@@ -1065,6 +1090,10 @@ const finalizarOrden = async () => {
                             <div class="orden-card-row" v-if="data.fechaFinalizacion">
                                 <span class="orden-label">Fecha Finalización</span>
                                 <span class="orden-value">{{ formatFecha(data.fechaFinalizacion) }}</span>
+                            </div>
+                            <div class="orden-card-row">
+                                <span class="orden-label">Solicitante</span>
+                                <span class="orden-value">{{ data.usuarioSolicitante || '—' }}</span>
                             </div>
                             <div class="orden-card-row">
                                 <span class="orden-label">Surtidor</span>
@@ -1435,6 +1464,10 @@ const finalizarOrden = async () => {
                     <div class="detail-field">
                         <label>Departamento</label>
                         <span>{{ ordenSeleccionada.departamento || '—' }}</span>
+                    </div>
+                    <div class="detail-field">
+                        <label>Solicitante</label>
+                        <span>{{ ordenSeleccionada.usuarioSolicitante || '—' }}</span>
                     </div>
                     <div class="detail-field">
                         <label>Surtidor</label>
