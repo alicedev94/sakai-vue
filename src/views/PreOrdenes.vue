@@ -411,9 +411,11 @@ async function openCreateDialog() {
     newPreOrden.value = {
         departamento: null,
         usuarioSurtidor: authStore.user?.email || '',
+        usuarioSolicitante: authStore.user?.email || '',
         items: [],
         origen: 'PICKING'
     };
+
     nuevoProducto.value = { producto: null, cantidad: 1 };
     productosList.value = [];
 
@@ -490,8 +492,20 @@ async function agregarProducto() {
         // fallo consulta inventario
     }
 
+    const cantidadDeseada = (existing ? existing.cantidad : 0) + nuevoProducto.value.cantidad;
+
+    if (typeof r3Almacen === 'number' && r3Almacen >= 0 && cantidadDeseada > r3Almacen) {
+        toast.add({
+            severity: 'error',
+            summary: 'Stock Insuficiente en Almacén',
+            detail: `No se puede solicitar ${cantidadDeseada} unidades de "${p.nombreProducto || 'Producto'}". Disponibilidad en Almacén: ${r3Almacen} unidad(es).`,
+            life: 5000
+        });
+        return;
+    }
+
     if (existing) {
-        existing.cantidad += nuevoProducto.value.cantidad;
+        existing.cantidad = cantidadDeseada;
         existing.r3Piso = r3Piso;
         existing.r3Almacen = r3Almacen;
         existing.cedis = cedis;
@@ -628,6 +642,7 @@ async function abrirEditar(orden) {
         newPreOrden.value = {
             id: det.id,
             departamento: det.departamento,
+            usuarioSolicitante: det.usuarioSolicitante,
             usuarioSurtidor: det.usuarioSurtidor,
             items: det.items ? det.items.map((i) => ({ ...i, _fromBackend: true })) : [],
             origen: det.origen || 'PICKING'
@@ -682,10 +697,21 @@ async function guardarPreOrden() {
     const payload = { ...newPreOrden.value };
 
     payload.departamento = payload.departamento?.descripcion || payload.departamento?.codigo || payload.departamento;
-
-    if (!payload.departamento || !payload.usuarioSurtidor || payload.items.length === 0) {
+    if (!payload.departamento || payload.items.length === 0) {
         toast.add({ severity: 'warn', summary: 'Atención', detail: 'Complete los campos y agregue al menos un producto', life: 3000 });
         return;
+    }
+
+    for (const item of payload.items) {
+        if (typeof item.r3Almacen === 'number' && item.r3Almacen >= 0 && item.cantidad > item.r3Almacen) {
+            toast.add({
+                severity: 'error',
+                summary: 'Stock Excedido en Almacén',
+                detail: `El producto "${item.nombreProducto}" tiene una cantidad de ${item.cantidad}, pero la disponibilidad en Almacén es de ${item.r3Almacen} unidad(es).`,
+                life: 5000
+            });
+            return;
+        }
     }
 
     payload.tipoDocumento = { id: 2, nombre: 'PreOrden' };
@@ -1028,6 +1054,12 @@ const exportarPDF = () => {
                     </template>
                 </Column>
 
+                <Column field="usuarioSolicitante" header="Solicitante" :sortable="true" style="min-width: 10rem">
+                    <template #body="{ data }">
+                        <span class="fecha-text text-secondary">{{ data.usuarioSolicitante || '—' }}</span>
+                    </template>
+                </Column>
+
                 <Column field="usuarioSurtidor" header="Surtidor" :sortable="true" style="min-width: 10rem">
                     <template #body="{ data }">
                         <span class="fecha-text text-secondary">{{ data.usuarioSurtidor || '—' }}</span>
@@ -1107,6 +1139,10 @@ const exportarPDF = () => {
                                 <span v-else class="text-secondary">—</span>
                             </div>
                             <div class="preorden-card-row">
+                                <span class="preorden-label">Solicitante</span>
+                                <span class="preorden-value">{{ data.usuarioSolicitante || '—' }}</span>
+                            </div>
+                            <div class="preorden-card-row">
                                 <span class="preorden-label">Surtidor</span>
                                 <span class="preorden-value">{{ data.usuarioSurtidor || '—' }}</span>
                             </div>
@@ -1166,6 +1202,10 @@ const exportarPDF = () => {
                     <div class="detail-field">
                         <label>Departamento</label>
                         <span>{{ preOrdenSeleccionada.departamento || '—' }}</span>
+                    </div>
+                    <div class="detail-field">
+                        <label>Solicitante</label>
+                        <span>{{ preOrdenSeleccionada.usuarioSolicitante || '—' }}</span>
                     </div>
                     <div class="detail-field">
                         <label>Surtidor</label>
@@ -1304,6 +1344,15 @@ const exportarPDF = () => {
                     <Select v-model="newPreOrden.departamento" :options="departamentosList" optionLabel="descripcion" dataKey="descripcion" placeholder="Seleccione departamento" class="w-full mt-2" :filter="true" appendTo="body" />
                 </div>
                 <div class="col-12 md:col-6 mb-3">
+                    <label>Solicitante</label>
+                    <InputText
+                        v-model="newPreOrden.usuarioSolicitante"
+                        placeholder="Email del solicitante"
+                        class="w-full mt-2"
+                        disabled
+                    />
+                </div>
+                <div class="col-12 md:col-6 mb-3">
                     <label>Surtidor</label>
                     <InputText v-model="newPreOrden.usuarioSurtidor" placeholder="Nombre o ID del surtidor" class="w-full mt-2" disabled />
                 </div>
@@ -1420,7 +1469,14 @@ const exportarPDF = () => {
                         </Column>
                         <Column field="cantidad" header="Cant." style="width: 140px; text-align: center">
                             <template #body="{ data }">
-                                <InputNumber v-model="data.cantidad" :min="1" showButtons class="w-full" inputClass="text-center" />
+                                <InputNumber
+                                    v-model="data.cantidad"
+                                    :min="1"
+                                    :max="typeof data.r3Almacen === 'number' && data.r3Almacen >= 0 ? data.r3Almacen : undefined"
+                                    showButtons
+                                    class="w-full"
+                                    inputClass="text-center"
+                                />
                             </template>
                         </Column>
                         <Column :exportable="false" header="" style="width: 60px">
