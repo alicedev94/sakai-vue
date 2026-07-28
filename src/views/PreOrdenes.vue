@@ -60,6 +60,18 @@ function resetMobilePage() {
     cargarDatos();
 }
 
+// REDU-2: busqueda dinamica con debounce.
+// Antes: cada keystroke pegaba al backend (fetch en @input directo).
+// Ahora: 350ms despues del ultimo keystroke se dispara el fetch.
+let searchDebounceTimer = null;
+function onSearchInput() {
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+        resetMobilePage();
+        searchDebounceTimer = null;
+    }, 350);
+}
+
 const progresoOrden = (orden) => {
     if (!orden.totalItems) return 0;
     return Math.round((orden.itemsSurtidos / orden.totalItems) * 100);
@@ -75,6 +87,12 @@ const itemEstadoConfig = {
     PENDIENTE: { label: 'Pendiente', class: 'pendiente', icon: 'pi pi-clock' },
     SURTIDO: { label: 'Surtido', class: 'surtido', icon: 'pi pi-check' },
     NO_SURTIDO: { label: 'No Surtido', class: 'no-surtido', icon: 'pi pi-times' }
+};
+
+// REDU-1: visual para origen
+const origenConfig = {
+    PICKING:    { label: 'Picking',    class: 'origen-picking',    icon: 'pi pi-hand-pointer' },
+    AUTOMATICO: { label: 'Automatico', class: 'origen-automatico', icon: 'pi pi-replay' }
 };
 
 const formatDateForApi = (dateStr) => {
@@ -164,8 +182,13 @@ const creando = ref(false);
 const newPreOrden = ref({
     departamento: null,
     usuarioSurtidor: '',
-    items: []
+    items: [],
+    origen: 'PICKING' // REDU-1: default picking; puede cambiarse a AUTOMATICO en el dialog
 });
+const ORIGENES = [
+    { label: 'Picking (manual)', value: 'PICKING' },
+    { label: 'Automatico (sync)', value: 'AUTOMATICO' }
+];
 const departamentosList = ref([]);
 const productosList = ref([]);
 const nuevoProducto = ref({ producto: null, cantidad: 1, atributo: '' });
@@ -221,13 +244,31 @@ watch(preOrdenSeleccionada, (nueva) => {
     }
 });
 
+// REDU-3: flag para evitar que el watcher reordene inmediatamente
+// despues de un .unshift() en agregarProducto(). Asi el orden de
+// insercion (ultimo al inicio) se mantiene mientras el usuario
+// sigue agregando productos. La reordenacion por ubicacion SOLO se
+// aplica al cargar items desde el backend (abrirEditar), nunca
+// durante la edicion del dialog.
+let skipNextSortFlag = false;
+
 watch(() => newPreOrden.value.items, (nuevosItems) => {
-    if (nuevosItems && nuevosItems.length > 0) {
-        const copia = ordenarItemsPorUbicacion(nuevosItems);
-        const yaOrdenado = nuevosItems.every((item, idx) => item.idProducto === copia[idx].idProducto && item.atributo === copia[idx].atributo && item.cantidad === copia[idx].cantidad);
-        if (!yaOrdenado) {
-            newPreOrden.value.items = copia;
-        }
+    if (skipNextSortFlag || !nuevosItems || nuevosItems.length === 0) return;
+    // Reordenar por ubicacion SOLO cuando:
+    //  - vienen del backend (marcados con _fromBackend=true al cargar), o
+    //  - hay 2+ items y el orden actual difiere del orden por ubicacion
+    //    (heuristica: si el primero no tiene ubicacion o su ubicacion
+    //    lexicograficamente mayor que la del ultimo, probablemente el
+    //    usuario agrego recien y quiere el orden de insercion)
+    const todosDelBackend = nuevosItems.every((it) => it._fromBackend);
+    if (!todosDelBackend) {
+        // el usuario esta editando/agregando: respetar el orden actual
+        return;
+    }
+    const copia = ordenarItemsPorUbicacion(nuevosItems);
+    const yaOrdenado = nuevosItems.every((item, idx) => item.idProducto === copia[idx].idProducto && item.atributo === copia[idx].atributo && item.cantidad === copia[idx].cantidad);
+    if (!yaOrdenado) {
+        newPreOrden.value.items = copia;
     }
 }, { deep: true });
 
@@ -348,10 +389,11 @@ async function iniciarCamara() {
 }
 
 async function openCreateDialog() {
-    newPreOrden.value = { 
-        departamento: null, 
-        usuarioSurtidor: authStore.user?.email || '', 
-        items: [] 
+    newPreOrden.value = {
+        departamento: null,
+        usuarioSurtidor: authStore.user?.email || '',
+        items: [],
+        origen: 'PICKING'
     };
     nuevoProducto.value = { producto: null, cantidad: 1 };
     productosList.value = [];
@@ -438,7 +480,12 @@ async function agregarProducto() {
         existing.r3Almacen = r3Almacen;
         existing.cedis = cedis;
     } else {
-        newPreOrden.value.items.push({
+        // REDU-3: nuevo producto va al inicio (ultimo agregado primero).
+        // Antes: .push() lo dejaba al final y el watcher de reorden lo
+        // movia por ubicacion, sobreescribiendo el orden de insercion.
+        // Ahora: .unshift() y un flag evita que el watcher reordene
+        // inmediatamente (ver skipNextSortFlag).
+        const nuevo = {
             idProducto: p.id || codBarra,
             codigoBarra: codBarra,
             nombreProducto: p.nombreProducto,
@@ -457,7 +504,10 @@ async function agregarProducto() {
             r3Almacen,
             cedis,
             ubicaciones: p.ubicaciones || []
-        });
+        };
+        skipNextSortFlag = true;
+        newPreOrden.value.items.unshift(nuevo);
+        setTimeout(() => { skipNextSortFlag = false; }, 0);
     }
     nuevoProducto.value = { producto: null, cantidad: 1, atributo: '' };
 }
@@ -533,7 +583,10 @@ watch(createDialog, async (abierto) => {
     }
 });
 
-onUnmounted(detenerCamara);
+onUnmounted(() => {
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+    detenerCamara();
+});
 
 async function abrirEditar(orden) {
     console.log('🔥 [abrirEditar] NUEVA version con loading + inventario');
@@ -554,11 +607,12 @@ async function abrirEditar(orden) {
         
         const det = store.preOrdenActiva;
         console.log('[abrirEditar] det.items:', det.items?.length, JSON.parse(JSON.stringify(det.items?.map(i => ({ codigoBarra: i.codigoBarra, r3Piso: i.r3Piso, r3Almacen: i.r3Almacen })))));
-        newPreOrden.value = { 
+        newPreOrden.value = {
             id: det.id,
-            departamento: det.departamento, 
-            usuarioSurtidor: det.usuarioSurtidor, 
-            items: det.items ? det.items.map(i => ({ ...i })) : []
+            departamento: det.departamento,
+            usuarioSurtidor: det.usuarioSurtidor,
+            items: det.items ? det.items.map(i => ({ ...i, _fromBackend: true })) : [],
+            origen: det.origen || 'PICKING'
         };
         nuevoProducto.value = { producto: null, cantidad: 1 };
         productosList.value = [];
@@ -863,7 +917,7 @@ const exportarPDF = () => {
                                 placeholder="Buscar N° Documento o departamento..."
                                 class="w-full"
                                 style="min-width: 0;"
-                                @input="resetMobilePage"
+                                @input="onSearchInput"
                             />
                         </IconField>
                     </div>
@@ -944,6 +998,16 @@ const exportarPDF = () => {
                                 :showValue="false"
                             />
                         </div>
+                    </template>
+                </Column>
+
+                <!-- REDU-1: badge de origen (Picking vs Automatico) -->
+                <Column header="Origen" style="min-width: 8rem">
+                    <template #body="{ data }">
+                        <span :class="['origen-badge', origenConfig[data.origen]?.class]">
+                            <i :class="origenConfig[data.origen]?.icon" />
+                            {{ origenConfig[data.origen]?.label || '—' }}
+                        </span>
                     </template>
                 </Column>
 
@@ -1036,12 +1100,16 @@ const exportarPDF = () => {
                         <i class="pi pi-spin pi-spinner" style="font-size: 3rem; color: var(--primary-color)" />
                     </div>
 
-                    <div v-for="data in preOrdenesFiltradas" :key="data.id" class="preorden-card">
+                    <div v-for="data in preOrdenesFiltradas" :key="data.id" :class="['preorden-card', data.origen === 'PICKING' && 'preorden-card-picking']">
                         <!-- Header -->
                         <div class="preorden-card-header">
                             <div class="preorden-card-header-left">
                                 <span class="font-semibold text-primary" style="font-size: 0.95rem;">{{ data.numeroOrden }}</span>
                                 <span class="id-badge">#{{ data.id }}</span>
+                                <span v-if="origenConfig[data.origen]" :class="['origen-badge', 'origen-badge-sm', origenConfig[data.origen].class]">
+                                    <i :class="origenConfig[data.origen].icon" />
+                                    {{ origenConfig[data.origen].label }}
+                                </span>
                             </div>
                             <span :class="['estado-badge', estadoConfig[data.estado]?.class]">
                                 <i :class="estadoConfig[data.estado]?.icon" />
@@ -1292,7 +1360,20 @@ const exportarPDF = () => {
                         disabled
                     />
                 </div>
-                
+                <div class="col-12 md:col-6 mb-3">
+                    <label>Origen</label>
+                    <Select
+                        v-model="newPreOrden.origen"
+                        :options="ORIGENES"
+                        optionLabel="label"
+                        optionValue="value"
+                        placeholder="Seleccione origen"
+                        class="w-full mt-2"
+                        appendTo="body"
+                    />
+                    <small class="text-secondary">Define si la pre-orden es de picking (manual) o automática (generada por sync).</small>
+                </div>
+
                 <div class="col-12 mt-2">
                     <Divider align="left">
                         <b>Productos</b>
@@ -1848,6 +1929,43 @@ const exportarPDF = () => {
         color: var(--green-600);
         border: 1px solid color-mix(in srgb, var(--green-500) 30%, transparent);
     }
+}
+
+/* ── Origen (REDU-1) ──────────────────────────────────────────────────── */
+.origen-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 14px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+
+    &.origen-picking {
+        background: color-mix(in srgb, var(--purple-500) 15%, transparent);
+        color: var(--purple-700);
+        border: 1px solid color-mix(in srgb, var(--purple-500) 40%, transparent);
+    }
+    &.origen-automatico {
+        background: color-mix(in srgb, var(--teal-500) 12%, transparent);
+        color: var(--teal-700);
+        border: 1px solid color-mix(in srgb, var(--teal-500) 30%, transparent);
+    }
+
+    &.origen-badge-sm {
+        padding: 0.12rem 0.45rem;
+        font-size: 0.62rem;
+    }
+}
+
+/* Borde distintivo en cards de picking (mobile) */
+.preorden-card.preorden-card-picking {
+    border-left: 4px solid var(--purple-500);
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--purple-500) 4%, transparent) 0%,
+        transparent 30%);
 }
 
 /* Action Buttons */
