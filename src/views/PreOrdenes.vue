@@ -391,7 +391,7 @@ async function iniciarCamara() {
 async function openCreateDialog() {
     newPreOrden.value = {
         departamento: null,
-        usuarioSurtidor: authStore.user?.email || '',
+        usuarioSurtidor: '',
         usuarioSolicitante: authStore.user?.email || '',
         items: [],
         origen: 'PICKING'
@@ -480,12 +480,11 @@ async function agregarProducto() {
 
     if (typeof r3Almacen === 'number' && r3Almacen >= 0 && cantidadDeseada > r3Almacen) {
         toast.add({
-            severity: 'error',
-            summary: 'Stock Insuficiente en Almacén',
-            detail: `No se puede solicitar ${cantidadDeseada} unidades de "${p.nombreProducto || 'Producto'}". Disponibilidad en Almacén: ${r3Almacen} unidad(es).`,
+            severity: 'warn',
+            summary: 'Atención: Stock en Almacén',
+            detail: `Solicitaste ${cantidadDeseada} unidad(es) de "${p.nombreProducto || 'Producto'}", pero la disponibilidad en Almacén es de ${r3Almacen} unidad(es).`,
             life: 5000
         });
-        return;
     }
 
     if (existing) {
@@ -687,12 +686,11 @@ async function guardarPreOrden() {
     for (const item of payload.items) {
         if (typeof item.r3Almacen === 'number' && item.r3Almacen >= 0 && item.cantidad > item.r3Almacen) {
             toast.add({
-                severity: 'error',
-                summary: 'Stock Excedido en Almacén',
+                severity: 'warn',
+                summary: 'Atención: Stock Excedido en Almacén',
                 detail: `El producto "${item.nombreProducto}" tiene una cantidad de ${item.cantidad}, pero la disponibilidad en Almacén es de ${item.r3Almacen} unidad(es).`,
                 life: 5000
             });
-            return;
         }
     }
 
@@ -1595,7 +1593,6 @@ const exportarPDF = () => {
                                 <InputNumber
                                     v-model="data.cantidad"
                                     :min="1"
-                                    :max="typeof data.r3Almacen === 'number' && data.r3Almacen >= 0 ? data.r3Almacen : undefined"
                                     showButtons
                                     class="w-full"
                                     inputClass="text-center"
