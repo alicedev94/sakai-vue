@@ -1,4 +1,5 @@
 <script setup>
+import { operacionesService } from '@/service/OperacionesService';
 import { useAuthStore } from '@/stores/auth';
 import { useUbicationsStore } from '@/stores/ubications';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
@@ -282,7 +283,19 @@ const totalUbicaciones = computed(() => ubicacionesFiltradas.value.length);
 const totalActivas = computed(() => ubicacionesFiltradas.value.filter((u) => u.activo).length);
 const totalInactivas = computed(() => ubicacionesFiltradas.value.filter((u) => !u.activo).length);
 
-// ─── Paginado móvil ──────────────────────────────────────────────────────────
+// ─── Paginado Escritorio y Móvil ─────────────────────────────────────────────
+const desktopFirst = ref(0);
+const desktopRows = ref(10);
+
+function onDesktopPage(event) {
+    desktopFirst.value = event.first;
+    desktopRows.value = event.rows;
+}
+
+const desktopPagedItems = computed(() => {
+    return ubicacionesFiltradas.value.slice(desktopFirst.value, desktopFirst.value + desktopRows.value);
+});
+
 const mobileCurrentPage = ref(0);
 const mobileRowsPerPage = 10;
 
@@ -293,9 +306,62 @@ const mobilePagedItems = computed(() => {
 
 const mobileTotalPages = computed(() => Math.ceil(ubicacionesFiltradas.value.length / mobileRowsPerPage));
 
-function resetMobilePage() {
+function resetPages() {
     mobileCurrentPage.value = 0;
+    desktopFirst.value = 0;
 }
+const resetMobilePage = resetPages;
+
+// ─── Consulta Dinámica de Inventario por Ubicación (Piso / Almacén) ─────────
+const inventarioMap = ref({});
+
+async function cargarInventarioParaVisibles(items) {
+    if (!items || items.length === 0) return;
+
+    // Solo consultar productos visibles que aún no han sido cargados ni estén cargando
+    const itemsACargar = items.filter(it => it.codigo && !inventarioMap.value[it.id]?.loaded && !inventarioMap.value[it.id]?.loading);
+    if (itemsACargar.length === 0) return;
+
+    itemsACargar.forEach(it => {
+        inventarioMap.value[it.id] = {
+            piso: '-',
+            almacen: '-',
+            loading: true,
+            loaded: false
+        };
+    });
+
+    await Promise.all(itemsACargar.map(async (it) => {
+        try {
+            const inv = await operacionesService.obtenerInventarioUbicacion(it.codigo);
+            inventarioMap.value[it.id] = {
+                piso: inv?.piso ?? 0,
+                almacen: inv?.almacen ?? 0,
+                cedis: inv?.cedis ?? 0,
+                loading: false,
+                loaded: true
+            };
+        } catch (e) {
+            console.warn(`Error al cargar inventario de ubicación para código "${it.codigo}":`, e);
+            inventarioMap.value[it.id] = {
+                piso: '-',
+                almacen: '-',
+                cedis: '-',
+                loading: false,
+                loaded: true
+            };
+        }
+    }));
+}
+
+// Observadores para disparar la consulta asíncrona al cambiar la página visible (desktop o móvil)
+watch(desktopPagedItems, (newItems) => {
+    cargarInventarioParaVisibles(newItems);
+}, { immediate: true, deep: true });
+
+watch(mobilePagedItems, (newItems) => {
+    cargarInventarioParaVisibles(newItems);
+}, { immediate: true, deep: true });
 
 // ─── Utilidades ──────────────────────────────────────────────────────────────
 const formatFecha = (value) => {
@@ -533,7 +599,9 @@ onUnmounted(detenerCamara);
                 :loading="store.isLoading"
                 dataKey="id"
                 :paginator="true"
-                :rows="10"
+                :first="desktopFirst"
+                :rows="desktopRows"
+                @page="onDesktopPage"
                 :rowsPerPageOptions="[5, 10, 25, 50]"
                 paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                 currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} ubicaciones"
@@ -565,6 +633,30 @@ onUnmounted(detenerCamara);
                             <i class="pi pi-map-marker ubi-pin" />
                             <span class="font-semibold">{{ data.ubicacion }}</span>
                         </div>
+                    </template>
+                </Column>
+
+                <!-- Columna Piso -->
+                <Column field="piso" header="Piso" :sortable="false" style="min-width: 6rem">
+                    <template #body="{ data }">
+                        <span v-if="inventarioMap[data.id]?.loading" class="text-secondary text-xs">
+                            <i class="pi pi-spin pi-spinner text-xs" />
+                        </span>
+                        <span v-else class="font-semibold text-surface-900 dark:text-surface-0">
+                            {{ inventarioMap[data.id]?.piso ?? '-' }}
+                        </span>
+                    </template>
+                </Column>
+
+                <!-- Columna Almacén -->
+                <Column field="almacen" header="Almacén" :sortable="false" style="min-width: 6rem">
+                    <template #body="{ data }">
+                        <span v-if="inventarioMap[data.id]?.loading" class="text-secondary text-xs">
+                            <i class="pi pi-spin pi-spinner text-xs" />
+                        </span>
+                        <span v-else class="font-semibold text-surface-900 dark:text-surface-0">
+                            {{ inventarioMap[data.id]?.almacen ?? '-' }}
+                        </span>
                     </template>
                 </Column>
 
@@ -659,6 +751,24 @@ onUnmounted(detenerCamara);
                                 <span class="font-medium text-surface-500 dark:text-surface-400">Localidad:</span>
                                 <span v-if="data.localidad" class="localidad-tag">{{ data.localidad }}</span>
                                 <span v-else class="text-surface-400">—</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="font-medium text-surface-500 dark:text-surface-400">Piso:</span>
+                                <span v-if="inventarioMap[data.id]?.loading" class="text-secondary text-xs">
+                                    <i class="pi pi-spin pi-spinner text-xs" />
+                                </span>
+                                <span v-else class="font-semibold text-surface-900 dark:text-surface-0">
+                                    {{ inventarioMap[data.id]?.piso ?? '-' }}
+                                </span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="font-medium text-surface-500 dark:text-surface-400">Almacén:</span>
+                                <span v-if="inventarioMap[data.id]?.loading" class="text-secondary text-xs">
+                                    <i class="pi pi-spin pi-spinner text-xs" />
+                                </span>
+                                <span v-else class="font-semibold text-surface-900 dark:text-surface-0">
+                                    {{ inventarioMap[data.id]?.almacen ?? '-' }}
+                                </span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="font-medium text-surface-500 dark:text-surface-400">Usuario:</span>
@@ -1028,10 +1138,10 @@ onUnmounted(detenerCamara);
 .codigo-badge {
     background: var(--surface-100);
     color: var(--primary-color);
-    padding: 0.28rem 0.75rem;
+    padding: 0.25rem 0.75rem;
     border-radius: 20px;
     font-weight: 700;
-    font-size: 0.83rem;
+    font-size: 0.85rem;
     font-family: monospace;
     border: 1px solid color-mix(in srgb, var(--primary-color) 25%, transparent);
     letter-spacing: 0.04em;
