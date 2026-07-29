@@ -27,6 +27,10 @@ const showDialog = ref(false);
 const showScannerDialog = ref(false);
 const isEditing = ref(false);
 const saving = ref(false);
+const showPurgeDialog = ref(false);
+const purgeLocationQuery = ref('');
+const purging = ref(false);
+const selectedUbicaciones = ref([]);
 
 // ─── Escáner de cámara ───────────────────────────────────────────────────────
 const CAMARA_HOST_ID = 'camara-codigo-host';
@@ -186,6 +190,9 @@ async function iniciarCamara(target = 'codigo') {
                 } else if (scanTarget.value === 'filtroUbicacion') {
                     filtroUbicacion.value = codigo;
                     resetMobilePage();
+                    showScannerDialog.value = false;
+                } else if (scanTarget.value === 'purgeLocation') {
+                    purgeLocationQuery.value = codigo;
                     showScannerDialog.value = false;
                 } else {
                     form.value[scanTarget.value] = codigo;
@@ -475,6 +482,131 @@ function confirmarEliminar(ubication) {
     });
 }
 
+// ─── Selección Múltiple y Borrado por Ubicación ──────────────────────────────
+function isSeleccionado(item) {
+    return selectedUbicaciones.value.some((s) => s.id === item.id);
+}
+
+function toggleSeleccion(item) {
+    const index = selectedUbicaciones.value.findIndex((s) => s.id === item.id);
+    if (index !== -1) {
+        selectedUbicaciones.value.splice(index, 1);
+    } else {
+        selectedUbicaciones.value.push(item);
+    }
+}
+
+const ubicacionesParaPurga = computed(() => {
+    const query = purgeLocationQuery.value.trim().toLowerCase();
+    if (!query) return [];
+    return store.ubications.filter((u) => u.ubicacion?.toLowerCase() === query);
+});
+
+const listaUbicacionesUnicas = computed(() => {
+    const set = new Set();
+    store.ubications.forEach((u) => {
+        if (u.ubicacion?.trim()) set.add(u.ubicacion.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+});
+
+const sugerenciasUbicacion = ref([]);
+
+function buscarSugerenciasUbicacion(event) {
+    const query = (event?.query || '').trim().toLowerCase();
+    if (!query) {
+        sugerenciasUbicacion.value = [...listaUbicacionesUnicas.value];
+    } else {
+        sugerenciasUbicacion.value = listaUbicacionesUnicas.value.filter((u) => u.toLowerCase().includes(query));
+    }
+}
+
+function abrirDialogoPurga(nombreUbicacion = '') {
+    purgeLocationQuery.value = nombreUbicacion;
+    showPurgeDialog.value = true;
+}
+
+function confirmarEliminarSeleccionados() {
+    if (selectedUbicaciones.value.length === 0) return;
+    const count = selectedUbicaciones.value.length;
+    const ids = selectedUbicaciones.value.map((u) => u.id);
+
+    confirm.require({
+        message: `¿Estás seguro de eliminar los ${count} registros seleccionados de forma permanente?`,
+        header: 'Confirmar Eliminación Múltiple',
+        icon: 'pi pi-exclamation-triangle',
+        acceptClass: 'p-button-danger',
+        acceptLabel: `Eliminar ${count}`,
+        rejectLabel: 'Cancelar',
+        accept: async () => {
+            try {
+                await store.deleteMultipleUbications(ids);
+                selectedUbicaciones.value = [];
+                toast.add({
+                    severity: 'success',
+                    summary: 'Eliminación completada',
+                    detail: `Se eliminaron ${count} registros correctamente`,
+                    life: 3500
+                });
+            } catch (err) {
+                toast.add({
+                    severity: 'error',
+                    summary: 'Error',
+                    detail: err.response?.data?.message || 'No se pudieron eliminar los registros seleccionados',
+                    life: 5000
+                });
+            }
+        }
+    });
+}
+
+async function ejecutarPurgaUbicacion() {
+    const items = ubicacionesParaPurga.value;
+    if (items.length === 0) {
+        toast.add({ severity: 'warn', summary: 'Atención', detail: 'No se encontraron registros para la ubicación especificada', life: 3000 });
+        return;
+    }
+
+    const nombreUbi = purgeLocationQuery.value.trim();
+    const count = items.length;
+    const ids = items.map((u) => u.id);
+
+    confirm.require({
+        message: `¿Estás seguro de eliminar TODOS los ${count} códigos asignados a la ubicación "${nombreUbi}"?`,
+        header: `Purga de Ubicación: ${nombreUbi}`,
+        icon: 'pi pi-trash',
+        acceptClass: 'p-button-danger',
+        acceptLabel: `Eliminar los ${count} códigos`,
+        rejectLabel: 'Cancelar',
+        accept: async () => {
+            purging.value = true;
+            try {
+                await store.deleteMultipleUbications(ids);
+                const idsSet = new Set(ids);
+                selectedUbicaciones.value = selectedUbicaciones.value.filter((u) => !idsSet.has(u.id));
+
+                showPurgeDialog.value = false;
+                purgeLocationQuery.value = '';
+                toast.add({
+                    severity: 'success',
+                    summary: 'Purga Exitosa',
+                    detail: `Se eliminaron todos los ${count} registros de la ubicación "${nombreUbi}"`,
+                    life: 4000
+                });
+            } catch (err) {
+                toast.add({
+                    severity: 'error',
+                    summary: 'Error',
+                    detail: err.response?.data?.message || 'No se pudo realizar el borrado por ubicación',
+                    life: 5000
+                });
+            } finally {
+                purging.value = false;
+            }
+        }
+    });
+}
+
 onMounted(cargarDatos);
 onUnmounted(detenerCamara);
 </script>
@@ -515,11 +647,51 @@ onUnmounted(detenerCamara);
             <!-- Toolbar / Filtros -->
             <Toolbar class="mb-5 flex flex-col md:flex-row gap-4">
                 <template #start>
-                    <div class="flex items-center gap-2 w-full md:w-auto">
-                        <Button icon="pi pi-refresh" severity="secondary" outlined v-tooltip.top="'Actualizar'" :loading="store.isLoading" @click="cargarDatos" class="flex-1 md:flex-none" />
-                        <Button icon="pi pi-filter-slash" severity="secondary" outlined v-tooltip.top="'Limpiar filtros'" @click="clearFilters" class="flex-1 md:flex-none" />
+                    <div class="flex items-center gap-2 w-full md:w-auto flex-wrap">
+                        <Button
+                            icon="pi pi-refresh"
+                            severity="secondary"
+                            outlined
+                            v-tooltip.top="'Actualizar'"
+                            :loading="store.isLoading"
+                            @click="cargarDatos"
+                        />
+                        <Button
+                            icon="pi pi-filter-slash"
+                            severity="secondary"
+                            outlined
+                            v-tooltip.top="'Limpiar filtros'"
+                            @click="clearFilters"
+                        />
                         <!-- Nueva ubicación solo visible en mobile desde toolbar -->
-                        <Button icon="pi pi-plus" class="flex-1 md:hidden" v-tooltip.top="'Nueva ubicación'" @click="abrirCrear" :disabled="!canWrite" />
+                        <Button
+                            icon="pi pi-plus"
+                            class="md:hidden ml-auto"
+                            v-tooltip.top="'Nueva ubicación'"
+                            @click="abrirCrear"
+                            :disabled="!canWrite"
+                        />
+                        <Button
+                            v-if="selectedUbicaciones.length > 0"
+                            :label="`Eliminar (${selectedUbicaciones.length})`"
+                            icon="pi pi-trash"
+                            severity="danger"
+                            outlined
+                            v-tooltip.top="'Eliminar registros seleccionados'"
+                            @click="confirmarEliminarSeleccionados"
+                            :disabled="!canWrite"
+                            class="w-full sm:w-auto whitespace-nowrap"
+                        />
+                        <Button
+                            label="Eliminar por Ubicación"
+                            icon="pi pi-trash"
+                            severity="danger"
+                            outlined
+                            v-tooltip.top="'Borrar todos los códigos de una ubicación'"
+                            @click="() => abrirDialogoPurga()"
+                            :disabled="!canWrite"
+                            class="w-full md:w-auto whitespace-nowrap"
+                        />
                     </div>
                 </template>
                 <template #end>
@@ -564,6 +736,7 @@ onUnmounted(detenerCamara);
             <DataTable
                 class="hidden md:block"
                 :value="ubicacionesFiltradas"
+                v-model:selection="selectedUbicaciones"
                 :loading="store.isLoading"
                 dataKey="id"
                 :paginator="true"
@@ -576,6 +749,7 @@ onUnmounted(detenerCamara);
                 responsiveLayout="scroll"
                 stripedRows
             >
+                <Column selectionMode="multiple" headerStyle="width: 3rem" />
                 <template #empty>
                     <div class="empty-state">
                         <i class="pi pi-map-marker" style="font-size: 3rem; color: var(--text-color-secondary)" />
@@ -734,7 +908,7 @@ onUnmounted(detenerCamara);
 
                         <div class="flex justify-end gap-2 pt-3 border-t border-surface-200 dark:border-surface-700">
                             <Button icon="pi pi-pencil" outlined rounded severity="info" v-tooltip.top="'Editar'" @click="abrirEditar(data)" :disabled="!canWrite" />
-                            <Button icon="pi pi-trash" outlined rounded severity="danger" v-tooltip.top="'Eliminar'" @click="confirmarEliminar(data)" :disabled="!canWrite" />
+                            <Button icon="pi pi-trash" outlined rounded severity="danger" v-tooltip.top="'Eliminar este registro'" @click="confirmarEliminar(data)" :disabled="!canWrite" />
                         </div>
                     </div>
 
@@ -830,6 +1004,73 @@ onUnmounted(detenerCamara);
                     {{ scanTarget === 'filtroUbicacion' ? 'Apunta la cámara al código de barras para buscar la ubicación.' : 'Apunta la cámara al código de barras para buscar por código.' }}
                 </p>
             </div>
+        </Dialog>
+
+        <!-- Dialog: Eliminar por Ubicación (Purga de todos los códigos de una ubicación) -->
+        <Dialog
+            v-model:visible="showPurgeDialog"
+            :style="{ width: '520px' }"
+            :breakpoints="{ '1199px': '85vw', '575px': '98vw' }"
+            header="Eliminar por Ubicación"
+            :modal="true"
+            :closable="!purging"
+        >
+            <div class="form-grid p-2">
+                <div class="form-field">
+                    <label class="form-label required">
+                        <i class="pi pi-map-marker" /> Ubicación a vaciar
+                    </label>
+                    <div class="scan-row">
+                        <AutoComplete
+                            v-model="purgeLocationQuery"
+                            :suggestions="sugerenciasUbicacion"
+                            @complete="buscarSugerenciasUbicacion"
+                            dropdown
+                            placeholder="Escribe o selecciona la ubicación..."
+                            class="w-full"
+                            inputClass="w-full"
+                        />
+                        <Button
+                            icon="pi pi-camera"
+                            severity="secondary"
+                            outlined
+                            v-tooltip.top="'Escanear ubicación con cámara'"
+                            @click="abrirScannerFiltro('purgeLocation')"
+                        />
+                    </div>
+                    <small class="form-hint">Escribe el código exacto de la ubicación (ej. A1-02-03) o escanéalo.</small>
+                </div>
+
+                <div v-if="purgeLocationQuery.trim()" class="p-3 border rounded-lg bg-surface-50 dark:bg-surface-800 border-surface-200 dark:border-surface-700 mt-3">
+                    <div v-if="ubicacionesParaPurga.length > 0" class="flex flex-col gap-2 text-sm">
+                        <div class="flex justify-between items-center text-primary font-bold">
+                            <span>Ubicación: {{ purgeLocationQuery.trim() }}</span>
+                            <span class="px-2.5 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded-full text-xs font-extrabold">
+                                {{ ubicacionesParaPurga.length }} registro(s) encontrados
+                            </span>
+                        </div>
+                        <p class="text-xs text-secondary m-0">
+                            Se eliminarán de forma permanente todos los códigos de producto asignados a esta ubicación.
+                        </p>
+                    </div>
+                    <div v-else class="text-sm text-secondary flex items-center gap-2">
+                        <i class="pi pi-info-circle text-warn" />
+                        <span>No hay códigos registrados asignados a "{{ purgeLocationQuery.trim() }}".</span>
+                    </div>
+                </div>
+            </div>
+
+            <template #footer>
+                <Button label="Cancelar" icon="pi pi-times" severity="secondary" outlined @click="showPurgeDialog = false" :disabled="purging" />
+                <Button
+                    :label="`Eliminar ${ubicacionesParaPurga.length} registros`"
+                    icon="pi pi-trash"
+                    severity="danger"
+                    :loading="purging"
+                    :disabled="ubicacionesParaPurga.length === 0 || !canWrite"
+                    @click="ejecutarPurgaUbicacion"
+                />
+            </template>
         </Dialog>
 
         <ConfirmDialog />
