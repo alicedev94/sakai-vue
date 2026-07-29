@@ -105,6 +105,27 @@ export const useUbicationsStore = defineStore('ubications', () => {
         }
     }
 
+    /**
+     * Elimina múltiples ubicaciones de forma asíncrona en paralelo.
+     * @param {Array<number|string>} ids Lista de IDs a eliminar.
+     */
+    async function deleteMultipleUbications(ids) {
+        if (!ids || ids.length === 0) return;
+        isLoading.value = true;
+        error.value = null;
+        try {
+            await Promise.all(ids.map(id => UbicationsService.deleteUbicacion(id)));
+            const idsSet = new Set(ids);
+            ubications.value = ubications.value.filter(u => !idsSet.has(u.id));
+        } catch (err) {
+            error.value = err.response?.data?.message || 'Error al eliminar ubicaciones';
+            await fetchUbications();
+            throw err;
+        } finally {
+            isLoading.value = false;
+        }
+    }
+
     return {
         ubications,
         isLoading,
@@ -113,6 +134,7 @@ export const useUbicationsStore = defineStore('ubications', () => {
         getUbicacionesByBarcode,
         createUbication,
         updateUbication,
-        deleteUbication
+        deleteUbication,
+        deleteMultipleUbications
     };
 });
