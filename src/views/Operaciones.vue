@@ -172,6 +172,17 @@ const itemEstadoConfig = {
     NO_SURTIDO: { label: 'No Surtido', class: 'no-surtido', icon: 'pi pi-times' }
 };
 
+const origenConfig = {
+    PICKING:    { label: 'Picking',    class: 'origen-picking',    icon: 'pi pi-hand-pointer' },
+    AUTOMATICO: { label: 'Automatico', class: 'origen-automatico', icon: 'pi pi-replay' }
+};
+
+const rowClass = (data) => {
+    return {
+        'row-picking': String(data?.origen || '').toUpperCase() === 'PICKING'
+    };
+};
+
 const getEfectividadNivel = (p) => {
     if (p == null || isNaN(p) || p <= 0) return { nivel: 'vacio',  label: 'Sin surtir',   class: 'efect-vacia'    };
     if (p >= 95)                   return { nivel: 'alta',  label: 'Excelente',   class: 'efect-alta'    };
@@ -904,6 +915,7 @@ const finalizarOrden = async () => {
                 responsiveLayout="scroll"
                 stripedRows
                 v-model:filters="filters"
+                :rowClass="rowClass"
             >
                 <template #empty>
                     <div class="empty-state">
@@ -963,6 +975,17 @@ const finalizarOrden = async () => {
                                 :showValue="false"
                             />
                         </div>
+                    </template>
+                </Column>
+
+                <!-- Badge de Origen (Picking vs Automatico) -->
+                <Column header="Origen" style="min-width: 8rem">
+                    <template #body="{ data }">
+                        <span v-if="origenConfig[data.origen]" :class="['origen-badge', origenConfig[data.origen]?.class]">
+                            <i :class="origenConfig[data.origen]?.icon" />
+                            {{ origenConfig[data.origen]?.label || '—' }}
+                        </span>
+                        <span v-else class="text-secondary">—</span>
                     </template>
                 </Column>
 
@@ -1047,12 +1070,16 @@ const finalizarOrden = async () => {
                     <div v-if="store.isLoading" class="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-black/60 backdrop-blur-sm rounded-xl">
                         <i class="pi pi-spin pi-spinner text-primary" style="font-size: 3rem" />
                     </div>
-                    <div v-for="data in ordenesFiltradas" :key="data.id" class="orden-card">
+                    <div v-for="data in ordenesFiltradas" :key="data.id" :class="['orden-card', String(data?.origen || '').toUpperCase() === 'PICKING' && 'orden-card-picking']">
                         <!-- Header -->
                         <div class="orden-card-header">
                             <div class="orden-card-header-left">
                                 <span class="font-semibold text-primary" style="font-size: 0.95rem;">{{ data.numeroOrden }}</span>
                                 <span class="id-badge">#{{ data.id }}</span>
+                                <span v-if="origenConfig[data.origen]" :class="['origen-badge', 'origen-badge-sm', origenConfig[data.origen].class]">
+                                    <i :class="origenConfig[data.origen].icon" />
+                                    {{ origenConfig[data.origen].label }}
+                                </span>
                             </div>
                             <span :class="['estado-badge', estadoConfig[data.estado]?.class]">
                                 <i :class="estadoConfig[data.estado]?.icon" />
@@ -2396,6 +2423,53 @@ const finalizarOrden = async () => {
     border-radius: 8px;
     padding: 0.85rem 1rem;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Origen ───────────────────────────────────────────────────────────── */
+.origen-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 14px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+
+    &.origen-picking {
+        background: color-mix(in srgb, var(--green-500) 15%, transparent);
+        color: var(--green-700, #15803d);
+        border: 1px solid color-mix(in srgb, var(--green-500) 40%, transparent);
+    }
+    &.origen-automatico {
+        background: color-mix(in srgb, var(--teal-500) 12%, transparent);
+        color: var(--teal-700);
+        border: 1px solid color-mix(in srgb, var(--teal-500) 30%, transparent);
+    }
+
+    &.origen-badge-sm {
+        padding: 0.12rem 0.45rem;
+        font-size: 0.62rem;
+    }
+}
+
+/* Borde distintivo verde en cards (mobile) y filas de DataTable (desktop) cuando el origen es PICKING */
+.orden-card.orden-card-picking {
+    border-left: 4px solid var(--green-500, #22c55e);
+    border-color: color-mix(in srgb, var(--green-500, #22c55e) 35%, var(--surface-200));
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--green-500, #22c55e) 6%, transparent) 0%,
+        transparent 40%);
+}
+
+:deep(.p-datatable-tbody > tr.row-picking) {
+    background-color: color-mix(in srgb, var(--green-500, #22c55e) 5%, transparent) !important;
+}
+
+:deep(.p-datatable-tbody > tr.row-picking > td:first-child) {
+    box-shadow: inset 4px 0 0 var(--green-500, #22c55e) !important;
+    border-left: 4px solid var(--green-500, #22c55e) !important;
 }
 
 /* Orden Cards mobile */
