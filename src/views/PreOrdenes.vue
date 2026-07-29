@@ -93,6 +93,12 @@ const origenConfig = {
     AUTOMATICO: { label: 'Automatico', class: 'origen-automatico', icon: 'pi pi-replay' }
 };
 
+const rowClass = (data) => {
+    return {
+        'row-picking': String(data?.origen || '').toUpperCase() === 'PICKING'
+    };
+};
+
 const formatDateForApi = (dateStr) => {
     if (!dateStr) return null;
     const d = new Date(dateStr);
@@ -976,6 +982,7 @@ const exportarPDF = () => {
                 responsiveLayout="scroll"
                 stripedRows
                 v-model:filters="filters"
+                :rowClass="rowClass"
             >
                 <template #empty>
                     <div class="empty-state">
@@ -1109,7 +1116,7 @@ const exportarPDF = () => {
                         <i class="pi pi-spin pi-spinner" style="font-size: 3rem; color: var(--primary-color)" />
                     </div>
 
-                    <div v-for="data in preOrdenesFiltradas" :key="data.id" :class="['preorden-card', data.origen === 'PICKING' && 'preorden-card-picking']">
+                    <div v-for="data in preOrdenesFiltradas" :key="data.id" :class="['preorden-card', String(data?.origen || '').toUpperCase() === 'PICKING' && 'preorden-card-picking']">
                         <!-- Header -->
                         <div class="preorden-card-header">
                             <div class="preorden-card-header-left">
@@ -1867,9 +1874,9 @@ const exportarPDF = () => {
     letter-spacing: 0.3px;
 
     &.origen-picking {
-        background: color-mix(in srgb, var(--purple-500) 15%, transparent);
-        color: var(--purple-700);
-        border: 1px solid color-mix(in srgb, var(--purple-500) 40%, transparent);
+        background: color-mix(in srgb, var(--green-500) 15%, transparent);
+        color: var(--green-700, #15803d);
+        border: 1px solid color-mix(in srgb, var(--green-500) 40%, transparent);
     }
     &.origen-automatico {
         background: color-mix(in srgb, var(--teal-500) 12%, transparent);
@@ -1883,10 +1890,22 @@ const exportarPDF = () => {
     }
 }
 
-/* Borde distintivo en cards de picking (mobile) */
+/* Borde distintivo verde en cards (mobile) y filas de DataTable (desktop) cuando el origen es PICKING */
 .preorden-card.preorden-card-picking {
-    border-left: 4px solid var(--purple-500);
-    background: linear-gradient(90deg, color-mix(in srgb, var(--purple-500) 4%, transparent) 0%, transparent 30%);
+    border-left: 4px solid var(--green-500, #22c55e);
+    border-color: color-mix(in srgb, var(--green-500, #22c55e) 35%, var(--surface-200));
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--green-500, #22c55e) 6%, transparent) 0%,
+        transparent 40%);
+}
+
+:deep(.p-datatable-tbody > tr.row-picking) {
+    background-color: color-mix(in srgb, var(--green-500, #22c55e) 5%, transparent) !important;
+}
+
+:deep(.p-datatable-tbody > tr.row-picking > td:first-child) {
+    box-shadow: inset 4px 0 0 var(--green-500, #22c55e) !important;
+    border-left: 4px solid var(--green-500, #22c55e) !important;
 }
 
 /* Action Buttons */
