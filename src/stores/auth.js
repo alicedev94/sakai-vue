@@ -51,7 +51,7 @@ export const useAuthStore = defineStore('auth', () => {
     const token = ref(storedData.token);
     const user = ref(storedData.user);
     const refreshToken = ref(storedData.refreshToken);
-    
+
     // Obtener menú, rol y permisos del localStorage (o valores por defecto)
     const menu = ref(JSON.parse(localStorage.getItem('menu') || '[]'));
     const role = ref(JSON.parse(localStorage.getItem('role') || 'null'));
@@ -71,7 +71,7 @@ export const useAuthStore = defineStore('auth', () => {
 
         token.value = authData.token;
         refreshToken.value = authData.refreshToken;
-        
+
         // Si el backend manda los datos planos, los agrupamos en el objeto user
         user.value = authData.user || {
             username: authData.username,
@@ -152,7 +152,7 @@ export const useAuthStore = defineStore('auth', () => {
             menu.value = data || [];
             role.value = user.value?.role || null;
             permissions.value = data || [];
-            
+
             // Guardar en localStorage para persistencia
             localStorage.setItem('menu', JSON.stringify(menu.value));
             localStorage.setItem('role', JSON.stringify(role.value));
@@ -182,4 +182,3 @@ export const useAuthStore = defineStore('auth', () => {
         loadUserPermissions
     };
 });
-

@@ -59,7 +59,7 @@ export const useUserStore = defineStore('user', () => {
         error.value = null;
         try {
             const updated = await UserService.updateUser(id, userData);
-            const idx = users.value.findIndex(u => u.id === id);
+            const idx = users.value.findIndex((u) => u.id === id);
             if (idx !== -1) {
                 users.value[idx] = updated;
             }
@@ -77,7 +77,7 @@ export const useUserStore = defineStore('user', () => {
         error.value = null;
         try {
             await UserService.softDeleteUser(id);
-            const idx = users.value.findIndex(u => u.id === id);
+            const idx = users.value.findIndex((u) => u.id === id);
             if (idx !== -1) {
                 if (users.value[idx].status) {
                     users.value[idx].status.name = 'Inactivo';

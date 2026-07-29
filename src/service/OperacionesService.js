@@ -94,9 +94,12 @@ class OperacionesService {
     }
 
     static async obtenerInventarioUbicacion(codigoBarra) {
+        if (!codigoBarra || typeof codigoBarra !== 'string' || !codigoBarra.trim()) {
+            console.warn('⚠️ obtenerInventarioUbicacion: código de barra inválido', codigoBarra);
+            return null;
+        }
         try {
-            const response = await apiClient.get(
-                `${BASE}/${codigoBarra}/inventarioUbicacion`);
+            const response = await apiClient.get(`${BASE}/${encodeURIComponent(codigoBarra.trim())}/inventarioUbicacion`);
             return response.data;
         } catch (error) {
             this.handleError(error, 'obtener inventario por ubicación');

@@ -17,7 +17,7 @@ const selectedRoles = ref([]);
 const searchQuery = ref('');
 
 const canWrite = computed(() => {
-    const perm = authStore.permissions.find(p => p.code === 'roles');
+    const perm = authStore.permissions.find((p) => p.code === 'roles');
     return perm ? !perm.isReadonly : false;
 });
 
@@ -26,9 +26,7 @@ const mobileCurrentPage = ref(0);
 const mobileRowsPerPage = 8;
 
 const activeRoles = computed(() => {
-    return roleStore.roles.filter(r => !r.deletedAt && r.status !== false &&
-        (!searchQuery.value || r.name?.toLowerCase().includes(searchQuery.value.toLowerCase()) || r.code?.toLowerCase().includes(searchQuery.value.toLowerCase()))
-    );
+    return roleStore.roles.filter((r) => !r.deletedAt && r.status !== false && (!searchQuery.value || r.name?.toLowerCase().includes(searchQuery.value.toLowerCase()) || r.code?.toLowerCase().includes(searchQuery.value.toLowerCase())));
 });
 
 const mobilePagedRoles = computed(() => {
@@ -91,7 +89,7 @@ const saveRole = async () => {
             id: role.value.id,
             name: role.value.name.trim(),
             code: role.value.code.trim(),
-            permissionsId: role.value.permissions.map(p => p.id)
+            permissionsId: role.value.permissions.map((p) => p.id)
         };
         if (role.value.id) {
             await roleStore.updateRole(role.value.id, rolePayload);
@@ -154,13 +152,7 @@ onMounted(() => {
                 <template #end>
                     <IconField class="w-full md:w-auto">
                         <InputIcon><i class="pi pi-search" /></InputIcon>
-                        <InputText
-                            v-model="searchQuery"
-                            placeholder="Buscar por nombre o código..."
-                            class="w-full"
-                            style="min-width: 0;"
-                            @input="resetMobilePage"
-                        />
+                        <InputText v-model="searchQuery" placeholder="Buscar por nombre o código..." class="w-full" style="min-width: 0" @input="resetMobilePage" />
                     </IconField>
                 </template>
             </Toolbar>
@@ -268,9 +260,7 @@ onMounted(() => {
                     <!-- Paginador móvil -->
                     <div v-if="mobileTotalPages > 1" class="flex justify-center items-center gap-3 mt-2">
                         <Button icon="pi pi-chevron-left" outlined rounded size="small" :disabled="mobileCurrentPage === 0" @click="mobileCurrentPage--" />
-                        <span class="text-sm" style="color: var(--text-color-secondary)">
-                            Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }}
-                        </span>
+                        <span class="text-sm" style="color: var(--text-color-secondary)"> Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }} </span>
                         <Button icon="pi pi-chevron-right" outlined rounded size="small" :disabled="mobileCurrentPage >= mobileTotalPages - 1" @click="mobileCurrentPage++" />
                     </div>
                 </div>
@@ -292,20 +282,11 @@ onMounted(() => {
                 </div>
                 <div class="field col-12">
                     <label>Permisos</label>
-                    <MultiSelect
-                        v-model="role.permissions"
-                        :options="permissions"
-                        optionLabel="name"
-                        dataKey="id"
-                        placeholder="Selecciona uno o más permisos"
-                        display="chip"
-                        :filter="true"
-                        :showClear="true"
-                        :maxSelectedLabels="3"
-                        class="w-full"
-                    >
+                    <MultiSelect v-model="role.permissions" :options="permissions" optionLabel="name" dataKey="id" placeholder="Selecciona uno o más permisos" display="chip" :filter="true" :showClear="true" :maxSelectedLabels="3" class="w-full">
                         <template #option="{ option }">
-                            <span>{{ option.name }} <span class="perm-code">({{ option.code }})</span> <span class="perm-url">- {{ option.url }}</span></span>
+                            <span
+                                >{{ option.name }} <span class="perm-code">({{ option.code }})</span> <span class="perm-url">- {{ option.url }}</span></span
+                            >
                         </template>
                         <template #chip="{ value }">
                             <span>{{ value.name }}</span>
@@ -324,7 +305,10 @@ onMounted(() => {
         <Dialog v-model:visible="deleteRoleDialog" :style="{ width: '450px' }" header="Confirmar" :modal="true">
             <div class="confirmation-content">
                 <i class="pi pi-exclamation-triangle mr-3" style="font-size: 2rem; color: var(--red-500)" />
-                <span v-if="role">¿Estás seguro de que deseas eliminar el rol <b>{{ role.name }}</b>?</span>
+                <span v-if="role"
+                    >¿Estás seguro de que deseas eliminar el rol <b>{{ role.name }}</b
+                    >?</span
+                >
             </div>
             <template #footer>
                 <Button label="Cancelar" icon="pi pi-times" text @click="deleteRoleDialog = false" />
@@ -337,7 +321,9 @@ onMounted(() => {
 <style scoped lang="scss">
 .roles-container {
     padding: 1rem;
-    @media (min-width: 768px) { padding: 1.5rem; }
+    @media (min-width: 768px) {
+        padding: 1.5rem;
+    }
 }
 
 .card {
@@ -398,7 +384,10 @@ onMounted(() => {
 }
 
 .roles-table {
-    :deep(.p-datatable-header) { background: transparent; border: none; }
+    :deep(.p-datatable-header) {
+        background: transparent;
+        border: none;
+    }
 }
 
 /* Badges */
@@ -434,9 +423,19 @@ onMounted(() => {
     gap: 0.25rem;
 }
 
-.perm-name { font-weight: 500; }
-.perm-code { color: var(--primary-color); margin-left: 0.4rem; font-size: 0.88em; }
-.perm-url  { color: var(--text-color-secondary); margin-left: 0.4rem; font-size: 0.88em; }
+.perm-name {
+    font-weight: 500;
+}
+.perm-code {
+    color: var(--primary-color);
+    margin-left: 0.4rem;
+    font-size: 0.88em;
+}
+.perm-url {
+    color: var(--text-color-secondary);
+    margin-left: 0.4rem;
+    font-size: 0.88em;
+}
 
 /* Empty / Loading */
 .empty-state,
@@ -444,7 +443,10 @@ onMounted(() => {
     text-align: center;
     padding: 3rem 1rem;
     color: var(--text-color-secondary);
-    p { margin-top: 1rem; font-size: 1.1rem; }
+    p {
+        margin-top: 1rem;
+        font-size: 1.1rem;
+    }
 }
 
 .confirmation-content {
@@ -452,7 +454,9 @@ onMounted(() => {
     align-items: center;
     justify-content: center;
     padding: 1rem;
-    span { line-height: 1.6; }
+    span {
+        line-height: 1.6;
+    }
 }
 
 /* Cards mobile */
@@ -461,7 +465,7 @@ onMounted(() => {
     border-radius: 12px;
     border: 1px solid var(--surface-200);
     overflow: hidden;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
 }
 
 .role-card-header {
@@ -536,7 +540,12 @@ onMounted(() => {
 /* Form grid */
 .field {
     margin-bottom: 1.5rem;
-    label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-color); }
+    label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: var(--text-color);
+    }
 }
 .formgrid {
     display: flex;
@@ -551,9 +560,17 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
 }
-.formgrid .field input { width: 100%; }
-.col-12 { flex: 0 0 auto; width: 100%; }
+.formgrid .field input {
+    width: 100%;
+}
+.col-12 {
+    flex: 0 0 auto;
+    width: 100%;
+}
 @media (min-width: 768px) {
-    .md\:col-6 { flex: 0 0 auto; width: 50%; }
+    .md\:col-6 {
+        flex: 0 0 auto;
+        width: 50%;
+    }
 }
 </style>

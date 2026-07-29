@@ -19,12 +19,12 @@ const authStore = useAuthStore();
 
 // Permisos
 const canWrite = computed(() => {
-    const perm = authStore.permissions.find(p => p.code === 'orden' || p.code === 'ordenLectura');
+    const perm = authStore.permissions.find((p) => p.code === 'orden' || p.code === 'ordenLectura');
     return perm ? !perm.isReadonly : false;
 });
 
 const canAudit = computed(() => {
-    const perm = authStore.permissions.find(p => p.code === 'AUDITAR_ORDEN');
+    const perm = authStore.permissions.find((p) => p.code === 'AUDITAR_ORDEN');
     return perm ? !perm.isReadonly : false;
 });
 
@@ -78,20 +78,30 @@ async function enviarAuditoria() {
 
 function resultadoLabel(v) {
     switch (v) {
-        case 'RECIBIDO_OK': return 'Recibido OK';
-        case 'FALTANTE':    return 'Faltante';
-        case 'DANADO':      return 'Dañado';
-        case 'PARCIAL':     return 'Parcial';
-        default: return v;
+        case 'RECIBIDO_OK':
+            return 'Recibido OK';
+        case 'FALTANTE':
+            return 'Faltante';
+        case 'DANADO':
+            return 'Dañado';
+        case 'PARCIAL':
+            return 'Parcial';
+        default:
+            return v;
     }
 }
 function resultadoSeverity(v) {
     switch (v) {
-        case 'RECIBIDO_OK': return 'success';
-        case 'FALTANTE':    return 'warn';
-        case 'DANADO':      return 'danger';
-        case 'PARCIAL':     return 'info';
-        default: return 'info';
+        case 'RECIBIDO_OK':
+            return 'success';
+        case 'FALTANTE':
+            return 'warn';
+        case 'DANADO':
+            return 'danger';
+        case 'PARCIAL':
+            return 'info';
+        default:
+            return 'info';
     }
 }
 
@@ -184,11 +194,11 @@ const rowClass = (data) => {
 };
 
 const getEfectividadNivel = (p) => {
-    if (p == null || isNaN(p) || p <= 0) return { nivel: 'vacio',  label: 'Sin surtir',   class: 'efect-vacia'    };
-    if (p >= 95)                   return { nivel: 'alta',  label: 'Excelente',   class: 'efect-alta'    };
-    if (p >= 80)                   return { nivel: 'buena', label: 'Buena',       class: 'efect-buena'   };
-    if (p >= 50)                   return { nivel: 'media', label: 'Aceptable',   class: 'efect-media'   };
-    return                                   { nivel: 'baja', label: 'Baja',       class: 'efect-baja'    };
+    if (p == null || isNaN(p) || p <= 0) return { nivel: 'vacio', label: 'Sin surtir', class: 'efect-vacia' };
+    if (p >= 95) return { nivel: 'alta', label: 'Excelente', class: 'efect-alta' };
+    if (p >= 80) return { nivel: 'buena', label: 'Buena', class: 'efect-buena' };
+    if (p >= 50) return { nivel: 'media', label: 'Aceptable', class: 'efect-media' };
+    return { nivel: 'baja', label: 'Baja', class: 'efect-baja' };
 };
 
 const getEfectividadColor = (p) => getEfectividadNivel(p).class;
@@ -260,7 +270,7 @@ async function verDetalle(orden) {
 
         if (ordenSeleccionada.value?.items) {
             const promises = ordenSeleccionada.value.items
-                .filter(it => it.codigoBarra)
+                .filter((it) => it.codigoBarra)
                 .map(async (it) => {
                     try {
                         const inv = await store.obtenerInventarioUbicacion(it.codigoBarra);
@@ -296,7 +306,7 @@ async function abrirSurtido(orden) {
 
         if (ordenSeleccionada.value?.items) {
             const promises = ordenSeleccionada.value.items
-                .filter(it => it.codigoBarra)
+                .filter((it) => it.codigoBarra)
                 .map(async (it) => {
                     try {
                         const inv = await store.obtenerInventarioUbicacion(it.codigoBarra);
@@ -325,10 +335,7 @@ async function abrirSurtido(orden) {
 }
 
 async function procesarEscaneo(codigoDesdeCamara) {
-    const codigo =
-        typeof codigoDesdeCamara === 'string' && codigoDesdeCamara.length > 0
-            ? codigoDesdeCamara.trim()
-            : codigoEscaneado.value?.trim();
+    const codigo = typeof codigoDesdeCamara === 'string' && codigoDesdeCamara.length > 0 ? codigoDesdeCamara.trim() : codigoEscaneado.value?.trim();
     if (!codigo || !ordenSeleccionada.value) return;
 
     // Buscar el item en la orden que coincida con el código escaneado
@@ -336,19 +343,13 @@ async function procesarEscaneo(codigoDesdeCamara) {
 
     // DEBUG - revisar en consola del navegador (F12)
     console.log('🔍 Código escaneado:', JSON.stringify(codigo));
-    console.log('📦 Items en orden:', items.map(i => ({ codigo: i.codigoBarra, estado: i.estadoItem, cantidad: i.cantidad, cantidadSurtida: i.cantidadSurtida })));
+    console.log(
+        '📦 Items en orden:',
+        items.map((i) => ({ codigo: i.codigoBarra, estado: i.estadoItem, cantidad: i.cantidad, cantidadSurtida: i.cantidadSurtida }))
+    );
 
     const item = items.find(
-        (i) => (
-            i.codigoBarra === codigo ||
-            i.barra1 === codigo ||
-            i.barra2 === codigo ||
-            i.barra3 === codigo ||
-            i.barra4 === codigo ||
-            i.barra5 === codigo ||
-            i.barra6 === codigo ||
-            i.barra7 === codigo
-        ) && i.estadoItem === 'PENDIENTE'
+        (i) => (i.codigoBarra === codigo || i.barra1 === codigo || i.barra2 === codigo || i.barra3 === codigo || i.barra4 === codigo || i.barra5 === codigo || i.barra6 === codigo || i.barra7 === codigo) && i.estadoItem === 'PENDIENTE'
     );
     console.log('✅ Item encontrado:', item ? item.nombreProducto : 'NINGUNO');
 
@@ -393,7 +394,7 @@ async function procesarEscaneo(codigoDesdeCamara) {
     origenFueCamara.value = ultimoEscaneoFueCamara.value;
     mostrarCantidad.value = true;
     codigoEscaneado.value = '';
-    
+
     // Consulta dinámica del inventario desglosado por ubicación
     cantidadInventarioPiso.value = 'Calculando...';
     cantidadInventarioAlmacen.value = 'Calculando...';
@@ -503,7 +504,10 @@ function obtenerTextoUbicacion(item) {
     if (!item.ubicaciones || item.ubicaciones.length === 0) {
         return 'zzzzzzzzzz'; // Los que no tienen ubicación se muestran al final
     }
-    return item.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ').toLowerCase();
+    return item.ubicaciones
+        .map((u) => (u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion))
+        .join(', ')
+        .toLowerCase();
 }
 
 function ordenarItemsPorUbicacion(items) {
@@ -515,15 +519,19 @@ function ordenarItemsPorUbicacion(items) {
     });
 }
 
-watch(() => ordenSeleccionada.value?.items, (nuevosItems) => {
-    if (nuevosItems && nuevosItems.length > 0) {
-        const copia = ordenarItemsPorUbicacion(nuevosItems);
-        const yaOrdenado = nuevosItems.every((item, idx) => item.id === copia[idx].id && item.cantidad === copia[idx].cantidad && item.cantidadSurtida === copia[idx].cantidadSurtida);
-        if (!yaOrdenado) {
-            ordenSeleccionada.value.items = copia;
+watch(
+    () => ordenSeleccionada.value?.items,
+    (nuevosItems) => {
+        if (nuevosItems && nuevosItems.length > 0) {
+            const copia = ordenarItemsPorUbicacion(nuevosItems);
+            const yaOrdenado = nuevosItems.every((item, idx) => item.id === copia[idx].id && item.cantidad === copia[idx].cantidad && item.cantidadSurtida === copia[idx].cantidadSurtida);
+            if (!yaOrdenado) {
+                ordenSeleccionada.value.items = copia;
+            }
         }
-    }
-}, { deep: true });
+    },
+    { deep: true }
+);
 
 function mensajeFalloCamara(err) {
     if (typeof window !== 'undefined' && !window.isSecureContext) {
@@ -697,31 +705,31 @@ const exportarPDF = () => {
     const doc = new jsPDF();
     const data = ordenSeleccionada.value;
     console.log(data);
-    
+
     const primaryColor = [22, 163, 74]; // Verde PrimeVue (green-600)
-    
+
     doc.setFontSize(20);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.text('Detalle Orden', 14, 22);
-    
+
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Generado el: ${formatFecha(new Date())}`, 14, 30);
-    
+
     doc.setDrawColor(230);
     doc.line(14, 35, 196, 35);
-    
+
     doc.setFontSize(12);
     doc.setTextColor(50);
     doc.text('Información', 14, 45);
-    
+
     const infoGeneral = [
         ['N° Documento:', data.numeroOrden || 'N/A', 'Estado:', data.estado || 'N/A'],
         ['Departamento:', data.departamento || '—', 'Surtidor:', data.usuarioSurtidor || '—'],
         ['Creado:', formatFecha(data.fechaCreacion), 'Actualizado:', formatFecha(data.fechaActualizacion)],
         ['Finalizado:', formatFecha(data.fechaFinalizacion)]
     ];
-    
+
     autoTable(doc, {
         startY: 50,
         body: infoGeneral,
@@ -732,34 +740,26 @@ const exportarPDF = () => {
             2: { fontStyle: 'bold', width: 35 }
         }
     });
-    
+
     const totalUnidades = data.totalUnidades || 0;
     doc.text('Resumen de Totales', 14, doc.lastAutoTable.finalY + 10);
-    
+
     autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 15,
         body: [
             ['Total Renglones:', data.totalItems || 0, 'Renglones Surtidos:', data.itemsSurtidos || 0],
             ['Total Unidades:', totalUnidades, 'Unidades Surtidas:', data.unidadesSurtidas || 0],
-            ['Efectividad:', `${progresoOrden(data)}%`, 'Pendiente:', totalUnidades - (data.unidadesSurtidas || 0)],
+            ['Efectividad:', `${progresoOrden(data)}%`, 'Pendiente:', totalUnidades - (data.unidadesSurtidas || 0)]
         ],
         theme: 'grid',
         headStyles: { fillColor: primaryColor },
         styles: { fontSize: 10 }
     });
-    
+
     doc.text('Lista de Productos', 14, doc.lastAutoTable.finalY + 10);
-    
-    const tableData = data.items.map(item => [
-        item.codigoBarra,
-        item.nombreProducto,
-        item.atributo || '—',
-        item.departamento || '—',
-        item.cantidad,
-        item.estadoItem,
-        item.cantidadSurtida
-    ]);
-    
+
+    const tableData = data.items.map((item) => [item.codigoBarra, item.nombreProducto, item.atributo || '—', item.departamento || '—', item.cantidad, item.estadoItem, item.cantidadSurtida]);
+
     autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 15,
         head: [['Código', 'Producto', 'Atributo', 'Dpto.', 'Cantidad', 'Estado', 'Cantidad Surtida']],
@@ -773,7 +773,7 @@ const exportarPDF = () => {
             5: { halign: 'right' }
         }
     });
-    
+
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
@@ -781,7 +781,7 @@ const exportarPDF = () => {
         doc.setTextColor(150);
         doc.text(`Página ${i} de ${pageCount}`, 196, 285, { align: 'right' });
     }
-    
+
     doc.save(`Doc_${data.numeroOrden || data.id}.pdf`);
 };
 
@@ -849,49 +849,17 @@ const finalizarOrden = async () => {
             <Toolbar class="mb-5 flex flex-col md:flex-row gap-4">
                 <template #start>
                     <div class="flex items-center gap-2 w-full md:w-auto">
-                        <Button
-                            icon="pi pi-refresh"
-                            severity="secondary"
-                            outlined
-                            v-tooltip.top="'Actualizar'"
-                            :loading="store.isLoading"
-                            @click="cargarDatos"
-                            class="flex-1 md:flex-none"
-                        />
-                        <Button
-                            icon="pi pi-filter-slash"
-                            severity="secondary"
-                            outlined
-                            v-tooltip.top="'Limpiar filtros'"
-                            @click="clearFilters"
-                            class="flex-1 md:flex-none"
-                        />
+                        <Button icon="pi pi-refresh" severity="secondary" outlined v-tooltip.top="'Actualizar'" :loading="store.isLoading" @click="cargarDatos" class="flex-1 md:flex-none" />
+                        <Button icon="pi pi-filter-slash" severity="secondary" outlined v-tooltip.top="'Limpiar filtros'" @click="clearFilters" class="flex-1 md:flex-none" />
                     </div>
                 </template>
                 <template #end>
                     <div class="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto mt-3 md:mt-0">
-                        <Select
-                            v-model="filtroEstado"
-                            :options="ESTADOS"
-                            optionLabel="label"
-                            optionValue="value"
-                            placeholder="Todos los estados"
-                            class="w-full md:w-44"
-                        />
-                        <Calendar 
-                            v-model="filtroFecha" 
-                            dateFormat="yy-mm-dd" 
-                            placeholder="Fecha de consulta" 
-                            :showIcon="true"
-                            class="w-full md:w-44"
-                        />
+                        <Select v-model="filtroEstado" :options="ESTADOS" optionLabel="label" optionValue="value" placeholder="Todos los estados" class="w-full md:w-44" />
+                        <Calendar v-model="filtroFecha" dateFormat="yy-mm-dd" placeholder="Fecha de consulta" :showIcon="true" class="w-full md:w-44" />
                         <IconField class="w-full md:w-auto">
                             <InputIcon><i class="pi pi-search" /></InputIcon>
-                            <InputText
-                                v-model="searchQuery"
-                                placeholder="Orden o Dep..."
-                                class="w-full md:w-[20rem]"
-                            />
+                            <InputText v-model="searchQuery" placeholder="Orden o Dep..." class="w-full md:w-[20rem]" />
                         </IconField>
                     </div>
                 </template>
@@ -951,11 +919,7 @@ const finalizarOrden = async () => {
                 <Column field="departamento" header="Departamento" :sortable="true" style="min-width: 11rem">
                     <template #body="{ data }">
                         <div class="dept-info" v-if="data.departamento">
-                            <Avatar
-                                :label="data.departamento?.charAt(0).toUpperCase()"
-                                shape="circle"
-                                class="dept-avatar"
-                            />
+                            <Avatar :label="data.departamento?.charAt(0).toUpperCase()" shape="circle" class="dept-avatar" />
                             <span>{{ data.departamento }}</span>
                         </div>
                         <span v-else class="text-secondary">—</span>
@@ -965,15 +929,8 @@ const finalizarOrden = async () => {
                 <Column header="Productos" style="min-width: 11rem">
                     <template #body="{ data }">
                         <div class="progress-cell">
-                            <span class="progress-text">
-                                {{ data.itemsSurtidos || 0 }}/{{ data.totalItems || 0 }} reng.
-                                ({{ data.unidadesSurtidas || 0 }}/{{ data.totalUnidades || 0 }} unid.)
-                            </span>
-                            <ProgressBar
-                                :value="progresoOrden(data)"
-                                style="height: 6px; width: 90px"
-                                :showValue="false"
-                            />
+                            <span class="progress-text"> {{ data.itemsSurtidos || 0 }}/{{ data.totalItems || 0 }} reng. ({{ data.unidadesSurtidas || 0 }}/{{ data.totalUnidades || 0 }} unid.) </span>
+                            <ProgressBar :value="progresoOrden(data)" style="height: 6px; width: 90px" :showValue="false" />
                         </div>
                     </template>
                 </Column>
@@ -1025,32 +982,9 @@ const finalizarOrden = async () => {
                 <Column :exportable="false" header="Acciones" style="min-width: 10rem">
                     <template #body="{ data }">
                         <div class="action-buttons">
-                            <Button
-                                icon="pi pi-eye"
-                                outlined
-                                rounded
-                                severity="secondary"
-                                v-tooltip.top="'Ver detalle'"
-                                @click="verDetalle(data)"
-                            />
-                            <Button
-                                v-if="data.estado !== 'LISTA'"
-                                icon="pi pi-barcode"
-                                outlined
-                                rounded
-                                v-tooltip.top="data.estado === 'PENDIENTE' ? 'Iniciar surtido' : 'Continuar surtido'"
-                                @click="abrirSurtido(data)"
-                                :disabled="!canWrite"
-                            />
-                            <Button
-                                v-else
-                                icon="pi pi-check-circle"
-                                outlined
-                                rounded
-                                severity="success"
-                                v-tooltip.top="'Orden completada'"
-                                disabled
-                            />
+                            <Button icon="pi pi-eye" outlined rounded severity="secondary" v-tooltip.top="'Ver detalle'" @click="verDetalle(data)" />
+                            <Button v-if="data.estado !== 'LISTA'" icon="pi pi-barcode" outlined rounded v-tooltip.top="data.estado === 'PENDIENTE' ? 'Iniciar surtido' : 'Continuar surtido'" @click="abrirSurtido(data)" :disabled="!canWrite" />
+                            <Button v-else icon="pi pi-check-circle" outlined rounded severity="success" v-tooltip.top="'Orden completada'" disabled />
                         </div>
                     </template>
                 </Column>
@@ -1074,7 +1008,7 @@ const finalizarOrden = async () => {
                         <!-- Header -->
                         <div class="orden-card-header">
                             <div class="orden-card-header-left">
-                                <span class="font-semibold text-primary" style="font-size: 0.95rem;">{{ data.numeroOrden }}</span>
+                                <span class="font-semibold text-primary" style="font-size: 0.95rem">{{ data.numeroOrden }}</span>
                                 <span class="id-badge">#{{ data.id }}</span>
                                 <span v-if="origenConfig[data.origen]" :class="['origen-badge', 'origen-badge-sm', origenConfig[data.origen].class]">
                                     <i :class="origenConfig[data.origen].icon" />
@@ -1086,7 +1020,7 @@ const finalizarOrden = async () => {
                                 {{ estadoConfig[data.estado]?.label }}
                             </span>
                         </div>
-                        
+
                         <!-- Body -->
                         <div class="orden-card-body">
                             <div class="orden-card-row">
@@ -1097,19 +1031,18 @@ const finalizarOrden = async () => {
                                 <span class="orden-label">Departamento</span>
                                 <span class="orden-value">{{ data.departamento || '—' }}</span>
                             </div>
-                            
+
                             <!-- Progreso -->
                             <div class="flex flex-col gap-1 mt-1">
                                 <div class="flex justify-between items-center">
                                     <span class="orden-label">Productos</span>
-                                    <span class="progress-text text-xs" style="color: var(--text-color-secondary);">
-                                        {{ data.itemsSurtidos || 0 }}/{{ data.totalItems || 0 }} reng.
-                                        ({{ data.unidadesSurtidas || 0 }}/{{ data.totalUnidades || 0 }} unid.)
+                                    <span class="progress-text text-xs" style="color: var(--text-color-secondary)">
+                                        {{ data.itemsSurtidos || 0 }}/{{ data.totalItems || 0 }} reng. ({{ data.unidadesSurtidas || 0 }}/{{ data.totalUnidades || 0 }} unid.)
                                     </span>
                                 </div>
-                                <ProgressBar :value="progresoOrden(data)" style="height: 6px; width: 100%;" :showValue="false" />
+                                <ProgressBar :value="progresoOrden(data)" style="height: 6px; width: 100%" :showValue="false" />
                             </div>
-                            
+
                             <div class="orden-card-row">
                                 <span class="orden-label">Fecha Creación</span>
                                 <span class="orden-value">{{ formatFecha(data.fechaCreacion) }}</span>
@@ -1131,13 +1064,23 @@ const finalizarOrden = async () => {
                         <!-- Footer -->
                         <div class="orden-card-footer">
                             <Button icon="pi pi-eye" outlined rounded severity="secondary" size="small" v-tooltip.top="'Ver detalle'" @click="verDetalle(data)" />
-                            <Button v-if="data.estado !== 'LISTA'" icon="pi pi-barcode" outlined rounded severity="info" size="small" v-tooltip.top="data.estado === 'PENDIENTE' ? 'Iniciar surtido' : 'Continuar surtido'" @click="abrirSurtido(data)" :disabled="!canWrite" />
+                            <Button
+                                v-if="data.estado !== 'LISTA'"
+                                icon="pi pi-barcode"
+                                outlined
+                                rounded
+                                severity="info"
+                                size="small"
+                                v-tooltip.top="data.estado === 'PENDIENTE' ? 'Iniciar surtido' : 'Continuar surtido'"
+                                @click="abrirSurtido(data)"
+                                :disabled="!canWrite"
+                            />
                             <Button v-else icon="pi pi-check-circle" outlined rounded severity="success" size="small" disabled />
                         </div>
                     </div>
                 </div>
-                
-                <Paginator 
+
+                <Paginator
                     v-if="store.totalOrdenes > 0"
                     :first="lazyParams.page * lazyParams.size"
                     :rows="lazyParams.size"
@@ -1151,13 +1094,7 @@ const finalizarOrden = async () => {
         </div>
 
         <!-- Dialog: Surtido / Escaneo -->
-        <Dialog
-            v-model:visible="scanDialog"
-            :style="{ width: '680px' }"
-            :breakpoints="{ '1199px': '90vw', '575px': '98vw' }"
-            header="Surtido de Orden"
-            :modal="true"
-        >
+        <Dialog v-model:visible="scanDialog" :style="{ width: '680px' }" :breakpoints="{ '1199px': '90vw', '575px': '98vw' }" header="Surtido de Orden" :modal="true">
             <div v-if="ordenSeleccionada">
                 <div class="scan-header">
                     <div class="scan-order-info">
@@ -1166,25 +1103,17 @@ const finalizarOrden = async () => {
                             <i :class="estadoConfig[ordenSeleccionada.estado]?.icon" />
                             {{ estadoConfig[ordenSeleccionada.estado]?.label }}
                         </span>
-                        <span
-                            :class="['efect-pill', getEfectividadColor(progresoOrden(ordenSeleccionada))]"
-                            v-tooltip.top="'Efectividad: ' + getEfectividadNivel(progresoOrden(ordenSeleccionada)).label"
-                            style="margin-left: 0.5rem;"
-                        >
+                        <span :class="['efect-pill', getEfectividadColor(progresoOrden(ordenSeleccionada))]" v-tooltip.top="'Efectividad: ' + getEfectividadNivel(progresoOrden(ordenSeleccionada)).label" style="margin-left: 0.5rem">
                             {{ progresoOrden(ordenSeleccionada) }}% efectivo
                         </span>
                     </div>
                     <span class="scan-progress-label">
-                        {{ ordenSeleccionada.items?.filter(i => (i.cantidadSurtida || 0) >= (i.cantidad || 0)).length || 0 }}/{{ ordenSeleccionada.items?.length || 0 }} renglones con
+                        {{ ordenSeleccionada.items?.filter((i) => (i.cantidadSurtida || 0) >= (i.cantidad || 0)).length || 0 }}/{{ ordenSeleccionada.items?.length || 0 }} renglones con
                         {{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0) || 0 }}/{{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidad || 0), 0) || 0 }} unidades surtidas
                     </span>
                 </div>
 
-                <ProgressBar
-                    :value="progresoOrden(ordenSeleccionada)"
-                    style="height: 8px; margin-bottom: 1.25rem"
-                    :showValue="false"
-                />
+                <ProgressBar :value="progresoOrden(ordenSeleccionada)" style="height: 8px; margin-bottom: 1.25rem" :showValue="false" />
 
                 <!-- Input de escaneo -->
                 <div class="scan-input-area">
@@ -1198,12 +1127,7 @@ const finalizarOrden = async () => {
                             @keyup.enter="procesarEscaneo"
                             :disabled="isScanning || mostrarCantidad || (ordenSeleccionada && ordenSeleccionada.estado === 'LISTA')"
                         />
-                        <Button
-                            icon="pi pi-send"
-                            :loading="isScanning"
-                            @click="procesarEscaneo"
-                            :disabled="!codigoEscaneado || mostrarCantidad || ordenSeleccionada.estado === 'LISTA'"
-                        />
+                        <Button icon="pi pi-send" :loading="isScanning" @click="procesarEscaneo" :disabled="!codigoEscaneado || mostrarCantidad || ordenSeleccionada.estado === 'LISTA'" />
                     </div>
                     <small class="scan-hint">Teclado: Enter o el botón. Pistola USB suele escribir aquí y enviar Enter.</small>
                 </div>
@@ -1222,7 +1146,9 @@ const finalizarOrden = async () => {
                             </div>
                             <span class="cantidad-producto-solicitado">
                                 Solicitado: <strong>{{ itemEncontrado.cantidad }}</strong>
-                                <template v-if="itemEncontrado.cantidadSurtida"> · Surtido: <strong>{{ itemEncontrado.cantidadSurtida }}</strong></template>
+                                <template v-if="itemEncontrado.cantidadSurtida">
+                                    · Surtido: <strong>{{ itemEncontrado.cantidadSurtida }}</strong></template
+                                >
                                 · Restante: <strong>{{ cantidadMax }}</strong>
                             </span>
                         </div>
@@ -1257,62 +1183,23 @@ const finalizarOrden = async () => {
                         </div>
 
                         <div class="cantidad-acciones">
-                            <Button
-                                label="Cancelar"
-                                icon="pi pi-times"
-                                severity="secondary"
-                                outlined
-                                size="small"
-                                @click="cancelarSurtido"
-                            />
-                            <Button
-                                label="Confirmar surtido"
-                                icon="pi pi-check"
-                                size="small"
-                                :loading="isScanning"
-                                @click="confirmarSurtido"
-                                :disabled="cantidadSurtir < 1 || cantidadSurtir > cantidadMax"
-                            />
+                            <Button label="Cancelar" icon="pi pi-times" severity="secondary" outlined size="small" @click="cancelarSurtido" />
+                            <Button label="Confirmar surtido" icon="pi pi-check" size="small" :loading="isScanning" @click="confirmarSurtido" :disabled="cantidadSurtir < 1 || cantidadSurtir > cantidadMax" />
                         </div>
                     </div>
                 </transition>
 
                 <div class="camara-panel">
                     <div class="camara-acciones">
-                        <Button
-                            v-if="!cameraActiva"
-                            label="Escanear con cámara"
-                            icon="pi pi-camera"
-                            class="btn-camara"
-                            :loading="cameraLoading"
-                            :disabled="ordenSeleccionada.estado === 'LISTA' || isScanning"
-                            @click="iniciarCamara"
-                        />
-                        <Button
-                            v-else
-                            label="Detener cámara"
-                            icon="pi pi-stop"
-                            severity="secondary"
-                            outlined
-                            class="btn-camara"
-                            :disabled="isScanning"
-                            @click="detenerCamara"
-                        />
+                        <Button v-if="!cameraActiva" label="Escanear con cámara" icon="pi pi-camera" class="btn-camara" :loading="cameraLoading" :disabled="ordenSeleccionada.estado === 'LISTA' || isScanning" @click="iniciarCamara" />
+                        <Button v-else label="Detener cámara" icon="pi pi-stop" severity="secondary" outlined class="btn-camara" :disabled="isScanning" @click="detenerCamara" />
                     </div>
-                    <p v-if="cameraError" class="camara-error">
-                        <i class="pi pi-exclamation-circle" /> {{ cameraError }}
-                    </p>
-                    <div
-                        v-show="cameraActiva || cameraLoading"
-                        :id="CAMARA_HOST_ID"
-                        class="camara-host"
-                    />
+                    <p v-if="cameraError" class="camara-error"><i class="pi pi-exclamation-circle" /> {{ cameraError }}</p>
+                    <div v-show="cameraActiva || cameraLoading" :id="CAMARA_HOST_ID" class="camara-host" />
                     <p class="camara-hint">
                         Desde el celular abre
-                        <strong>https://</strong> más la IP de tu PC y el puerto (ej.
-                        <strong>https://192.168.1.10:3000/v1/</strong>), mismo Wi‑Fi.
-                        Si el navegador advierte del certificado en desarrollo, elige avanzar / confiar.
-                        Pistola lectora o teclado pueden usar el campo de arriba.
+                        <strong>https://</strong> más la IP de tu PC y el puerto (ej. <strong>https://192.168.1.10:3000/v1/</strong>), mismo Wi‑Fi. Si el navegador advierte del certificado en desarrollo, elige avanzar / confiar. Pistola lectora o
+                        teclado pueden usar el campo de arriba.
                     </p>
                 </div>
 
@@ -1323,15 +1210,7 @@ const finalizarOrden = async () => {
                 </div>
 
                 <!-- Lista de ítems (Tabla con scroll horizontal) -->
-                <DataTable 
-                    class="hidden md:block"
-                    :value="ordenSeleccionada.items" 
-                    :rows="10" 
-                    :paginator="ordenSeleccionada.items?.length > 10" 
-                    size="small" 
-                    stripedRows 
-                    responsiveLayout="scroll"
-                >
+                <DataTable class="hidden md:block" :value="ordenSeleccionada.items" :rows="10" :paginator="ordenSeleccionada.items?.length > 10" size="small" stripedRows responsiveLayout="scroll">
                     <Column field="codigoBarra" header="Código" />
                     <Column field="barra1" header="Barra 1" />
                     <Column field="barra2" header="Barra 2" />
@@ -1361,11 +1240,9 @@ const finalizarOrden = async () => {
                     <Column header="Ubicación" style="min-width: 10rem">
                         <template #body="{ data }">
                             <span v-if="data.ubicaciones && data.ubicaciones.length > 0">
-                                {{ data.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ') }}
+                                {{ data.ubicaciones.map((u) => (u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion)).join(', ') }}
                             </span>
-                            <span v-else class="text-surface-500 dark:text-surface-400 italic">
-                                Sin ubicación
-                            </span>
+                            <span v-else class="text-surface-500 dark:text-surface-400 italic"> Sin ubicación </span>
                         </template>
                     </Column>
                     <Column field="cantidad" header="Cant." style="min-width: 5rem" />
@@ -1390,14 +1267,12 @@ const finalizarOrden = async () => {
 
                 <!-- Mobile cards display instead of table -->
                 <div class="block md:hidden mt-4">
-                    <div v-if="!ordenSeleccionada.items || ordenSeleccionada.items.length === 0" class="text-center p-3 text-secondary text-sm">
-                        No hay productos en esta orden
-                    </div>
-                    <div v-else class="flex flex-col gap-3" style="max-height: 400px; overflow-y: auto;">
+                    <div v-if="!ordenSeleccionada.items || ordenSeleccionada.items.length === 0" class="text-center p-3 text-secondary text-sm">No hay productos en esta orden</div>
+                    <div v-else class="flex flex-col gap-3" style="max-height: 400px; overflow-y: auto">
                         <div v-for="(item, index) in ordenSeleccionada.items" :key="index" class="product-mobile-card flex flex-col gap-2">
                             <div class="flex justify-between items-start">
                                 <div>
-                                    <div class="font-bold text-base" style="word-break: break-word; color: var(--text-color);">{{ item.nombreProducto }}</div>
+                                    <div class="font-bold text-base" style="word-break: break-word; color: var(--text-color)">{{ item.nombreProducto }}</div>
                                     <div class="text-sm text-secondary mt-1">Cód: {{ item.codigoBarra }}</div>
                                 </div>
                                 <span :class="['item-estado text-sm', itemEstadoConfig[item.estadoItem]?.class]">
@@ -1405,7 +1280,7 @@ const finalizarOrden = async () => {
                                     {{ itemEstadoConfig[item.estadoItem]?.label }}
                                 </span>
                             </div>
-                            
+
                             <!-- Barras adicionales si existen -->
                             <div v-if="item.barra1 || item.barra2 || item.barra3 || item.barra4 || item.barra5 || item.barra6 || item.barra7" class="text-xs text-secondary flex flex-wrap gap-1 mt-1">
                                 <span v-if="item.barra1" class="bg-surface-100 px-1.5 py-0.5 rounded border border-surface-200">B1: {{ item.barra1 }}</span>
@@ -1420,15 +1295,15 @@ const finalizarOrden = async () => {
                             <div class="grid p-fluid gap-2 mt-1">
                                 <div class="col-4 mb-0">
                                     <span class="text-xs font-semibold text-secondary">ATRIBUTO:</span>
-                                    <div class="text-sm font-semibold" style="color: var(--text-color);">{{ item.atributo || '—' }}</div>
+                                    <div class="text-sm font-semibold" style="color: var(--text-color)">{{ item.atributo || '—' }}</div>
                                 </div>
                                 <div class="col-4 mb-0">
                                     <span class="text-xs font-semibold text-secondary">CANTIDAD:</span>
-                                    <div class="text-sm font-semibold" style="color: var(--text-color);">{{ item.cantidad }}</div>
+                                    <div class="text-sm font-semibold" style="color: var(--text-color)">{{ item.cantidad }}</div>
                                 </div>
                                 <div class="col-4 mb-0">
                                     <span class="text-xs font-semibold text-secondary">SURTIDO:</span>
-                                    <div class="text-sm font-semibold" style="color: var(--text-color);">{{ item.cantidadSurtida ?? 0 }}</div>
+                                    <div class="text-sm font-semibold" style="color: var(--text-color)">{{ item.cantidadSurtida ?? 0 }}</div>
                                 </div>
                             </div>
 
@@ -1437,7 +1312,7 @@ const finalizarOrden = async () => {
                                     <span class="text-xs font-semibold text-secondary">PROGRESO:</span>
                                     <span class="text-xs font-semibold text-primary">{{ progresoItem(item) }}%</span>
                                 </div>
-                                <ProgressBar :value="progresoItem(item)" style="height: 6px;" :showValue="false" />
+                                <ProgressBar :value="progresoItem(item)" style="height: 6px" :showValue="false" />
                             </div>
 
                             <div class="text-sm text-secondary mt-1 flex flex-col gap-1 border-t border-surface-200 dark:border-surface-700 pt-2">
@@ -1448,7 +1323,7 @@ const finalizarOrden = async () => {
                                 <div>
                                     <span class="font-semibold">Ubicación:</span>
                                     <span v-if="item.ubicaciones && item.ubicaciones.length > 0" class="ml-1">
-                                        {{ item.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ') }}
+                                        {{ item.ubicaciones.map((u) => (u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion)).join(', ') }}
                                     </span>
                                     <span v-else class="ml-1 italic">Sin ubicación</span>
                                 </div>
@@ -1463,18 +1338,11 @@ const finalizarOrden = async () => {
                 </div>
             </div>
 
-            <template #footer>
-            </template>
+            <template #footer> </template>
         </Dialog>
 
         <!-- Dialog: Detalle de producto -->
-        <Dialog
-            v-model:visible="detailDialog"
-            :style="{ width: '620px' }"
-            :breakpoints="{ '1199px': '85vw', '575px': '98vw' }"
-            header="Detalle de Orden"
-            :modal="true"
-        >
+        <Dialog v-model:visible="detailDialog" :style="{ width: '620px' }" :breakpoints="{ '1199px': '85vw', '575px': '98vw' }" header="Detalle de Orden" :modal="true">
             <div v-if="ordenSeleccionada">
                 <div class="detail-grid">
                     <div class="detail-field">
@@ -1523,7 +1391,7 @@ const finalizarOrden = async () => {
                         <label>Progreso</label>
                         <div class="progress-detail">
                             <span>
-                                {{ ordenSeleccionada.items?.filter(i => (i.cantidadSurtida || 0) >= (i.cantidad || 0)).length || 0 }}/{{ ordenSeleccionada.items?.length || 0 }} renglones con
+                                {{ ordenSeleccionada.items?.filter((i) => (i.cantidadSurtida || 0) >= (i.cantidad || 0)).length || 0 }}/{{ ordenSeleccionada.items?.length || 0 }} renglones con
                                 {{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidadSurtida || 0), 0) || 0 }}/{{ ordenSeleccionada.items?.reduce((acc, i) => acc + (i.cantidad || 0), 0) || 0 }} unidades completadas
                             </span>
                             <ProgressBar :value="progresoOrden(ordenSeleccionada)" style="height: 8px; margin-top: 0.5rem" />
@@ -1594,11 +1462,9 @@ const finalizarOrden = async () => {
                     <Column header="Ubicación" style="min-width: 10rem">
                         <template #body="{ data }">
                             <span v-if="data.ubicaciones && data.ubicaciones.length > 0">
-                                {{ data.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ') }}
+                                {{ data.ubicaciones.map((u) => (u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion)).join(', ') }}
                             </span>
-                            <span v-else class="text-surface-500 dark:text-surface-400 italic">
-                                Sin ubicación
-                            </span>
+                            <span v-else class="text-surface-500 dark:text-surface-400 italic"> Sin ubicación </span>
                         </template>
                     </Column>
                     <Column field="cantidad" header="Cant." style="min-width: 5rem" />
@@ -1623,14 +1489,12 @@ const finalizarOrden = async () => {
 
                 <!-- Mobile cards display instead of table -->
                 <div class="block md:hidden mt-4">
-                    <div v-if="!ordenSeleccionada.items || ordenSeleccionada.items.length === 0" class="text-center p-3 text-secondary text-sm">
-                        No hay productos en esta orden
-                    </div>
-                    <div v-else class="flex flex-col gap-3" style="max-height: 400px; overflow-y: auto;">
+                    <div v-if="!ordenSeleccionada.items || ordenSeleccionada.items.length === 0" class="text-center p-3 text-secondary text-sm">No hay productos en esta orden</div>
+                    <div v-else class="flex flex-col gap-3" style="max-height: 400px; overflow-y: auto">
                         <div v-for="(item, index) in ordenSeleccionada.items" :key="index" class="product-mobile-card flex flex-col gap-2">
                             <div class="flex justify-between items-start">
                                 <div>
-                                    <div class="font-bold text-base" style="word-break: break-word; color: var(--text-color);">{{ item.nombreProducto }}</div>
+                                    <div class="font-bold text-base" style="word-break: break-word; color: var(--text-color)">{{ item.nombreProducto }}</div>
                                     <div class="text-sm text-secondary mt-1">Cód: {{ item.codigoBarra }}</div>
                                 </div>
                                 <span :class="['item-estado text-sm', itemEstadoConfig[item.estadoItem]?.class]">
@@ -1638,7 +1502,7 @@ const finalizarOrden = async () => {
                                     {{ itemEstadoConfig[item.estadoItem]?.label }}
                                 </span>
                             </div>
-                            
+
                             <!-- Barras adicionales si existen -->
                             <div v-if="item.barra1 || item.barra2 || item.barra3 || item.barra4 || item.barra5 || item.barra6 || item.barra7" class="text-xs text-secondary flex flex-wrap gap-1 mt-1">
                                 <span v-if="item.barra1" class="bg-surface-100 px-1.5 py-0.5 rounded border border-surface-200">B1: {{ item.barra1 }}</span>
@@ -1653,15 +1517,15 @@ const finalizarOrden = async () => {
                             <div class="grid p-fluid gap-2 mt-1">
                                 <div class="col-4 mb-0">
                                     <span class="text-xs font-semibold text-secondary">ATRIBUTO:</span>
-                                    <div class="text-sm font-semibold" style="color: var(--text-color);">{{ item.atributo || '—' }}</div>
+                                    <div class="text-sm font-semibold" style="color: var(--text-color)">{{ item.atributo || '—' }}</div>
                                 </div>
                                 <div class="col-4 mb-0">
                                     <span class="text-xs font-semibold text-secondary">CANTIDAD:</span>
-                                    <div class="text-sm font-semibold" style="color: var(--text-color);">{{ item.cantidad }}</div>
+                                    <div class="text-sm font-semibold" style="color: var(--text-color)">{{ item.cantidad }}</div>
                                 </div>
                                 <div class="col-4 mb-0">
                                     <span class="text-xs font-semibold text-secondary">SURTIDO:</span>
-                                    <div class="text-sm font-semibold" style="color: var(--text-color);">{{ item.cantidadSurtida ?? 0 }}</div>
+                                    <div class="text-sm font-semibold" style="color: var(--text-color)">{{ item.cantidadSurtida ?? 0 }}</div>
                                 </div>
                             </div>
 
@@ -1670,7 +1534,7 @@ const finalizarOrden = async () => {
                                     <span class="text-xs font-semibold text-secondary">PROGRESO:</span>
                                     <span class="text-xs font-semibold text-primary">{{ progresoItem(item) }}%</span>
                                 </div>
-                                <ProgressBar :value="progresoItem(item)" style="height: 6px;" :showValue="false" />
+                                <ProgressBar :value="progresoItem(item)" style="height: 6px" :showValue="false" />
                             </div>
 
                             <div class="text-sm text-secondary mt-1 flex flex-col gap-1 border-t border-surface-200 dark:border-surface-700 pt-2">
@@ -1681,7 +1545,7 @@ const finalizarOrden = async () => {
                                 <div>
                                     <span class="font-semibold">Ubicación:</span>
                                     <span v-if="item.ubicaciones && item.ubicaciones.length > 0" class="ml-1">
-                                        {{ item.ubicaciones.map((u) => u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion).join(', ') }}
+                                        {{ item.ubicaciones.map((u) => (u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion)).join(', ') }}
                                     </span>
                                     <span v-else class="ml-1 italic">Sin ubicación</span>
                                 </div>
@@ -1699,40 +1563,25 @@ const finalizarOrden = async () => {
             <template #footer>
                 <!-- <Button label="Cerrar" icon="pi pi-times" text @click="detailDialog = false" /> -->
                 <Button label="Imprimir PDF" icon="pi pi-file-pdf" @click="exportarPDF" />
-                <Button
-                    v-if="ordenSeleccionada?.estado === 'LISTA' && canAudit"
-                    label="Auditar Recepcion"
-                    icon="pi pi-check-square"
-                    severity="info"
-                    outlined
-                    @click="abrirDialogAuditar"
-                />
-                <Button
-                    v-if="ordenSeleccionada?.estado !== 'LISTA' && ordenSeleccionada?.estado !== 'PENDIENTE'"
-                    label="Finalizar Orden"
-                    icon="pi pi-check"
-                    severity="success"
-                    @click="finalizarOrden"
-                    :disabled="!canWrite"
-                />
+                <Button v-if="ordenSeleccionada?.estado === 'LISTA' && canAudit" label="Auditar Recepcion" icon="pi pi-check-square" severity="info" outlined @click="abrirDialogAuditar" />
+                <Button v-if="ordenSeleccionada?.estado !== 'LISTA' && ordenSeleccionada?.estado !== 'PENDIENTE'" label="Finalizar Orden" icon="pi pi-check" severity="success" @click="finalizarOrden" :disabled="!canWrite" />
                 <Button
                     v-if="ordenSeleccionada?.estado !== 'LISTA'"
                     label="Surtir Orden"
                     icon="pi pi-barcode"
-                    @click="() => { detailDialog = false; abrirSurtido(ordenSeleccionada); }"
+                    @click="
+                        () => {
+                            detailDialog = false;
+                            abrirSurtido(ordenSeleccionada);
+                        }
+                    "
                     :disabled="!canWrite"
                 />
             </template>
         </Dialog>
 
         <!-- Dialog: Auditoria / Recepcion de orden (feedback de piso) -->
-        <Dialog
-            v-model:visible="auditDialog"
-            :style="{ width: '560px' }"
-            :breakpoints="{ '1199px': '90vw', '575px': '98vw' }"
-            header="Auditoria de Recepcion"
-            :modal="true"
-        >
+        <Dialog v-model:visible="auditDialog" :style="{ width: '560px' }" :breakpoints="{ '1199px': '90vw', '575px': '98vw' }" header="Auditoria de Recepcion" :modal="true">
             <div v-if="ordenSeleccionada" class="audit-form">
                 <div class="audit-info">
                     <div><strong>Orden:</strong> {{ ordenSeleccionada.numeroOrden }}</div>
@@ -1755,13 +1604,7 @@ const finalizarOrden = async () => {
                 <div class="audit-section">
                     <label class="audit-label">Resultado de la recepcion</label>
                     <div class="audit-options">
-                        <button
-                            v-for="opt in auditOpciones"
-                            :key="opt.value"
-                            type="button"
-                            :class="['audit-opt', 'opt-' + opt.severity, { selected: auditResultado === opt.value }]"
-                            @click="auditResultado = opt.value"
-                        >
+                        <button v-for="opt in auditOpciones" :key="opt.value" type="button" :class="['audit-opt', 'opt-' + opt.severity, { selected: auditResultado === opt.value }]" @click="auditResultado = opt.value">
                             <i :class="opt.icon"></i>
                             <span>{{ opt.label }}</span>
                         </button>
@@ -1770,26 +1613,13 @@ const finalizarOrden = async () => {
 
                 <div class="audit-section">
                     <label class="audit-label" for="audit-comentario">Comentario (opcional)</label>
-                    <Textarea
-                        id="audit-comentario"
-                        v-model="auditComentario"
-                        rows="3"
-                        autoResize
-                        placeholder="Detalle lo que paso: faltantes, danados, etc."
-                        class="audit-textarea"
-                    />
+                    <Textarea id="audit-comentario" v-model="auditComentario" rows="3" autoResize placeholder="Detalle lo que paso: faltantes, danados, etc." class="audit-textarea" />
                 </div>
             </div>
 
             <template #footer>
                 <Button label="Cancelar" text @click="auditDialog = false" :disabled="auditLoading" />
-                <Button
-                    label="Registrar Auditoria"
-                    icon="pi pi-check"
-                    :loading="auditLoading"
-                    :disabled="!auditResultado"
-                    @click="enviarAuditoria"
-                />
+                <Button label="Registrar Auditoria" icon="pi pi-check" :loading="auditLoading" :disabled="!auditResultado" @click="enviarAuditoria" />
             </template>
         </Dialog>
 
@@ -1800,7 +1630,9 @@ const finalizarOrden = async () => {
 <style scoped lang="scss">
 .ops-container {
     padding: 1rem;
-    @media (min-width: 768px) { padding: 1.5rem; }
+    @media (min-width: 768px) {
+        padding: 1.5rem;
+    }
 }
 
 .card {
@@ -1869,9 +1701,15 @@ const finalizarOrden = async () => {
     font-weight: 700;
     color: var(--text-color);
     line-height: 1;
-    &.stat-pendiente { color: var(--orange-400); }
-    &.stat-proceso { color: var(--blue-500); }
-    &.stat-lista { color: var(--green-500); }
+    &.stat-pendiente {
+        color: var(--orange-400);
+    }
+    &.stat-proceso {
+        color: var(--blue-500);
+    }
+    &.stat-lista {
+        color: var(--green-500);
+    }
 }
 
 .stat-label {
@@ -1901,7 +1739,7 @@ const finalizarOrden = async () => {
     }
     .title {
         justify-content: center;
-        gap: 0.35rem; 
+        gap: 0.35rem;
     }
     .subtitle {
         margin: 0.3rem 0 0 0;
@@ -1926,7 +1764,7 @@ const finalizarOrden = async () => {
     .stat-value {
         font-size: 1.4rem;
     }
-    
+
     .stat-label {
         font-size: 0.7rem;
         text-align: center;
@@ -1994,7 +1832,9 @@ const finalizarOrden = async () => {
 .fecha-text {
     font-size: 0.9rem;
     color: var(--text-color);
-    &.text-secondary { color: var(--text-color-secondary); }
+    &.text-secondary {
+        color: var(--text-color-secondary);
+    }
 }
 
 /* Estado Badges */
@@ -2031,11 +1871,15 @@ const finalizarOrden = async () => {
 }
 
 /* Empty / Loading */
-.empty-state, .loading-state {
+.empty-state,
+.loading-state {
     text-align: center;
     padding: 3rem 1rem;
     color: var(--text-color-secondary);
-    p { margin: 0.75rem 0; font-size: 1rem; }
+    p {
+        margin: 0.75rem 0;
+        font-size: 1rem;
+    }
 }
 
 /* Scan Dialog */
@@ -2249,9 +2093,15 @@ const finalizarOrden = async () => {
     font-size: 0.78rem;
     font-weight: 600;
 
-    &.surtido { color: var(--green-500); }
-    &.pendiente { color: var(--orange-400); }
-    &.no-surtido { color: var(--red-500); }
+    &.surtido {
+        color: var(--green-500);
+    }
+    &.pendiente {
+        color: var(--orange-400);
+    }
+    &.no-surtido {
+        color: var(--red-500);
+    }
 }
 
 /* Detail Dialog */
@@ -2275,9 +2125,14 @@ const finalizarOrden = async () => {
         letter-spacing: 0.04em;
     }
 
-    span { font-size: 0.92rem; color: var(--text-color); }
+    span {
+        font-size: 0.92rem;
+        color: var(--text-color);
+    }
 
-    &.full { grid-column: 1 / -1; }
+    &.full {
+        grid-column: 1 / -1;
+    }
 }
 
 .progress-detail span {
@@ -2295,8 +2150,12 @@ const finalizarOrden = async () => {
     gap: 0.4rem;
 }
 
-.ml-2 { margin-left: 0.5rem; }
-.text-primary { color: var(--primary-color); }
+.ml-2 {
+    margin-left: 0.5rem;
+}
+.text-primary {
+    color: var(--primary-color);
+}
 
 /* Cantidad Panel */
 .cantidad-panel {
@@ -2575,20 +2434,40 @@ const finalizarOrden = async () => {
     font-weight: 700;
     text-transform: uppercase;
 }
-.audit-tag.tag-success { background: #dcfce7; color: #166534; }
-.audit-tag.tag-warn    { background: #fef3c7; color: #92400e; }
-.audit-tag.tag-danger  { background: #fee2e2; color: #991b1b; }
-.audit-tag.tag-info    { background: #dbeafe; color: #1e40af; }
-.audit-when   { color: var(--text-muted-color, #6b7280); }
-.audit-who    { color: var(--text-muted-color, #6b7280); }
+.audit-tag.tag-success {
+    background: #dcfce7;
+    color: #166534;
+}
+.audit-tag.tag-warn {
+    background: #fef3c7;
+    color: #92400e;
+}
+.audit-tag.tag-danger {
+    background: #fee2e2;
+    color: #991b1b;
+}
+.audit-tag.tag-info {
+    background: #dbeafe;
+    color: #1e40af;
+}
+.audit-when {
+    color: var(--text-muted-color, #6b7280);
+}
+.audit-who {
+    color: var(--text-muted-color, #6b7280);
+}
 .audit-comment {
     width: 100%;
     color: var(--text-color, #374151);
     font-style: italic;
 }
 
-.audit-section { display: flex; flex-direction: column; gap: 0.5rem; }
-.audit-label   {
+.audit-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.audit-label {
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--text-color, #374151);
@@ -2608,16 +2487,34 @@ const finalizarOrden = async () => {
     gap: 0.5rem;
     cursor: pointer;
     font-size: 0.875rem;
-    transition: border-color 0.15s, background 0.15s;
+    transition:
+        border-color 0.15s,
+        background 0.15s;
     text-align: left;
     color: var(--text-color, #374151);
 }
-.audit-opt:hover { background: var(--surface-50, #f9fafb); }
-.audit-opt.selected.opt-success { border-color: #16a34a; background: #f0fdf4; }
-.audit-opt.selected.opt-warn    { border-color: #f59e0b; background: #fffbeb; }
-.audit-opt.selected.opt-danger  { border-color: #dc2626; background: #fef2f2; }
-.audit-opt.selected.opt-info    { border-color: #2563eb; background: #eff6ff; }
-.audit-textarea { width: 100%; }
+.audit-opt:hover {
+    background: var(--surface-50, #f9fafb);
+}
+.audit-opt.selected.opt-success {
+    border-color: #16a34a;
+    background: #f0fdf4;
+}
+.audit-opt.selected.opt-warn {
+    border-color: #f59e0b;
+    background: #fffbeb;
+}
+.audit-opt.selected.opt-danger {
+    border-color: #dc2626;
+    background: #fef2f2;
+}
+.audit-opt.selected.opt-info {
+    border-color: #2563eb;
+    background: #eff6ff;
+}
+.audit-textarea {
+    width: 100%;
+}
 
 /* --- Pill de efectividad de surtido (detalle + surtido header) --- */
 .efect-pill {
@@ -2638,11 +2535,26 @@ const finalizarOrden = async () => {
     text-transform: uppercase;
     letter-spacing: 0.02em;
 }
-.efect-pill.efect-vacia { background: #f3f4f6; color: #6b7280; }
-.efect-pill.efect-alta  { background: #dcfce7; color: #166534; }
-.efect-pill.efect-buena { background: #ecfeff; color: #155e75; }
-.efect-pill.efect-media { background: #fef3c7; color: #92400e; }
-.efect-pill.efect-baja  { background: #fee2e2; color: #991b1b; }
+.efect-pill.efect-vacia {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+.efect-pill.efect-alta {
+    background: #dcfce7;
+    color: #166534;
+}
+.efect-pill.efect-buena {
+    background: #ecfeff;
+    color: #155e75;
+}
+.efect-pill.efect-media {
+    background: #fef3c7;
+    color: #92400e;
+}
+.efect-pill.efect-baja {
+    background: #fee2e2;
+    color: #991b1b;
+}
 
 /* --- Bloque de auditorias de recepcion en el detail dialog --- */
 .detail-audit-block {
@@ -2663,7 +2575,10 @@ const finalizarOrden = async () => {
     background: #f0f9ff;
     border-color: #bae6fd;
 }
-.detail-audit-block.detail-audit-empty i { color: #2563eb; margin-right: 0.4rem; }
+.detail-audit-block.detail-audit-empty i {
+    color: #2563eb;
+    margin-right: 0.4rem;
+}
 
 .detail-audit-header {
     display: flex;
@@ -2673,7 +2588,11 @@ const finalizarOrden = async () => {
     color: var(--text-color, #374151);
     font-size: 0.9375rem;
 }
-.detail-audit-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.detail-audit-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
 .detail-audit-row {
     background: var(--surface-0, #fff);
     border: 1px solid var(--surface-200, #e5e7eb);
@@ -2697,12 +2616,28 @@ const finalizarOrden = async () => {
     font-weight: 700;
     text-transform: uppercase;
 }
-.detail-audit-tag.tag-success { background: #dcfce7; color: #166534; }
-.detail-audit-tag.tag-warn    { background: #fef3c7; color: #92400e; }
-.detail-audit-tag.tag-danger  { background: #fee2e2; color: #991b1b; }
-.detail-audit-tag.tag-info    { background: #dbeafe; color: #1e40af; }
-.detail-audit-when   { color: var(--text-muted-color, #6b7280); }
-.detail-audit-who    { color: var(--text-muted-color, #6b7280); }
+.detail-audit-tag.tag-success {
+    background: #dcfce7;
+    color: #166534;
+}
+.detail-audit-tag.tag-warn {
+    background: #fef3c7;
+    color: #92400e;
+}
+.detail-audit-tag.tag-danger {
+    background: #fee2e2;
+    color: #991b1b;
+}
+.detail-audit-tag.tag-info {
+    background: #dbeafe;
+    color: #1e40af;
+}
+.detail-audit-when {
+    color: var(--text-muted-color, #6b7280);
+}
+.detail-audit-who {
+    color: var(--text-muted-color, #6b7280);
+}
 .detail-audit-comment {
     color: var(--text-color, #374151);
     font-style: italic;

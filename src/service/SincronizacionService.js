@@ -85,7 +85,7 @@ class SincronizacionService {
         let message = `Error al ${action}`;
         if (error.response) {
             const { status, data } = error.response;
-            
+
             const extractMessage = (dataVal, fallback) => {
                 if (!dataVal) return fallback;
                 if (typeof dataVal === 'string') return dataVal;

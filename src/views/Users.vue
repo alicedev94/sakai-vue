@@ -14,7 +14,7 @@ const confirm = useConfirm();
 const userStore = useUserStore();
 
 const canWrite = computed(() => {
-    const perm = authStore.permissions.find(p => p.code === 'usuarios');
+    const perm = authStore.permissions.find((p) => p.code === 'usuarios');
     return perm ? !perm.isReadonly : false;
 });
 
@@ -41,13 +41,11 @@ const mobileRowsPerPage = 8;
 
 // Usuarios filtrados (excluye los eliminados lógicamente)
 const activeUsers = computed(() => {
-    return userStore.users.filter(user => {
+    return userStore.users.filter((user) => {
         const isActive = user.status !== false && !user.deletedAt;
         if (searchQuery.value) {
             const search = searchQuery.value.toLowerCase();
-            const matchesSearch =
-                (user.username?.toLowerCase().includes(search)) ||
-                (user.email?.toLowerCase().includes(search));
+            const matchesSearch = user.username?.toLowerCase().includes(search) || user.email?.toLowerCase().includes(search);
             return isActive && matchesSearch;
         }
         return isActive;
@@ -351,23 +349,11 @@ onMounted(() => {
                 <template #start>
                     <!-- Desktop: solo botón eliminar -->
                     <div class="hidden md:block">
-                        <Button
-                            label="Eliminar"
-                            icon="pi pi-trash"
-                            severity="danger"
-                            @click="confirmDeleteSelected"
-                            :disabled="!selectedUsers || !selectedUsers.length || !canWrite"
-                        />
+                        <Button label="Eliminar" icon="pi pi-trash" severity="danger" @click="confirmDeleteSelected" :disabled="!selectedUsers || !selectedUsers.length || !canWrite" />
                     </div>
                     <!-- Mobile: botón Nuevo Usuario -->
                     <div class="block md:hidden w-full">
-                        <Button
-                            label="Nuevo Usuario"
-                            icon="pi pi-plus"
-                            class="w-full"
-                            @click="openNew"
-                            :disabled="!canWrite"
-                        />
+                        <Button label="Nuevo Usuario" icon="pi pi-plus" class="w-full" @click="openNew" :disabled="!canWrite" />
                     </div>
                 </template>
                 <template #end>
@@ -375,13 +361,7 @@ onMounted(() => {
                         <InputIcon>
                             <i class="pi pi-search" />
                         </InputIcon>
-                        <InputText
-                            v-model="searchQuery"
-                            placeholder="Buscar por nombre o email..."
-                            class="w-full"
-                            style="min-width: 0;"
-                            @input="resetMobilePage"
-                        />
+                        <InputText v-model="searchQuery" placeholder="Buscar por nombre o email..." class="w-full" style="min-width: 0" @input="resetMobilePage" />
                     </IconField>
                 </template>
             </Toolbar>
@@ -418,12 +398,7 @@ onMounted(() => {
                 <Column field="nombre" header="Nombre" :sortable="true" style="min-width: 12rem">
                     <template #body="{ data }">
                         <div class="user-info">
-                            <Avatar
-                                :label="data.username?.charAt(0).toUpperCase()"
-                                class="mr-2"
-                                shape="circle"
-                                style="background-color: var(--primary-color); color: white"
-                            />
+                            <Avatar :label="data.username?.charAt(0).toUpperCase()" class="mr-2" shape="circle" style="background-color: var(--primary-color); color: white" />
                             <span class="font-semibold">{{ data.username }}</span>
                         </div>
                     </template>
@@ -443,34 +418,15 @@ onMounted(() => {
 
                 <Column field="status" header="Estado" :sortable="true" style="min-width: 8rem">
                     <template #body="{ data }">
-                        <Tag
-                            :value="data.status.name"
-                            :severity="data.status.name === 'Activo' ? 'success' : 'danger'"
-                        />
+                        <Tag :value="data.status.name" :severity="data.status.name === 'Activo' ? 'success' : 'danger'" />
                     </template>
                 </Column>
 
                 <Column :exportable="false" style="min-width: 12rem">
                     <template #body="{ data }">
                         <div class="action-buttons">
-                            <Button
-                                icon="pi pi-pencil"
-                                outlined
-                                rounded
-                                class="mr-2"
-                                @click="editUser(data)"
-                                v-tooltip.top="'Editar'"
-                                :disabled="!canWrite"
-                            />
-                            <Button
-                                icon="pi pi-trash"
-                                outlined
-                                rounded
-                                severity="danger"
-                                @click="confirmDeleteUser(data)"
-                                v-tooltip.top="'Eliminar'"
-                                :disabled="!canWrite"
-                            />
+                            <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editUser(data)" v-tooltip.top="'Editar'" :disabled="!canWrite" />
+                            <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteUser(data)" v-tooltip.top="'Eliminar'" :disabled="!canWrite" />
                         </div>
                     </template>
                 </Column>
@@ -495,20 +451,13 @@ onMounted(() => {
                         <!-- Cabecera de la card -->
                         <div class="user-card-header">
                             <div class="user-card-avatar-info">
-                                <Avatar
-                                    :label="data.username?.charAt(0).toUpperCase()"
-                                    shape="circle"
-                                    class="user-card-avatar"
-                                />
+                                <Avatar :label="data.username?.charAt(0).toUpperCase()" shape="circle" class="user-card-avatar" />
                                 <div>
                                     <span class="user-card-name">{{ data.username }}</span>
                                     <span class="user-card-email">{{ data.email }}</span>
                                 </div>
                             </div>
-                            <Tag
-                                :value="data.status?.name"
-                                :severity="data.status?.name === 'Activo' ? 'success' : 'danger'"
-                            />
+                            <Tag :value="data.status?.name" :severity="data.status?.name === 'Activo' ? 'success' : 'danger'" />
                         </div>
 
                         <!-- Datos adicionales -->
@@ -529,131 +478,48 @@ onMounted(() => {
 
                         <!-- Acciones -->
                         <div class="user-card-footer">
-                            <Button
-                                icon="pi pi-pencil"
-                                outlined
-                                rounded
-                                severity="info"
-                                v-tooltip.top="'Editar'"
-                                @click="editUser(data)"
-                                :disabled="!canWrite"
-                            />
-                            <Button
-                                icon="pi pi-trash"
-                                outlined
-                                rounded
-                                severity="danger"
-                                v-tooltip.top="'Eliminar'"
-                                @click="confirmDeleteUser(data)"
-                                :disabled="!canWrite"
-                            />
+                            <Button icon="pi pi-pencil" outlined rounded severity="info" v-tooltip.top="'Editar'" @click="editUser(data)" :disabled="!canWrite" />
+                            <Button icon="pi pi-trash" outlined rounded severity="danger" v-tooltip.top="'Eliminar'" @click="confirmDeleteUser(data)" :disabled="!canWrite" />
                         </div>
                     </div>
 
                     <!-- Paginador móvil -->
                     <div v-if="mobileTotalPages > 1" class="flex justify-center items-center gap-3 mt-2">
-                        <Button
-                            icon="pi pi-chevron-left"
-                            outlined
-                            rounded
-                            size="small"
-                            :disabled="mobileCurrentPage === 0"
-                            @click="mobileCurrentPage--"
-                        />
-                        <span class="text-sm" style="color: var(--text-color-secondary)">
-                            Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }}
-                        </span>
-                        <Button
-                            icon="pi pi-chevron-right"
-                            outlined
-                            rounded
-                            size="small"
-                            :disabled="mobileCurrentPage >= mobileTotalPages - 1"
-                            @click="mobileCurrentPage++"
-                        />
+                        <Button icon="pi pi-chevron-left" outlined rounded size="small" :disabled="mobileCurrentPage === 0" @click="mobileCurrentPage--" />
+                        <span class="text-sm" style="color: var(--text-color-secondary)"> Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }} </span>
+                        <Button icon="pi pi-chevron-right" outlined rounded size="small" :disabled="mobileCurrentPage >= mobileTotalPages - 1" @click="mobileCurrentPage++" />
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Dialog para crear/editar usuario -->
-        <Dialog
-            v-model:visible="userDialog"
-            :style="{ width: '650px' }"
-            :breakpoints="{ '1199px': '75vw', '575px': '90vw' }"
-            header="Información del Usuario"
-            :modal="true"
-            class="p-fluid"
-        >
+        <Dialog v-model:visible="userDialog" :style="{ width: '650px' }" :breakpoints="{ '1199px': '75vw', '575px': '90vw' }" header="Información del Usuario" :modal="true" class="p-fluid">
             <div class="formgrid grid">
                 <div class="field col-12 md:col-6">
                     <label for="nombre">Nombre * </label>
-                    <InputText
-                        id="nombre"
-                        v-model.trim="user.username"
-                        required="true"
-                        autofocus
-                        :invalid="submitted && !user.username"
-                        placeholder="Ingrese el nombre completo"
-                    />
+                    <InputText id="nombre" v-model.trim="user.username" required="true" autofocus :invalid="submitted && !user.username" placeholder="Ingrese el nombre completo" />
                     <small class="p-error" v-if="submitted && !user.username">El nombre es requerido.</small>
                 </div>
 
                 <div class="field col-12 md:col-6">
                     <label for="email">Email *</label>
-                    <InputText
-                        id="email"
-                        v-model.trim="user.email"
-                        required="true"
-                        type="email"
-                        :invalid="submitted && !user.email"
-                        placeholder="correo@ejemplo.com"
-                    />
+                    <InputText id="email" v-model.trim="user.email" required="true" type="email" :invalid="submitted && !user.email" placeholder="correo@ejemplo.com" />
                     <small class="p-error" v-if="submitted && !user.email">El email es requerido.</small>
                 </div>
                 <div class="field col-12 md:col-6" v-if="!user.id">
                     <label for="password">Contraseña *</label>
-                    <Password
-                        id="password"
-                        v-model="user.password"
-                        toggleMask
-                        :feedback="true"
-                        placeholder="Ingrese una contraseña"
-                        :invalid="submitted && !user.password"
-                        fluid
-                        class="w-full"
-                        inputClass="w-full"
-                    />
+                    <Password id="password" v-model="user.password" toggleMask :feedback="true" placeholder="Ingrese una contraseña" :invalid="submitted && !user.password" fluid class="w-full" inputClass="w-full" />
                     <small class="p-error" v-if="submitted && !user.password">La contraseña es requerida.</small>
                 </div>
                 <div class="field col-12 md:col-6">
                     <label for="role">Rol *</label>
-                    <Dropdown
-                        id="role"
-                        v-model="user.role"
-                        :options="roles"
-                        optionLabel="name"
-                        :itemTemplate="roleItemTemplate"
-                        placeholder="Seleccione un rol"
-                        :filter="true"
-                        :showClear="true"
-                        :invalid="submitted && !user.role"
-                    />
+                    <Dropdown id="role" v-model="user.role" :options="roles" optionLabel="name" :itemTemplate="roleItemTemplate" placeholder="Seleccione un rol" :filter="true" :showClear="true" :invalid="submitted && !user.role" />
                     <small class="p-error" v-if="submitted && !user.role">El rol es requerido.</small>
                 </div>
                 <div class="field col-12 md:col-6">
                     <label for="status">Estado *</label>
-                    <Dropdown
-                        id="status"
-                        v-model="user.status"
-                        :options="userStatus"
-                        optionLabel="name"
-                        :itemTemplate="statusItemTemplate"
-                        placeholder="Seleccione estado"
-                        :filter="true"
-                        :showClear="true"
-                        :invalid="submitted && !user.status"
-                    />
+                    <Dropdown id="status" v-model="user.status" :options="userStatus" optionLabel="name" :itemTemplate="statusItemTemplate" placeholder="Seleccione estado" :filter="true" :showClear="true" :invalid="submitted && !user.status" />
                     <small class="p-error" v-if="submitted && !user.status">El estado es requerido.</small>
                 </div>
             </div>
@@ -665,17 +531,12 @@ onMounted(() => {
         </Dialog>
 
         <!-- Dialog de confirmación de eliminación -->
-        <Dialog
-            v-model:visible="deleteUserDialog"
-            :style="{ width: '450px' }"
-            header="Confirmar"
-            :modal="true"
-        >
+        <Dialog v-model:visible="deleteUserDialog" :style="{ width: '450px' }" header="Confirmar" :modal="true">
             <div class="confirmation-content">
                 <i class="pi pi-exclamation-triangle mr-3" style="font-size: 2rem; color: var(--red-500)" />
                 <span v-if="user">
-                    ¿Estás seguro de que deseas eliminar a <b>{{ user.nombre }}</b>?
-                    <br><small class="text-color-secondary">Esta acción realizará un eliminado lógico.</small>
+                    ¿Estás seguro de que deseas eliminar a <b>{{ user.nombre }}</b
+                    >? <br /><small class="text-color-secondary">Esta acción realizará un eliminado lógico.</small>
                 </span>
             </div>
             <template #footer>
@@ -834,7 +695,7 @@ onMounted(() => {
     border-radius: 12px;
     border: 1px solid var(--surface-200);
     overflow: hidden;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
 }
 
 .user-card-header {
@@ -924,6 +785,9 @@ onMounted(() => {
     text-align: center;
     padding: 3rem 1rem;
     color: var(--text-color-secondary);
-    p { margin: 0.75rem 0; font-size: 1rem; }
+    p {
+        margin: 0.75rem 0;
+        font-size: 1rem;
+    }
 }
 </style>

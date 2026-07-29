@@ -61,8 +61,9 @@ const handleLogin = async () => {
 
         const response = await AuthService.login(credentials);
 
-        // Guardar en el store (pasamos toda la respuesta porque es un objeto plano)
         authStore.setAuth(response);
+
+        await authStore.loadUserPermissions();
 
         toast.add({
             severity: 'success',
@@ -71,7 +72,6 @@ const handleLogin = async () => {
             life: 3000
         });
 
-        // Redirigir al dashboard
         router.push('/v1/');
     } catch (error) {
         console.error('Error en login:', error);
@@ -106,42 +106,23 @@ const handleKeyPress = (event) => {
 </script>
 
 <template>
-
     <Toast />
     <div class="bg-surface-50 dark:bg-surface-950 flex items-center justify-center min-h-screen min-w-[100vw] overflow-hidden">
         <div class="flex flex-col items-center justify-center w-full px-4 sm:w-auto sm:px-0">
             <div style="border-radius: 56px; padding: 0.3rem; background: linear-gradient(180deg, var(--primary-color) 10%, rgba(33, 150, 243, 0) 30%)" class="w-full sm:w-auto">
                 <div class="w-full bg-surface-0 dark:bg-surface-900 py-20 px-6 sm:px-20" style="border-radius: 53px">
                     <div class="text-center mb-8">
-                        <img :src="logo" alt="Logo" class="w-35 h-24 mx-auto logo-rounded mb-4">
+                        <img :src="logo" alt="Logo" class="w-35 h-24 mx-auto logo-rounded mb-4" />
                         <div class="text-surface-900 dark:text-surface-0 text-3xl font-medium mb-4">¡Bienvenido!</div>
                         <span class="text-muted-color font-medium">Inicia sesión para continuar</span>
                     </div>
 
                     <div>
                         <label for="email1" class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">Email</label>
-                        <InputText 
-                            id="email1" 
-                            type="email" 
-                            placeholder="correo@ejemplo.com" 
-                            class="w-full md:w-[30rem] mb-8" 
-                            v-model="email"
-                            @keypress="handleKeyPress"
-                            :disabled="loading"
-                        />
+                        <InputText id="email1" type="email" placeholder="correo@ejemplo.com" class="w-full md:w-[30rem] mb-8" v-model="email" @keypress="handleKeyPress" :disabled="loading" />
 
                         <label for="password1" class="block text-surface-900 dark:text-surface-0 font-medium text-xl mb-2">Contraseña</label>
-                        <Password 
-                            id="password1" 
-                            v-model="password" 
-                            placeholder="Contraseña" 
-                            :toggleMask="true" 
-                            class="mb-4" 
-                            fluid 
-                            :feedback="false"
-                            @keypress="handleKeyPress"
-                            :disabled="loading"
-                        ></Password>
+                        <Password id="password1" v-model="password" placeholder="Contraseña" :toggleMask="true" class="mb-4" fluid :feedback="false" @keypress="handleKeyPress" :disabled="loading"></Password>
 
                         <!-- <div class="flex items-center justify-between mt-2 mb-8 gap-8">
                             <div class="flex items-center">
@@ -151,13 +132,7 @@ const handleKeyPress = (event) => {
                             <span class="font-medium no-underline ml-2 text-right cursor-pointer text-primary">¿Olvidaste tu contraseña?</span>
                         </div> -->
 
-                        <Button 
-                            label="Iniciar Sesión" 
-                            class="w-full mb-4 mt-4"
-                            @click="handleLogin"
-                            :loading="loading"
-                            :disabled="loading"
-                        />
+                        <Button label="Iniciar Sesión" class="w-full mb-4 mt-4" @click="handleLogin" :loading="loading" :disabled="loading" />
 
                         <!-- <div class="text-center mt-4">
                             <span class="text-muted-color">¿No tienes cuenta? </span>

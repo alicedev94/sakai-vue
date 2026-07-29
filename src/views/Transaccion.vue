@@ -30,17 +30,15 @@ const mobilePagedTransactions = computed(() => {
     return transactionStore.transactions.slice(start, start + mobileRowsPerPage);
 });
 
-const mobileTotalPages = computed(() =>
-    Math.ceil(transactionStore.transactions.length / mobileRowsPerPage)
-);
+const mobileTotalPages = computed(() => Math.ceil(transactionStore.transactions.length / mobileRowsPerPage));
 
 const loadData = async () => {
     mobileCurrentPage.value = 0;
     try {
         const params = { page: 0, size: 1000000 };
-        if (filters.codigo)     params.codigo     = filters.codigo;
-        if (filters.barra1)     params.barra1     = filters.barra1;
-        if (filters.barra2)     params.barra2     = filters.barra2;
+        if (filters.codigo) params.codigo = filters.codigo;
+        if (filters.barra1) params.barra1 = filters.barra1;
+        if (filters.barra2) params.barra2 = filters.barra2;
         if (filters.descripcion) params.descripcion = filters.descripcion;
         if (filters.fechaDesde) params.fechaDesde = formatDateForApi(filters.fechaDesde);
         if (filters.fechaHasta) params.fechaHasta = formatDateForApi(filters.fechaHasta);
@@ -134,21 +132,8 @@ onMounted(() => {
 
                     <!-- Botones de acción -->
                     <div class="filter-actions">
-                        <Button
-                            label="Buscar"
-                            icon="pi pi-search"
-                            @click="onSearch"
-                            :loading="transactionStore.loading"
-                            class="w-full md:w-auto"
-                        />
-                        <Button
-                            icon="pi pi-filter-slash"
-                            @click="clearFilters"
-                            :disabled="transactionStore.loading"
-                            outlined
-                            severity="secondary"
-                            v-tooltip.top="'Limpiar filtros'"
-                        />
+                        <Button label="Buscar" icon="pi pi-search" @click="onSearch" :loading="transactionStore.loading" class="w-full md:w-auto" />
+                        <Button icon="pi pi-filter-slash" @click="clearFilters" :disabled="transactionStore.loading" outlined severity="secondary" v-tooltip.top="'Limpiar filtros'" />
                     </div>
                 </div>
             </div>
@@ -280,9 +265,7 @@ onMounted(() => {
                     <!-- Paginador móvil -->
                     <div v-if="mobileTotalPages > 1" class="flex justify-center items-center gap-3 mt-2">
                         <Button icon="pi pi-chevron-left" outlined rounded size="small" :disabled="mobileCurrentPage === 0" @click="mobileCurrentPage--" />
-                        <span class="text-sm" style="color: var(--text-color-secondary)">
-                            Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }}
-                        </span>
+                        <span class="text-sm" style="color: var(--text-color-secondary)"> Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }} </span>
                         <Button icon="pi pi-chevron-right" outlined rounded size="small" :disabled="mobileCurrentPage >= mobileTotalPages - 1" @click="mobileCurrentPage++" />
                     </div>
                 </div>
@@ -294,7 +277,9 @@ onMounted(() => {
 <style scoped lang="scss">
 .transactions-container {
     padding: 1rem;
-    @media (min-width: 768px) { padding: 1.5rem; }
+    @media (min-width: 768px) {
+        padding: 1.5rem;
+    }
 }
 
 .card {
@@ -302,7 +287,9 @@ onMounted(() => {
     border-radius: 12px;
     padding: 1.5rem;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    @media (min-width: 768px) { padding: 2rem; }
+    @media (min-width: 768px) {
+        padding: 2rem;
+    }
 }
 
 .card-header {
@@ -367,7 +354,9 @@ onMounted(() => {
         justify-content: center;
         flex-direction: row;
         /* El botón Buscar ya tiene w-full en mobile */
-        .p-button:first-child { flex: 1; }
+        .p-button:first-child {
+            flex: 1;
+        }
     }
 
     @media (min-width: 768px) {
@@ -378,7 +367,10 @@ onMounted(() => {
 
 /* Tabla */
 .transactions-table {
-    :deep(.p-datatable-header) { background: transparent; border: none; }
+    :deep(.p-datatable-header) {
+        background: transparent;
+        border: none;
+    }
 }
 
 /* Empty / Loading */
@@ -387,7 +379,10 @@ onMounted(() => {
     text-align: center;
     padding: 3rem 1rem;
     color: var(--text-color-secondary);
-    p { margin-top: 1rem; font-size: 1.05rem; }
+    p {
+        margin-top: 1rem;
+        font-size: 1.05rem;
+    }
 }
 
 /* Badges / texto compartidos */
@@ -497,6 +492,8 @@ onMounted(() => {
 .txn-value {
     color: var(--text-color);
     font-size: 0.9rem;
-    &.mono { font-family: monospace; }
+    &.mono {
+        font-family: monospace;
+    }
 }
 </style>

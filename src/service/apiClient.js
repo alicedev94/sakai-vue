@@ -75,11 +75,7 @@ apiClient.interceptors.response.use(
         // terminar redirigiendo al login (cuando ni el refresh token sirve),
         // pero igual NO limpiamos localStorage.
         if (error.response?.status === 401 && !originalRequest._retry) {
-            if (
-                originalRequest.url.includes('/auth/login') ||
-                originalRequest.url.includes('/auth/register') ||
-                originalRequest.url.includes('/auth/refresh')
-            ) {
+            if (originalRequest.url.includes('/auth/login') || originalRequest.url.includes('/auth/register') || originalRequest.url.includes('/auth/refresh')) {
                 return Promise.reject(error);
             }
 
@@ -98,15 +94,18 @@ apiClient.interceptors.response.use(
             isRefreshing = true;
 
             let authStore;
-            try { authStore = useAuthStore(); } catch { authStore = null; }
+            try {
+                authStore = useAuthStore();
+            } catch {
+                authStore = null;
+            }
 
             const refreshToken = authStore?.refreshToken || localStorage.getItem('refreshToken');
 
             if (!refreshToken) {
                 console.warn('⚠️ No hay refresh token disponible — redirigiendo al login');
                 isRefreshing = false;
-                if (typeof window !== 'undefined'
-                    && !window.location.pathname.includes('/v1/auth/login')) {
+                if (typeof window !== 'undefined' && !window.location.pathname.includes('/v1/auth/login')) {
                     window.location.href = '/v1/auth/login?error=no_refresh_token';
                 }
                 return Promise.reject(error);
@@ -126,8 +125,7 @@ apiClient.interceptors.response.use(
             } catch (refreshError) {
                 console.error('❌ Error al refrescar token:', refreshError.response?.status || refreshError.message);
                 processQueue(refreshError, null);
-                if (typeof window !== 'undefined'
-                    && !window.location.pathname.includes('/v1/auth/login')) {
+                if (typeof window !== 'undefined' && !window.location.pathname.includes('/v1/auth/login')) {
                     window.location.href = '/v1/auth/login?error=session_expired';
                 }
                 return Promise.reject(refreshError);

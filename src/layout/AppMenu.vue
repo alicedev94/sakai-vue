@@ -11,11 +11,10 @@ const props = defineProps({
     }
 });
 
-
 // Agrupa los items por categoryLabel
 function groupByCategory(items) {
     const grouped = {};
-    items.forEach(item => {
+    items.forEach((item) => {
         if (!grouped[item.categoryLabel]) {
             grouped[item.categoryLabel] = [];
         }

@@ -42,18 +42,10 @@ onMounted(() => {
             </div>
         </div>
 
-        <div v-if="notificationStore.isLoading" class="notifications-empty">
-            Cargando notificaciones...
-        </div>
-        <div v-else-if="recientes.length === 0" class="notifications-empty">
-            No tienes notificaciones.
-        </div>
+        <div v-if="notificationStore.isLoading" class="notifications-empty">Cargando notificaciones...</div>
+        <div v-else-if="recientes.length === 0" class="notifications-empty">No tienes notificaciones.</div>
         <ul v-else class="notifications-list">
-            <li
-                v-for="notificacion in recientes"
-                :key="notificacion.id"
-                :class="['notification-row', { unread: !notificacion.leida }]"
-            >
+            <li v-for="notificacion in recientes" :key="notificacion.id" :class="['notification-row', { unread: !notificacion.leida }]">
                 <div class="notification-icon">
                     <i :class="['pi', notificacion.leida ? 'pi-envelope-open' : 'pi-bell']"></i>
                 </div>
@@ -65,15 +57,7 @@ onMounted(() => {
                     <p>{{ notificacion.mensaje }}</p>
                     <small>{{ formatFecha(notificacion.fechaCreacion) }}</small>
                 </div>
-                <Button
-                    v-if="!notificacion.leida"
-                    icon="pi pi-check"
-                    rounded
-                    text
-                    severity="success"
-                    v-tooltip.left="'Marcar como leída'"
-                    @click="marcarLeida(notificacion)"
-                />
+                <Button v-if="!notificacion.leida" icon="pi pi-check" rounded text severity="success" v-tooltip.left="'Marcar como leída'" @click="marcarLeida(notificacion)" />
             </li>
         </ul>
     </div>

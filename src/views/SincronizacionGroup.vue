@@ -16,7 +16,7 @@ const sincStore = useSincronizacionStore();
 const authStore = useAuthStore();
 
 const canWrite = computed(() => {
-    const perm = authStore.permissions.find(p => p.code === 'sincronizacion');
+    const perm = authStore.permissions.find((p) => p.code === 'sincronizacion');
     return perm ? !perm.isReadonly : false;
 });
 
@@ -38,7 +38,6 @@ const FORM_DEFAULTS = {
     descripcion: '',
     esActivo: true,
     intervaloMinutos: 30,
-    horaInicio: null,
     prioridad: 'MEDIA'
 };
 
@@ -62,9 +61,7 @@ const mobilePagedGrupos = computed(() => {
     return gruposFiltrados.value.slice(start, start + mobileRowsPerPage);
 });
 
-const mobileTotalPages = computed(() =>
-    Math.ceil(gruposFiltrados.value.length / mobileRowsPerPage)
-);
+const mobileTotalPages = computed(() => Math.ceil(gruposFiltrados.value.length / mobileRowsPerPage));
 
 function resetMobilePage() {
     mobileCurrentPage.value = 0;
@@ -75,25 +72,23 @@ const filteredSincronizaciones = computed(() => {
     const currentGroupId = selectedItem.value.id;
 
     // Filtrar para mostrar únicamente las sincronizaciones que pertenecen al grupo actual
-    list = list.filter(s => s.sincronizacionGroup?.id === currentGroupId);
+    list = list.filter((s) => s.sincronizacionGroup?.id === currentGroupId);
 
     list = [...list].sort((a, b) => a.departamento.localeCompare(b.departamento));
 
     if (sincSearchQuery.value) {
         const q = sincSearchQuery.value.toLowerCase();
-        list = list.filter(s => s.departamento.toLowerCase().includes(q));
+        list = list.filter((s) => s.departamento.toLowerCase().includes(q));
     }
     return list;
 });
 
 const isEditing = computed(() => !!selectedItem.value.id);
 
-const dialogHeader = computed(() =>
-    isEditing.value ? 'Editar Grupo' : 'Nuevo Grupo'
-);
+const dialogHeader = computed(() => (isEditing.value ? 'Editar Grupo' : 'Nuevo Grupo'));
 
 const seleccionarTodos = () => {
-    selectedSincronizaciones.value = filteredSincronizaciones.value.map(s => s.id);
+    selectedSincronizaciones.value = filteredSincronizaciones.value.map((s) => s.id);
 };
 
 const deseleccionarTodos = () => {
@@ -113,19 +108,10 @@ const formatFecha = (value) => {
     return `${day}/${month}/${year} ${hours}:${mins}`;
 };
 
-const formatHora = (value) => {
-    if (!value) return 'Sin fijar';
-    if (typeof value === 'string' && value.includes(':')) {
-        const parts = value.split(':');
-        return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')} hrs`;
-    }
-    return value;
-};
-
 // ─── Acciones CRUD ────────────────────────────────────────────────────────────
 const refreshSelectedGroup = () => {
     if (selectedGroupForSincList.value?.id) {
-        const updated = store.grupos.find(g => g.id === selectedGroupForSincList.value.id);
+        const updated = store.grupos.find((g) => g.id === selectedGroupForSincList.value.id);
         if (updated) {
             selectedGroupForSincList.value = updated;
         }
@@ -157,15 +143,10 @@ const abrirNuevo = () => {
 
 const editarItem = (item) => {
     selectedItem.value = { ...item };
-    if (item.horaInicio && typeof item.horaInicio === 'string') {
-        selectedItem.value.horaInicio = item.horaInicio.substring(0, 5);
-    }
-    selectedSincronizaciones.value = sincStore.configuraciones
-        .filter(s => s.sincronizacionGroup?.id === item.id)
-        .map(s => s.id);
-    
+    selectedSincronizaciones.value = sincStore.configuraciones.filter((s) => s.sincronizacionGroup?.id === item.id).map((s) => s.id);
+
     // Asignar prioridad basada en la primera sincronización asociada o 'MEDIA'
-    const associatedSyncs = sincStore.configuraciones.filter(s => s.sincronizacionGroup?.id === item.id);
+    const associatedSyncs = sincStore.configuraciones.filter((s) => s.sincronizacionGroup?.id === item.id);
     selectedItem.value.prioridad = associatedSyncs.length > 0 ? (associatedSyncs[0].prioridad ?? 'MEDIA') : 'MEDIA';
 
     sincSearchQuery.value = '';
@@ -228,18 +209,11 @@ const guardar = async () => {
         return;
     }
 
-    let horaInicioFormatted = null;
-    if (selectedItem.value.horaInicio && typeof selectedItem.value.horaInicio === 'string' && selectedItem.value.horaInicio.trim()) {
-        const val = selectedItem.value.horaInicio.trim();
-        horaInicioFormatted = val.length === 5 ? `${val}:00` : val;
-    }
-
     const payload = {
         nombre: selectedItem.value.nombre.trim(),
         descripcion: selectedItem.value.descripcion?.trim() || '',
         esActivo: selectedItem.value.esActivo ?? true,
         intervaloMinutos: selectedItem.value.intervaloMinutos ?? 30,
-        horaInicio: horaInicioFormatted,
         sincronizacionesIds: selectedSincronizaciones.value,
         prioridad: selectedItem.value.prioridad || 'MEDIA'
     };
@@ -313,7 +287,7 @@ const ejecutarPeticionToggle = async (item, nuevoEstado) => {
             detail: `Grupo "${item.nombre}" ${nuevoEstado ? 'activado' : 'desactivado'}`,
             life: 2500
         });
-        
+
         // Recargar los datos de los stores para sincronizar el estado
         await store.fetchGrupos();
         await sincStore.fetchConfiguraciones();
@@ -374,9 +348,7 @@ const prioridadIcono = (prioridad) => {
 
 const sincronizacionesDelGrupo = computed(() => {
     if (!selectedGroupForSincList.value?.id) return [];
-    let list = sincStore.configuraciones.filter(
-        (s) => s.sincronizacionGroup?.id === selectedGroupForSincList.value.id
-    );
+    let list = sincStore.configuraciones.filter((s) => s.sincronizacionGroup?.id === selectedGroupForSincList.value.id);
     if (sincTableSearchQuery.value) {
         const q = sincTableSearchQuery.value.toLowerCase();
         list = list.filter((s) => s.departamento?.toLowerCase().includes(q));
@@ -389,9 +361,7 @@ const sincMobilePagedConfiguraciones = computed(() => {
     return sincronizacionesDelGrupo.value.slice(start, start + sincMobileRowsPerPage);
 });
 
-const sincMobileTotalPages = computed(() =>
-    Math.ceil(sincronizacionesDelGrupo.value.length / sincMobileRowsPerPage)
-);
+const sincMobileTotalPages = computed(() => Math.ceil(sincronizacionesDelGrupo.value.length / sincMobileRowsPerPage));
 
 function resetSincMobilePage() {
     sincMobileCurrentPage.value = 0;
@@ -423,9 +393,9 @@ const verSincronizaciones = (grupo) => {
 };
 
 const abrirNuevaSinc = () => {
-    selectedSinc.value = { 
-        ...SINC_FORM_DEFAULTS, 
-        sincronizacionGroup: selectedGroupForSincList.value 
+    selectedSinc.value = {
+        ...SINC_FORM_DEFAULTS,
+        sincronizacionGroup: selectedGroupForSincList.value
     };
     sincSubmitted.value = false;
     fetchDepartamentos();
@@ -456,9 +426,7 @@ const cerrarSincConfigDialog = () => {
 const guardarSinc = async () => {
     sincSubmitted.value = true;
 
-    const deptValor = typeof selectedSinc.value.departamento === 'object'
-        ? selectedSinc.value.departamento?.descripcion
-        : selectedSinc.value.departamento;
+    const deptValor = typeof selectedSinc.value.departamento === 'object' ? selectedSinc.value.departamento?.descripcion : selectedSinc.value.departamento;
 
     if (!deptValor?.trim()) {
         toast.add({
@@ -518,12 +486,12 @@ const guardarSinc = async () => {
                 life: 3000
             });
         }
-        
+
         // Recargar grupos en el store para asegurar consistencia
         await store.fetchGrupos();
         await sincStore.fetchConfiguraciones();
         refreshSelectedGroup();
-        
+
         cerrarSincConfigDialog();
     } catch (err) {
         toast.add({
@@ -545,7 +513,7 @@ const eliminarSinc = async () => {
         await sincStore.eliminarConfiguracion(selectedSinc.value.id);
         sincDeleteDialog.value = false;
         selectedSinc.value = {};
-        
+
         // Recargar grupos en el store para asegurar consistencia
         await store.fetchGrupos();
         await sincStore.fetchConfiguraciones();
@@ -583,14 +551,7 @@ onMounted(() => {
                     <p class="subtitle">Gestión de grupos para sincronizaciones</p>
                 </div>
                 <div class="hidden md:block">
-                    <Button
-                        id="btn-nuevo-grupo"
-                        label="Nuevo Grupo"
-                        icon="pi pi-plus"
-                        class="p-button-success"
-                        @click="abrirNuevo"
-                        :disabled="!canWrite"
-                    />
+                    <Button id="btn-nuevo-grupo" label="Nuevo Grupo" icon="pi pi-plus" class="p-button-success" @click="abrirNuevo" :disabled="!canWrite" />
                 </div>
             </div>
 
@@ -616,24 +577,10 @@ onMounted(() => {
             <Toolbar class="mb-5 toolbar-responsive">
                 <template #start>
                     <div class="hidden md:flex gap-2">
-                        <Button
-                            id="btn-refrescar"
-                            label="Actualizar"
-                            severity="secondary"
-                            outlined
-                            v-tooltip.top="'Actualizar'"
-                            :loading="store.isLoading"
-                            @click="cargarDatos"
-                        />
+                        <Button id="btn-refrescar" label="Actualizar" severity="secondary" outlined v-tooltip.top="'Actualizar'" :loading="store.isLoading" @click="cargarDatos" />
                     </div>
                     <div class="block md:hidden w-full flex flex-col gap-2">
-                        <Button
-                            label="Nuevo Grupo"
-                            icon="pi pi-plus"
-                            class="p-button-success w-full"
-                            @click="abrirNuevo"
-                            :disabled="!canWrite"
-                        />
+                        <Button label="Nuevo Grupo" icon="pi pi-plus" class="p-button-success w-full" @click="abrirNuevo" :disabled="!canWrite" />
                     </div>
                 </template>
                 <template #end>
@@ -642,13 +589,7 @@ onMounted(() => {
                             <InputIcon>
                                 <i class="pi pi-search" />
                             </InputIcon>
-                            <InputText
-                                id="sinc-search"
-                                v-model="searchQuery"
-                                placeholder="Buscar grupo..."
-                                class="w-full"
-                                @input="resetMobilePage"
-                            />
+                            <InputText id="sinc-search" v-model="searchQuery" placeholder="Buscar grupo..." class="w-full" @input="resetMobilePage" />
                         </IconField>
                     </div>
                 </template>
@@ -702,15 +643,6 @@ onMounted(() => {
                     </template>
                 </Column>
 
-                <Column field="horaInicio" header="Hora de Inicio" :sortable="true" style="min-width: 10rem">
-                    <template #body="{ data }">
-                        <span class="font-medium text-sm">
-                            <i class="pi pi-clock mr-1 text-primary" />
-                            {{ formatHora(data.horaInicio) }}
-                        </span>
-                    </template>
-                </Column>
-
                 <Column field="fechaCreacion" header="Creado" :sortable="true" style="min-width: 11rem">
                     <template #body="{ data }">
                         <span class="fecha-text text-secondary">{{ formatFecha(data.fechaCreacion) }}</span>
@@ -720,12 +652,7 @@ onMounted(() => {
                 <Column field="esActivo" header="Estado" :sortable="true" style="min-width: 9rem">
                     <template #body="{ data }">
                         <div class="toggle-cell">
-                            <ToggleSwitch
-                                :id="`toggle-sinc-${data.id}`"
-                                :modelValue="data.esActivo"
-                                @update:modelValue="() => toggleActivo(data)"
-                                :disabled="store.isLoading || !canWrite"
-                            />
+                            <ToggleSwitch :id="`toggle-sinc-${data.id}`" :modelValue="data.esActivo" @update:modelValue="() => toggleActivo(data)" :disabled="store.isLoading || !canWrite" />
                             <span :class="['estado-label', data.esActivo ? 'activo' : 'inactivo']">
                                 {{ data.esActivo ? 'Activo' : 'Inactivo' }}
                             </span>
@@ -736,34 +663,9 @@ onMounted(() => {
                 <Column :exportable="false" style="min-width: 12rem" header="Acciones">
                     <template #body="{ data }">
                         <div class="action-buttons">
-                            <Button
-                                :id="`btn-listado-${data.id}`"
-                                icon="pi pi-list"
-                                outlined
-                                rounded
-                                severity="info"
-                                @click="verSincronizaciones(data)"
-                                v-tooltip.top="'Ver Sincronizaciones'"
-                            />
-                            <Button
-                                :id="`btn-editar-${data.id}`"
-                                icon="pi pi-pencil"
-                                outlined
-                                rounded
-                                @click="editarItem(data)"
-                                v-tooltip.top="'Editar'"
-                                :disabled="!canWrite"
-                            />
-                            <Button
-                                :id="`btn-eliminar-${data.id}`"
-                                icon="pi pi-trash"
-                                outlined
-                                rounded
-                                severity="danger"
-                                @click="confirmarEliminar(data)"
-                                v-tooltip.top="'Eliminar'"
-                                :disabled="!canWrite"
-                            />
+                            <Button :id="`btn-listado-${data.id}`" icon="pi pi-list" outlined rounded severity="info" @click="verSincronizaciones(data)" v-tooltip.top="'Ver Sincronizaciones'" />
+                            <Button :id="`btn-editar-${data.id}`" icon="pi pi-pencil" outlined rounded @click="editarItem(data)" v-tooltip.top="'Editar'" :disabled="!canWrite" />
+                            <Button :id="`btn-eliminar-${data.id}`" icon="pi pi-trash" outlined rounded severity="danger" @click="confirmarEliminar(data)" v-tooltip.top="'Eliminar'" :disabled="!canWrite" />
                         </div>
                     </template>
                 </Column>
@@ -772,15 +674,7 @@ onMounted(() => {
             <!-- ── Vista Cards (Mobile) ────────────────────────────────────── -->
             <div class="block md:hidden">
                 <div class="mobile-actions">
-                    <Button
-                        severity="secondary"
-                        outlined
-                        size="small"
-                        class="w-full"
-                        :loading="store.isLoading"
-                        @click="cargarDatos"
-                        label="Actualizar"
-                    />
+                    <Button severity="secondary" outlined size="small" class="w-full" :loading="store.isLoading" @click="cargarDatos" label="Actualizar" />
                 </div>
 
                 <div v-if="store.isLoading && gruposFiltrados.length === 0" class="loading-state">
@@ -803,25 +697,14 @@ onMounted(() => {
                                 <span class="id-badge">#{{ data.id }}</span>
                             </div>
                             <div class="toggle-cell">
-                                <ToggleSwitch
-                                    :modelValue="data.esActivo"
-                                    @update:modelValue="() => toggleActivo(data)"
-                                    :disabled="store.isLoading || !canWrite"
-                                />
+                                <ToggleSwitch :modelValue="data.esActivo" @update:modelValue="() => toggleActivo(data)" :disabled="store.isLoading || !canWrite" />
                             </div>
                         </div>
 
                         <div class="sinc-card-body">
-                            <div class="sinc-card-row" style="flex-direction: column; align-items: flex-start; text-align: left;">
+                            <div class="sinc-card-row" style="flex-direction: column; align-items: flex-start; text-align: left">
                                 <span class="sinc-label">Descripción</span>
-                                <span class="sinc-value" style="text-align: left;">{{ data.descripcion }}</span>
-                            </div>
-                            <div class="sinc-card-row">
-                                <span class="sinc-label">Hora de Inicio</span>
-                                <span class="sinc-value font-medium">
-                                    <i class="pi pi-clock mr-1 text-primary" />
-                                    {{ formatHora(data.horaInicio) }}
-                                </span>
+                                <span class="sinc-value" style="text-align: left">{{ data.descripcion }}</span>
                             </div>
                             <div class="sinc-card-row">
                                 <span class="sinc-label">Creado</span>
@@ -838,9 +721,7 @@ onMounted(() => {
 
                     <div v-if="mobileTotalPages > 1" class="flex justify-center items-center gap-3 mt-2">
                         <Button icon="pi pi-chevron-left" outlined rounded size="small" :disabled="mobileCurrentPage === 0" @click="mobileCurrentPage--" />
-                        <span class="text-sm" style="color: var(--text-color-secondary)">
-                            Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }}
-                        </span>
+                        <span class="text-sm" style="color: var(--text-color-secondary)"> Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }} </span>
                         <Button icon="pi pi-chevron-right" outlined rounded size="small" :disabled="mobileCurrentPage >= mobileTotalPages - 1" @click="mobileCurrentPage++" />
                     </div>
                 </div>
@@ -848,84 +729,29 @@ onMounted(() => {
         </div>
 
         <!-- ── Dialog Crear / Editar ───────────────────────────────────────── -->
-        <Dialog
-            v-model:visible="configDialog"
-            :style="{ width: '520px' }"
-            :breakpoints="{ '1199px': '75vw', '575px': '92vw' }"
-            :header="dialogHeader"
-            :modal="true"
-            class="p-fluid sinc-dialog"
-            @hide="cerrarDialog"
-        >
+        <Dialog v-model:visible="configDialog" :style="{ width: '520px' }" :breakpoints="{ '1199px': '75vw', '575px': '92vw' }" :header="dialogHeader" :modal="true" class="p-fluid sinc-dialog" @hide="cerrarDialog">
             <div class="formgrid grid">
                 <div class="field col-12">
                     <label for="nombre">Nombre *</label>
-                    <InputText
-                        id="nombre"
-                        v-model="selectedItem.nombre"
-                        placeholder="Ingresa el nombre del grupo..."
-                        :invalid="submitted && !selectedItem.nombre"
-                        class="w-full"
-                        autofocus
-                    />
-                    <small class="p-error" v-if="submitted && !selectedItem.nombre">
-                        El nombre es obligatorio.
-                    </small>
+                    <InputText id="nombre" v-model="selectedItem.nombre" placeholder="Ingresa el nombre del grupo..." :invalid="submitted && !selectedItem.nombre" class="w-full" autofocus />
+                    <small class="p-error" v-if="submitted && !selectedItem.nombre"> El nombre es obligatorio. </small>
                 </div>
 
                 <div class="field col-12">
                     <label for="descripcion">Descripción</label>
-                    <Textarea
-                        id="descripcion"
-                        v-model="selectedItem.descripcion"
-                        rows="3"
-                        placeholder="Descripción opcional..."
-                        class="w-full"
-                    />
+                    <Textarea id="descripcion" v-model="selectedItem.descripcion" rows="3" placeholder="Descripción opcional..." class="w-full" />
                 </div>
 
-                <div class="field col-12 md:col-6">
+                <div class="field col-12">
                     <label for="intervaloMinutos">Temporalidad (Minutos) *</label>
-                    <InputNumber
-                        id="intervaloMinutos"
-                        v-model="selectedItem.intervaloMinutos"
-                        placeholder="Intervalo en minutos..."
-                        :min="1"
-                        :max="1440"
-                        class="w-full"
-                        :invalid="submitted && !selectedItem.intervaloMinutos"
-                    />
-                    <small class="p-error" v-if="submitted && !selectedItem.intervaloMinutos">
-                        La temporalidad es obligatoria.
-                    </small>
-                </div>
-
-                <div class="field col-12 md:col-6">
-                    <label for="horaInicio">Hora de Inicio Estricta</label>
-                    <InputText
-                        id="horaInicio"
-                        type="time"
-                        step="60"
-                        v-model="selectedItem.horaInicio"
-                        class="w-full"
-                    />
-                    <small class="text-secondary block mt-1 font-normal">
-                        Punto de inicio para ventanas de ejecución exactas (ej. 08:00).
-                    </small>
+                    <InputNumber id="intervaloMinutos" v-model="selectedItem.intervaloMinutos" placeholder="Intervalo en minutos..." :min="1" :max="1440" class="w-full" :invalid="submitted && !selectedItem.intervaloMinutos" />
+                    <small class="p-error" v-if="submitted && !selectedItem.intervaloMinutos"> La temporalidad es obligatoria. </small>
                 </div>
 
                 <!-- Prioridad del Grupo -->
                 <div class="field col-12">
                     <label for="grupo-prioridad">Prioridad del Grupo *</label>
-                    <Select
-                        id="grupo-prioridad"
-                        v-model="selectedItem.prioridad"
-                        :options="PRIORIDADES"
-                        optionLabel="label"
-                        optionValue="value"
-                        placeholder="Selecciona la prioridad para el grupo..."
-                        class="w-full"
-                    >
+                    <Select id="grupo-prioridad" v-model="selectedItem.prioridad" :options="PRIORIDADES" optionLabel="label" optionValue="value" placeholder="Selecciona la prioridad para el grupo..." class="w-full">
                         <template #option="{ option }">
                             <div class="prioridad-option">
                                 <i :class="prioridadIcono(option.value)" />
@@ -935,7 +761,7 @@ onMounted(() => {
                         <template #value="{ value }">
                             <div v-if="value" class="prioridad-option">
                                 <i :class="prioridadIcono(value)" />
-                                <span>{{ PRIORIDADES.find(p => p.value === value)?.label ?? value }}</span>
+                                <span>{{ PRIORIDADES.find((p) => p.value === value)?.label ?? value }}</span>
                             </div>
                             <span v-else>Selecciona la prioridad...</span>
                         </template>
@@ -945,49 +771,21 @@ onMounted(() => {
                 <div class="field col-12">
                     <label class="font-bold mb-2 block">Sincronizaciones Asociadas al Grupo</label>
                     <div class="sinc-selector-container">
-                        <div class="flex justify-between items-center mb-2 gap-2 flex-wrap" style="display: flex; justify-content: space-between; align-items: center;">
-                            <IconField class="flex-1 min-w-[200px]" style="flex: 1;">
+                        <div class="flex justify-between items-center mb-2 gap-2 flex-wrap" style="display: flex; justify-content: space-between; align-items: center">
+                            <IconField class="flex-1 min-w-[200px]" style="flex: 1">
                                 <InputIcon>
                                     <i class="pi pi-search" />
                                 </InputIcon>
-                                <InputText
-                                    v-model="sincSearchQuery"
-                                    placeholder="Filtrar sincronizaciones..."
-                                    class="w-full p-inputtext-sm"
-                                />
+                                <InputText v-model="sincSearchQuery" placeholder="Filtrar sincronizaciones..." class="w-full p-inputtext-sm" />
                             </IconField>
-                            <div class="flex gap-1" style="display: flex; gap: 0.25rem;">
-                                <Button
-                                    label="Todos"
-                                    icon="pi pi-check-square"
-                                    severity="secondary"
-                                    text
-                                    size="small"
-                                    @click="seleccionarTodos"
-                                    v-tooltip.top="'Seleccionar todos'"
-                                    :disabled="!canWrite"
-                                />
-                                <Button
-                                    label="Ninguno"
-                                    icon="pi pi-minus-square"
-                                    severity="secondary"
-                                    text
-                                    size="small"
-                                    @click="deseleccionarTodos"
-                                    v-tooltip.top="'Deseleccionar todos'"
-                                    :disabled="!canWrite"
-                                />
+                            <div class="flex gap-1" style="display: flex; gap: 0.25rem">
+                                <Button label="Todos" icon="pi pi-check-square" severity="secondary" text size="small" @click="seleccionarTodos" v-tooltip.top="'Seleccionar todos'" :disabled="!canWrite" />
+                                <Button label="Ninguno" icon="pi pi-minus-square" severity="secondary" text size="small" @click="deseleccionarTodos" v-tooltip.top="'Deseleccionar todos'" :disabled="!canWrite" />
                             </div>
                         </div>
                         <div class="sinc-scroll-list">
                             <div v-for="s in filteredSincronizaciones" :key="s.id" class="sinc-checkbox-item">
-                                <Checkbox
-                                    v-model="selectedSincronizaciones"
-                                    :inputId="`sinc-chk-${s.id}`"
-                                    :name="`sinc-group`"
-                                    :value="s.id"
-                                    :disabled="!canWrite"
-                                />
+                                <Checkbox v-model="selectedSincronizaciones" :inputId="`sinc-chk-${s.id}`" :name="`sinc-group`" :value="s.id" :disabled="!canWrite" />
                                 <label :for="`sinc-chk-${s.id}`" class="sinc-checkbox-label ml-2">
                                     <span class="depto-name">{{ s.departamento }}</span>
                                     <span :class="['group-badge', s.sincronizacionGroup ? 'custom-group' : 'general-group']">
@@ -995,9 +793,7 @@ onMounted(() => {
                                     </span>
                                 </label>
                             </div>
-                            <div v-if="filteredSincronizaciones.length === 0" class="p-3 text-center text-secondary text-sm">
-                                No se encontraron sincronizaciones
-                            </div>
+                            <div v-if="filteredSincronizaciones.length === 0" class="p-3 text-center text-secondary text-sm">No se encontraron sincronizaciones</div>
                         </div>
                     </div>
                 </div>
@@ -1011,108 +807,60 @@ onMounted(() => {
 
                     <div class="field col-12 md:col-6">
                         <label>Fecha de Creación</label>
-                        <InputText
-                            :value="formatFecha(selectedItem.fechaCreacion)"
-                            readonly
-                            class="p-readonly"
-                            tabindex="-1"
-                        />
+                        <InputText :value="formatFecha(selectedItem.fechaCreacion)" readonly class="p-readonly" tabindex="-1" />
                     </div>
 
                     <div class="field col-12 md:col-6">
                         <label>Fecha de Actualización</label>
-                        <InputText
-                            :value="formatFecha(selectedItem.fechaActualizacion)"
-                            readonly
-                            class="p-readonly"
-                            tabindex="-1"
-                        />
+                        <InputText :value="formatFecha(selectedItem.fechaActualizacion)" readonly class="p-readonly" tabindex="-1" />
                     </div>
 
                     <div class="field col-12 md:col-12">
                         <label>Usuario Modificación</label>
-                        <InputText
-                            :value="selectedItem.usuarioActualizacion || 'Sin registrar'"
-                            readonly
-                            class="p-readonly"
-                            tabindex="-1"
-                        />
+                        <InputText :value="selectedItem.usuarioActualizacion || 'Sin registrar'" readonly class="p-readonly" tabindex="-1" />
                     </div>
                 </template>
             </div>
 
             <template #footer>
                 <Button label="Cancelar" icon="pi pi-times" text @click="cerrarDialog" />
-                <Button
-                    :label="isEditing ? 'Actualizar' : 'Guardar'"
-                    icon="pi pi-check"
-                    :loading="store.isLoading"
-                    @click="guardar"
-                    :disabled="!canWrite"
-                />
+                <Button :label="isEditing ? 'Actualizar' : 'Guardar'" icon="pi pi-check" :loading="store.isLoading" @click="guardar" :disabled="!canWrite" />
             </template>
         </Dialog>
 
         <!-- ── Dialog Confirmar Eliminación ───────────────────────────────── -->
-        <Dialog
-            v-model:visible="deleteDialog"
-            :style="{ width: '440px' }"
-            header="Confirmar eliminación"
-            :modal="true"
-        >
+        <Dialog v-model:visible="deleteDialog" :style="{ width: '440px' }" header="Confirmar eliminación" :modal="true">
             <div class="confirmation-content">
                 <i class="pi pi-exclamation-triangle" style="font-size: 2.5rem; color: var(--red-400)" />
                 <div class="confirmation-text">
                     <p>
                         ¿Estás seguro de que deseas eliminar el grupo
-                        <strong>{{ selectedItem.nombre }}</strong>?
+                        <strong>{{ selectedItem.nombre }}</strong
+                        >?
                     </p>
                     <small class="text-color-secondary">Esta acción no se puede deshacer.</small>
                 </div>
             </div>
             <template #footer>
                 <Button label="Cancelar" icon="pi pi-times" text @click="deleteDialog = false" />
-                <Button
-                    label="Eliminar"
-                    icon="pi pi-trash"
-                    severity="danger"
-                    :loading="store.isLoading"
-                    @click="eliminar"
-                />
+                <Button label="Eliminar" icon="pi pi-trash" severity="danger" :loading="store.isLoading" @click="eliminar" />
             </template>
         </Dialog>
 
         <!-- ── Dialog Listado de Sincronizaciones del Grupo ─────────────────── -->
-        <Dialog
-            v-model:visible="sincListDialog"
-            :style="{ width: '80vw' }"
-            :breakpoints="{ '1199px': '90vw', '575px': '95vw' }"
-            :header="`Sincronizaciones del Grupo: ${selectedGroupForSincList?.nombre || ''}`"
-            :modal="true"
-            class="sinc-list-dialog"
-        >
+        <Dialog v-model:visible="sincListDialog" :style="{ width: '80vw' }" :breakpoints="{ '1199px': '90vw', '575px': '95vw' }" :header="`Sincronizaciones del Grupo: ${selectedGroupForSincList?.nombre || ''}`" :modal="true" class="sinc-list-dialog">
             <div class="p-4">
                 <!-- Toolbar del listado -->
                 <Toolbar class="mb-4 toolbar-responsive">
                     <template #start>
-                        <Button
-                            label="Nueva Sincronización"
-                            icon="pi pi-plus"
-                            class="p-button-success"
-                            @click="abrirNuevaSinc"
-                            :disabled="!canWrite"
-                        />
+                        <Button label="Nueva Sincronización" icon="pi pi-plus" class="p-button-success" @click="abrirNuevaSinc" :disabled="!canWrite" />
                     </template>
                     <template #end>
                         <IconField>
                             <InputIcon>
                                 <i class="pi pi-search" />
                             </InputIcon>
-                            <InputText
-                                v-model="sincTableSearchQuery"
-                                placeholder="Buscar departamento..."
-                                @input="resetSincMobilePage"
-                            />
+                            <InputText v-model="sincTableSearchQuery" placeholder="Buscar departamento..." @input="resetSincMobilePage" />
                         </IconField>
                     </template>
                 </Toolbar>
@@ -1148,11 +896,7 @@ onMounted(() => {
                     <Column field="departamento" header="Departamento" :sortable="true" style="min-width: 10rem">
                         <template #body="{ data }">
                             <div class="dept-info">
-                                <Avatar
-                                    :label="data.departamento?.charAt(3).toUpperCase()"
-                                    shape="circle"
-                                    class="dept-avatar"
-                                />
+                                <Avatar :label="data.departamento?.charAt(3).toUpperCase()" shape="circle" class="dept-avatar" />
                                 <span class="font-semibold">{{ data.departamento }}</span>
                             </div>
                         </template>
@@ -1182,10 +926,7 @@ onMounted(() => {
                     <Column field="esActivo" header="Estado" :sortable="true" style="min-width: 8rem">
                         <template #body="{ data }">
                             <div class="toggle-cell">
-                                <ToggleSwitch
-                                    :modelValue="data.esActivo"
-                                    readonly
-                                />
+                                <ToggleSwitch :modelValue="data.esActivo" readonly />
                                 <span :class="['estado-label', data.esActivo ? 'activo' : 'inactivo']">
                                     {{ data.esActivo ? 'Activo' : 'Inactivo' }}
                                 </span>
@@ -1214,23 +955,8 @@ onMounted(() => {
                     <Column :exportable="false" style="min-width: 8rem" header="Acciones">
                         <template #body="{ data }">
                             <div class="action-buttons">
-                                <Button
-                                    icon="pi pi-pencil"
-                                    outlined
-                                    rounded
-                                    @click="editarSincItem(data)"
-                                    v-tooltip.top="'Editar'"
-                                    :disabled="!canWrite"
-                                />
-                                <Button
-                                    icon="pi pi-trash"
-                                    outlined
-                                    rounded
-                                    severity="danger"
-                                    @click="confirmarEliminarSinc(data)"
-                                    v-tooltip.top="'Eliminar'"
-                                    :disabled="!canWrite"
-                                />
+                                <Button icon="pi pi-pencil" outlined rounded @click="editarSincItem(data)" v-tooltip.top="'Editar'" :disabled="!canWrite" />
+                                <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmarEliminarSinc(data)" v-tooltip.top="'Eliminar'" :disabled="!canWrite" />
                             </div>
                         </template>
                     </Column>
@@ -1258,10 +984,7 @@ onMounted(() => {
                                     <span class="id-badge">#{{ data.id }}</span>
                                 </div>
                                 <div class="toggle-cell">
-                                    <ToggleSwitch
-                                        :modelValue="data.esActivo"
-                                        readonly
-                                    />
+                                    <ToggleSwitch :modelValue="data.esActivo" readonly />
                                 </div>
                             </div>
 
@@ -1306,9 +1029,7 @@ onMounted(() => {
                         <!-- Paginación móvil de sincronizaciones -->
                         <div v-if="sincMobileTotalPages > 1" class="flex justify-center items-center gap-3 mt-2">
                             <Button icon="pi pi-chevron-left" outlined rounded size="small" :disabled="sincMobileCurrentPage === 0" @click="sincMobileCurrentPage--" />
-                            <span class="text-sm" style="color: var(--text-color-secondary)">
-                                Página {{ sincMobileCurrentPage + 1 }} de {{ sincMobileTotalPages }}
-                            </span>
+                            <span class="text-sm" style="color: var(--text-color-secondary)"> Página {{ sincMobileCurrentPage + 1 }} de {{ sincMobileTotalPages }} </span>
                             <Button icon="pi pi-chevron-right" outlined rounded size="small" :disabled="sincMobileCurrentPage >= sincMobileTotalPages - 1" @click="sincMobileCurrentPage++" />
                         </div>
                     </div>
@@ -1346,9 +1067,7 @@ onMounted(() => {
                         class="w-full"
                         autofocus
                     />
-                    <small class="p-error" v-if="sincSubmitted && !selectedSinc.departamento">
-                        Debes seleccionar un departamento.
-                    </small>
+                    <small class="p-error" v-if="sincSubmitted && !selectedSinc.departamento"> Debes seleccionar un departamento. </small>
                 </div>
 
                 <!-- Tipo Documento -->
@@ -1364,53 +1083,27 @@ onMounted(() => {
                         :invalid="sincSubmitted && !selectedSinc.tipoDocumento"
                         class="w-full"
                     />
-                    <small class="p-error" v-if="sincSubmitted && !selectedSinc.tipoDocumento">
-                        Debes seleccionar un tipo de documento.
-                    </small>
+                    <small class="p-error" v-if="sincSubmitted && !selectedSinc.tipoDocumento"> Debes seleccionar un tipo de documento. </small>
                 </div>
 
                 <!-- Grupo de Sincronización (Solo lectura / Preseleccionado) -->
                 <div class="field col-12">
                     <label for="sinc-grupo">Grupo de Sincronización</label>
-                    <InputText
-                        id="sinc-grupo"
-                        :value="selectedGroupForSincList?.nombre || 'Sin grupo'"
-                        readonly
-                        class="p-readonly"
-                        tabindex="-1"
-                    />
+                    <InputText id="sinc-grupo" :value="selectedGroupForSincList?.nombre || 'Sin grupo'" readonly class="p-readonly" tabindex="-1" />
                 </div>
 
                 <!-- Intervalo -->
                 <div class="field col-12">
                     <label for="sinc-intervalo">Intervalo de sincronización (minutos) *</label>
-                    <InputNumber
-                        id="sinc-intervalo"
-                        v-model="selectedSinc.intervaloMinutos"
-                        :min="1"
-                        :max="1440"
-                        showButtons
-                        suffix=" min"
-                        :invalid="sincSubmitted && (!selectedSinc.intervaloMinutos || selectedSinc.intervaloMinutos < 1)"
-                    />
-                    <small class="p-error" v-if="sincSubmitted && (!selectedSinc.intervaloMinutos || selectedSinc.intervaloMinutos < 1)">
-                        El intervalo debe ser mínimo 1 minuto.
-                    </small>
+                    <InputNumber id="sinc-intervalo" v-model="selectedSinc.intervaloMinutos" :min="1" :max="1440" showButtons suffix=" min" :invalid="sincSubmitted && (!selectedSinc.intervaloMinutos || selectedSinc.intervaloMinutos < 1)" />
+                    <small class="p-error" v-if="sincSubmitted && (!selectedSinc.intervaloMinutos || selectedSinc.intervaloMinutos < 1)"> El intervalo debe ser mínimo 1 minuto. </small>
                     <small class="field-hint">Rango permitido: 1 min – 1440 min (24 horas)</small>
                 </div>
 
                 <!-- Prioridad -->
                 <div class="field col-12">
                     <label for="sinc-prioridad">Prioridad *</label>
-                    <Select
-                        id="sinc-prioridad"
-                        v-model="selectedSinc.prioridad"
-                        :options="PRIORIDADES"
-                        optionLabel="label"
-                        optionValue="value"
-                        placeholder="Selecciona la prioridad..."
-                        class="w-full"
-                    >
+                    <Select id="sinc-prioridad" v-model="selectedSinc.prioridad" :options="PRIORIDADES" optionLabel="label" optionValue="value" placeholder="Selecciona la prioridad..." class="w-full">
                         <template #option="{ option }">
                             <div class="prioridad-option">
                                 <i :class="prioridadIcono(option.value)" />
@@ -1420,7 +1113,7 @@ onMounted(() => {
                         <template #value="{ value }">
                             <div v-if="value" class="prioridad-option">
                                 <i :class="prioridadIcono(value)" />
-                                <span>{{ PRIORIDADES.find(p => p.value === value)?.label ?? value }}</span>
+                                <span>{{ PRIORIDADES.find((p) => p.value === value)?.label ?? value }}</span>
                             </div>
                             <span v-else>Selecciona la prioridad...</span>
                         </template>
@@ -1437,84 +1130,48 @@ onMounted(() => {
 
                     <div class="field col-12 md:col-6">
                         <label>Fecha de Creación</label>
-                        <InputText
-                            :value="formatFecha(selectedSinc.fechaCreacion)"
-                            readonly
-                            class="p-readonly"
-                            tabindex="-1"
-                        />
+                        <InputText :value="formatFecha(selectedSinc.fechaCreacion)" readonly class="p-readonly" tabindex="-1" />
                     </div>
 
                     <div class="field col-12 md:col-6">
                         <label>Última Modificación</label>
-                        <InputText
-                            :value="formatFecha(selectedSinc.fechaModificacion)"
-                            readonly
-                            class="p-readonly"
-                            tabindex="-1"
-                        />
+                        <InputText :value="formatFecha(selectedSinc.fechaModificacion)" readonly class="p-readonly" tabindex="-1" />
                     </div>
 
                     <div class="field col-12 md:col-6">
                         <label>Última Ejecución</label>
-                        <InputText
-                            :value="formatFecha(selectedSinc.ultimaEjecucion)"
-                            readonly
-                            class="p-readonly"
-                            tabindex="-1"
-                        />
+                        <InputText :value="formatFecha(selectedSinc.ultimaEjecucion)" readonly class="p-readonly" tabindex="-1" />
                     </div>
 
                     <div class="field col-12 md:col-6">
                         <label>Usuario Modificación</label>
-                        <InputText
-                            :value="selectedSinc.usuarioModificacion || 'Sin registrar'"
-                            readonly
-                            class="p-readonly"
-                            tabindex="-1"
-                        />
+                        <InputText :value="selectedSinc.usuarioModificacion || 'Sin registrar'" readonly class="p-readonly" tabindex="-1" />
                     </div>
                 </template>
             </div>
 
             <template #footer>
                 <Button label="Cancelar" icon="pi pi-times" text @click="cerrarSincConfigDialog" />
-                <Button
-                    :label="selectedSinc.id ? 'Actualizar' : 'Guardar'"
-                    icon="pi pi-check"
-                    :loading="sincStore.isLoading"
-                    @click="guardarSinc"
-                    :disabled="!canWrite"
-                />
+                <Button :label="selectedSinc.id ? 'Actualizar' : 'Guardar'" icon="pi pi-check" :loading="sincStore.isLoading" @click="guardarSinc" :disabled="!canWrite" />
             </template>
         </Dialog>
 
         <!-- ── Dialog Confirmar Eliminación Sincronización ──────────────────── -->
-        <Dialog
-            v-model:visible="sincDeleteDialog"
-            :style="{ width: '440px' }"
-            header="Confirmar eliminación"
-            :modal="true"
-        >
+        <Dialog v-model:visible="sincDeleteDialog" :style="{ width: '440px' }" header="Confirmar eliminación" :modal="true">
             <div class="confirmation-content">
                 <i class="pi pi-exclamation-triangle" style="font-size: 2.5rem; color: var(--red-400)" />
                 <div class="confirmation-text">
                     <p>
                         ¿Estás seguro de que deseas eliminar la configuración del departamento
-                        <strong>{{ selectedSinc.departamento }}</strong>?
+                        <strong>{{ selectedSinc.departamento }}</strong
+                        >?
                     </p>
                     <small class="text-color-secondary">Esta acción no se puede deshacer.</small>
                 </div>
             </div>
             <template #footer>
                 <Button label="Cancelar" icon="pi pi-times" text @click="sincDeleteDialog = false" />
-                <Button
-                    label="Eliminar"
-                    icon="pi pi-trash"
-                    severity="danger"
-                    :loading="sincStore.isLoading"
-                    @click="eliminarSinc"
-                />
+                <Button label="Eliminar" icon="pi pi-trash" severity="danger" :loading="sincStore.isLoading" @click="eliminarSinc" />
             </template>
         </Dialog>
 

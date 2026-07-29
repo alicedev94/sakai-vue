@@ -1,13 +1,22 @@
 <script setup>
 import { useAuthStore } from '@/stores/auth';
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import AppMenu from './AppMenu.vue';
 
 const authStore = useAuthStore();
 const menuItems = computed(() => authStore.menu);
+const loadingMenu = ref(true);
 
 onMounted(async () => {
-    await authStore.loadUserPermissions();
+    try {
+        if (!authStore.menu?.length) {
+            await authStore.loadUserPermissions();
+        }
+    } catch {
+        // fallback a menú por defecto desde localStorage o vacío
+    } finally {
+        loadingMenu.value = false;
+    }
 });
 </script>
 

@@ -55,18 +55,18 @@ const clearFilters = () => {
     filters.codigo = '';
     filters.barra1 = '';
     filters.descripcion = '';
-    filters.fechaDesde = null; 
+    filters.fechaDesde = null;
     filters.fechaHasta = null;
     filters.tipoDocumento = null;
-    
+
     pagination.sortField = null;
     pagination.sortOrder = null;
-    
+
     movimientoStore.movimientos = [];
     movimientoStore.totalRecords = 0;
 
     loadData();
-}
+};
 
 const formatDateForApi = (dateStr) => {
     if (!dateStr) return null;
@@ -90,8 +90,6 @@ const formatCurrency = (value) => {
 const printMovimientoId = (data) => {
     console.log('ID del movimiento capturado:', data.id);
 };
-
-
 </script>
 
 <template>
@@ -130,7 +128,7 @@ const printMovimientoId = (data) => {
             </div>
 
             <!-- Tabla de transacciones -->
-            <DataTable 
+            <DataTable
                 :value="movimientoStore.movimientos"
                 :paginator="true"
                 :rows="10"
@@ -163,9 +161,9 @@ const printMovimientoId = (data) => {
                         <span class="desc-text">{{ data.descripcion }}</span>
                     </template>
                 </Column>
-                
+
                 <Column field="tipoDocumento.nombre" header="Tipo Doc." style="min-width: 8rem" :sortable="true">
-                     <template #body="{ data }">
+                    <template #body="{ data }">
                         <span class="badge-dept">{{ data.tipoDocumento?.nombre || '-' }}</span>
                     </template>
                 </Column>
@@ -175,7 +173,7 @@ const printMovimientoId = (data) => {
                         <span class="badge-dept">{{ data.departamento }}</span>
                     </template>
                 </Column>
-                
+
                 <!-- <Column field="precio1" header="Precio" style="min-width: 8rem" :sortable="true">
                     <template #body="{ data }">
                         <span class="price-text">{{ formatCurrency(data.precio1) }}</span>

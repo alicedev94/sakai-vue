@@ -62,7 +62,7 @@ export const usePermissionStore = defineStore('permission', () => {
         error.value = null;
         try {
             const updated = await PermissionService.updatePermission(id, permissionData);
-            const idx = permissions.value.findIndex(p => p.id === id);
+            const idx = permissions.value.findIndex((p) => p.id === id);
             if (idx !== -1) permissions.value[idx] = updated;
             await authStore.loadUserPermissions();
             return updated;
@@ -79,7 +79,7 @@ export const usePermissionStore = defineStore('permission', () => {
         error.value = null;
         try {
             await PermissionService.softDeletePermission(id);
-            const idx = permissions.value.findIndex(p => p.id === id);
+            const idx = permissions.value.findIndex((p) => p.id === id);
             if (idx !== -1) {
                 permissions.value[idx].status = false;
                 permissions.value[idx].deletedAt = new Date().toISOString();

@@ -1,6 +1,6 @@
 /**
  * AuthService Mock - Versión mockeada para desarrollo sin backend
- * 
+ *
  * INSTRUCCIONES:
  * 1. Renombra este archivo a AuthService.js (guarda una copia del original)
  * 2. Usa esta versión para probar el frontend sin backend
@@ -22,7 +22,7 @@ const mockDatabase = {
 };
 
 // Simular delay de red
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Simular generación de tokens
 const generateToken = (user) => {
@@ -44,9 +44,7 @@ export default class AuthService {
             await delay(500);
 
             // Verificar si el email ya existe
-            const existingUser = mockDatabase.users.find(
-                u => u.email.toLowerCase() === userData.email.toLowerCase()
-            );
+            const existingUser = mockDatabase.users.find((u) => u.email.toLowerCase() === userData.email.toLowerCase());
 
             if (existingUser) {
                 throw {
@@ -93,9 +91,7 @@ export default class AuthService {
             await delay(500);
 
             // Buscar usuario
-            const user = mockDatabase.users.find(
-                u => u.email.toLowerCase() === credentials.email.toLowerCase()
-            );
+            const user = mockDatabase.users.find((u) => u.email.toLowerCase() === credentials.email.toLowerCase());
 
             // Verificar si existe y la contraseña es correcta
             if (!user || user.password !== credentials.password) {
@@ -145,7 +141,7 @@ export default class AuthService {
             // Decodificar refresh token (en un caso real verificarías firma, expiración, etc.)
             try {
                 const decoded = JSON.parse(atob(authStore.refreshToken));
-                
+
                 // Verificar expiración
                 if (decoded.exp < Date.now()) {
                     throw {
@@ -155,8 +151,8 @@ export default class AuthService {
                 }
 
                 // Buscar usuario
-                const user = mockDatabase.users.find(u => u.id === decoded.userId);
-                
+                const user = mockDatabase.users.find((u) => u.id === decoded.userId);
+
                 if (!user) {
                     throw {
                         status: 401,
@@ -187,10 +183,10 @@ export default class AuthService {
     static async logout() {
         try {
             await delay(200);
-            
+
             const authStore = useAuthStore();
             authStore.logout();
-            
+
             return { success: true };
         } catch (error) {
             throw this.handleError(error);
@@ -204,7 +200,7 @@ export default class AuthService {
         if (error.status) {
             return error;
         }
-        
+
         return {
             status: -1,
             message: error.message || 'Error desconocido',
@@ -223,7 +219,7 @@ export const addMockUser = (user) => {
 
 // Exportar función para ver usuarios (solo para debug)
 export const getMockUsers = () => {
-    return mockDatabase.users.map(u => ({
+    return mockDatabase.users.map((u) => ({
         id: u.id,
         nombre: u.nombre,
         email: u.email

@@ -66,15 +66,30 @@ const marcarTodasLeidas = async () => {
 const handleLogout = () => {
     notificationStore.limpiar();
     authStore.logout();
-    
+
     toast.add({
         severity: 'info',
         summary: 'Sesión cerrada',
         detail: 'Has cerrado sesión correctamente',
         life: 3000
     });
-    
+
     router.push('/v1/auth/login');
+};
+
+const handleClearCache = () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    document.cookie.split(';').forEach((c) => {
+        document.cookie = c.replace(/^ +/, '').replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`);
+    });
+    toast.add({
+        severity: 'info',
+        summary: 'Caché limpiado',
+        detail: 'Recargando aplicación...',
+        life: 2000
+    });
+    setTimeout(() => window.location.reload(), 1500);
 };
 
 onMounted(async () => {
@@ -94,9 +109,7 @@ onMounted(async () => {
                 life: 2500
             });
         } else {
-            const detalle = result?.reason === 'permission-denied'
-                ? 'Permite las notificaciones del navegador para recibir alertas push'
-                : `No se activaron push notifications (motivo: ${result?.reason || 'desconocido'})`;
+            const detalle = result?.reason === 'permission-denied' ? 'Permite las notificaciones del navegador para recibir alertas push' : `No se activaron push notifications (motivo: ${result?.reason || 'desconocido'})`;
             toast.add({
                 severity: 'warn',
                 summary: 'Push notifications no activas',
@@ -126,14 +139,8 @@ onUnmounted(() => {
             </button>
 
             <a href="/v1/" class="flex items-center gap-3 no-underline">
-                <img
-                    :src="logo"
-                    alt="Logo"
-                    class="h-10 w-auto logo-rounded shadow-md"
-                />
-                <span class="text-xl font-semibold tracking-wide text-primary">
-                    Tiendas Redu!
-                </span>
+                <img :src="logo" alt="Logo" class="h-10 w-auto logo-rounded shadow-md" />
+                <span class="text-xl font-semibold tracking-wide text-primary"> Tiendas Redu! </span>
             </a>
         </div>
 
@@ -146,7 +153,6 @@ onUnmounted(() => {
                 <button type="button" class="layout-topbar-action" @click="toggleDarkMode">
                     <i :class="['pi', { 'pi-moon': isDarkTheme, 'pi-sun': !isDarkTheme }]"></i>
                 </button>
-          
             </div>
 
             <Popover ref="notificationsPanel" class="notifications-panel">
@@ -155,41 +161,19 @@ onUnmounted(() => {
                         <h3>Notificaciones</h3>
                         <small>{{ pendingCount }} pendientes</small>
                     </div>
-                    <Button
-                        v-if="pendingCount > 0"
-                        label="Leer todas"
-                        size="small"
-                        text
-                        @click="marcarTodasLeidas"
-                    />
+                    <Button v-if="pendingCount > 0" label="Leer todas" size="small" text @click="marcarTodasLeidas" />
                 </div>
 
-                <div v-if="notificationStore.isLoading" class="notifications-empty">
-                    Cargando...
-                </div>
-                <div v-else-if="visibleNotifications.length === 0" class="notifications-empty">
-                    No tienes notificaciones.
-                </div>
+                <div v-if="notificationStore.isLoading" class="notifications-empty">Cargando...</div>
+                <div v-else-if="visibleNotifications.length === 0" class="notifications-empty">No tienes notificaciones.</div>
                 <div v-else class="notifications-list">
-                    <div
-                        v-for="notificacion in visibleNotifications"
-                        :key="notificacion.id"
-                        :class="['notification-item', { unread: !notificacion.leida }]"
-                    >
+                    <div v-for="notificacion in visibleNotifications" :key="notificacion.id" :class="['notification-item', { unread: !notificacion.leida }]">
                         <div class="notification-content">
                             <strong>{{ notificacion.titulo }}</strong>
                             <p>{{ notificacion.mensaje }}</p>
                             <small>{{ formatFecha(notificacion.fechaCreacion) }}</small>
                         </div>
-                        <Button
-                            v-if="!notificacion.leida"
-                            icon="pi pi-check"
-                            rounded
-                            text
-                            severity="success"
-                            v-tooltip.left="'Marcar como leída'"
-                            @click="marcarLeida(notificacion)"
-                        />
+                        <Button v-if="!notificacion.leida" icon="pi pi-check" rounded text severity="success" v-tooltip.left="'Marcar como leída'" @click="marcarLeida(notificacion)" />
                     </div>
                 </div>
             </Popover>
@@ -203,7 +187,10 @@ onUnmounted(() => {
 
             <div class="layout-topbar-menu hidden lg:block">
                 <div class="layout-topbar-menu-content">
-                  
+                    <button type="button" class="layout-topbar-action" @click="handleClearCache">
+                        <i class="pi pi-refresh"></i>
+                        <span>Limpiar Caché</span>
+                    </button>
                     <button type="button" class="layout-topbar-action" @click="handleLogout">
                         <i class="pi pi-sign-out"></i>
                         <span>Cerrar Sesión</span>

@@ -1,8 +1,6 @@
-<script setup>
-</script>
+<script setup></script>
 
 <template>
-
     <div class="bg-surface-50 dark:bg-surface-950 flex items-center justify-center min-h-screen min-w-[100vw] overflow-hidden">
         <div class="flex flex-col items-center justify-center">
             <div style="border-radius: 56px; padding: 0.3rem; background: linear-gradient(180deg, rgba(233, 30, 99, 0.4) 10%, rgba(33, 150, 243, 0) 30%)">
@@ -13,7 +11,7 @@
                         </div>
                         <h1 class="text-surface-900 dark:text-surface-0 font-bold text-5xl mb-2">Error Occured</h1>
                         <span class="text-muted-color mb-8">Requested resource is not available.</span>
-<!--                        <img src="/demo/images/error/asset-error.svg" alt="Error" class="mb-8" width="80%" />-->
+                        <!--                        <img src="/demo/images/error/asset-error.svg" alt="Error" class="mb-8" width="80%" />-->
                         <div class="col-span-12 mt-8 text-center">
                             <Button as="router-link" label="Go to Dashboard" to="/" severity="danger" />
                         </div>

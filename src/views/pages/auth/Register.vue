@@ -144,7 +144,6 @@ const handleKeyPress = (event) => {
 </script>
 
 <template>
-    
     <Toast />
     <div class="bg-surface-50 dark:bg-surface-950 flex items-center justify-center min-h-screen min-w-[100vw] overflow-hidden">
         <div class="flex flex-col items-center justify-center py-8">
@@ -174,39 +173,13 @@ const handleKeyPress = (event) => {
 
                     <div>
                         <label for="nombre" class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">Nombre completo</label>
-                        <InputText 
-                            id="nombre" 
-                            type="text" 
-                            placeholder="Juan Pérez" 
-                            class="w-full md:w-[30rem] mb-6" 
-                            v-model="formData.nombre"
-                            @keypress="handleKeyPress"
-                            :disabled="loading"
-                        />
+                        <InputText id="nombre" type="text" placeholder="Juan Pérez" class="w-full md:w-[30rem] mb-6" v-model="formData.nombre" @keypress="handleKeyPress" :disabled="loading" />
 
                         <label for="email" class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">Email</label>
-                        <InputText 
-                            id="email" 
-                            type="email" 
-                            placeholder="correo@ejemplo.com" 
-                            class="w-full md:w-[30rem] mb-6" 
-                            v-model="formData.email"
-                            @keypress="handleKeyPress"
-                            :disabled="loading"
-                        />
+                        <InputText id="email" type="email" placeholder="correo@ejemplo.com" class="w-full md:w-[30rem] mb-6" v-model="formData.email" @keypress="handleKeyPress" :disabled="loading" />
 
                         <label for="password" class="block text-surface-900 dark:text-surface-0 font-medium text-xl mb-2">Contraseña</label>
-                        <Password 
-                            id="password" 
-                            v-model="formData.password" 
-                            placeholder="Contraseña" 
-                            :toggleMask="true" 
-                            class="mb-6" 
-                            fluid 
-                            :feedback="true"
-                            @keypress="handleKeyPress"
-                            :disabled="loading"
-                        >
+                        <Password id="password" v-model="formData.password" placeholder="Contraseña" :toggleMask="true" class="mb-6" fluid :feedback="true" @keypress="handleKeyPress" :disabled="loading">
                             <template #footer>
                                 <p class="mt-2 text-sm">Sugerencias:</p>
                                 <ul class="pl-2 ml-2 mt-0" style="line-height: 1.5">
@@ -218,31 +191,13 @@ const handleKeyPress = (event) => {
                         </Password>
 
                         <label for="confirmPassword" class="block text-surface-900 dark:text-surface-0 font-medium text-xl mb-2">Confirmar Contraseña</label>
-                        <Password 
-                            id="confirmPassword" 
-                            v-model="formData.confirmPassword" 
-                            placeholder="Confirma tu contraseña" 
-                            :toggleMask="true" 
-                            class="mb-8" 
-                            fluid 
-                            :feedback="false"
-                            @keypress="handleKeyPress"
-                            :disabled="loading"
-                        ></Password>
+                        <Password id="confirmPassword" v-model="formData.confirmPassword" placeholder="Confirma tu contraseña" :toggleMask="true" class="mb-8" fluid :feedback="false" @keypress="handleKeyPress" :disabled="loading"></Password>
 
-                        <Button 
-                            label="Crear Cuenta" 
-                            class="w-full mb-4"
-                            @click="handleRegister"
-                            :loading="loading"
-                            :disabled="loading"
-                        />
+                        <Button label="Crear Cuenta" class="w-full mb-4" @click="handleRegister" :loading="loading" :disabled="loading" />
 
                         <div class="text-center mt-4">
                             <span class="text-muted-color">¿Ya tienes cuenta? </span>
-                            <router-link to="/v1/auth/login" class="font-medium no-underline cursor-pointer text-primary">
-                                Inicia sesión aquí
-                            </router-link>
+                            <router-link to="/v1/auth/login" class="font-medium no-underline cursor-pointer text-primary"> Inicia sesión aquí </router-link>
                         </div>
                     </div>
                 </div>

@@ -17,10 +17,10 @@ export const useMovimientoStore = defineStore('movimiento', () => {
         error.value = null;
         try {
             const data = await MovimientoService.getMovimientos(params);
-            
+
             if (data && data.content !== undefined) {
                 movimientos.value = data.content;
-                
+
                 if (data.page && data.page.totalElements !== undefined) {
                     totalRecords.value = data.page.totalElements;
                 } else {
@@ -35,10 +35,10 @@ export const useMovimientoStore = defineStore('movimiento', () => {
                 if (movimientos.value.length === size) {
                     totalRecords.value = ((params?.page || 0) + 2) * size;
                 } else {
-                    totalRecords.value = ((params?.page || 0) * size) + movimientos.value.length;
+                    totalRecords.value = (params?.page || 0) * size + movimientos.value.length;
                 }
             }
-            
+
             return data;
         } catch (err) {
             error.value = err.userMessage || 'Error al cargar movimientos';

@@ -28,7 +28,7 @@ export const useUbicationsStore = defineStore('ubications', () => {
 
     /**
      * Busca ubicaciones para un código de barras específico.
-     * @param {string} barcode 
+     * @param {string} barcode
      * @returns {Promise<Array>}
      */
     async function getUbicacionesByBarcode(barcode) {
@@ -47,7 +47,7 @@ export const useUbicationsStore = defineStore('ubications', () => {
 
     /**
      * Crea una nueva ubicación.
-     * @param {Object} data 
+     * @param {Object} data
      */
     async function createUbication(data) {
         isLoading.value = true;
@@ -66,15 +66,15 @@ export const useUbicationsStore = defineStore('ubications', () => {
 
     /**
      * Actualiza una ubicación existente.
-     * @param {number|string} id 
-     * @param {Object} data 
+     * @param {number|string} id
+     * @param {Object} data
      */
     async function updateUbication(id, data) {
         isLoading.value = true;
         error.value = null;
         try {
             const updated = await UbicationsService.updateUbicacion(id, data);
-            const index = ubications.value.findIndex(u => u.id === id);
+            const index = ubications.value.findIndex((u) => u.id === id);
             if (index !== -1) {
                 ubications.value[index] = updated;
             }
@@ -89,14 +89,14 @@ export const useUbicationsStore = defineStore('ubications', () => {
 
     /**
      * Elimina una ubicación.
-     * @param {number|string} id 
+     * @param {number|string} id
      */
     async function deleteUbication(id) {
         isLoading.value = true;
         error.value = null;
         try {
             await UbicationsService.deleteUbicacion(id);
-            ubications.value = ubications.value.filter(u => u.id !== id);
+            ubications.value = ubications.value.filter((u) => u.id !== id);
         } catch (err) {
             error.value = err.response?.data?.message || 'Error al eliminar la ubicación';
             throw err;

@@ -5,13 +5,7 @@ const SDK_URL = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
 // El appId 5c02a63a... esta configurado en el dashboard de OneSignal
 // para correr en estos origins. Si en el futuro el dashboard se
 // reconfigura para otro origin especifico, ajustar esta lista.
-const ONESIGNAL_ALLOWED_ORIGINS = [
-    'https://resurtidoredu.site',
-    'https://www.resurtidoredu.site',
-    'http://localhost:3000',
-    'https://resurtidoredu.site:3000',
-    'http://127.0.0.1:3000'
-];
+const ONESIGNAL_ALLOWED_ORIGINS = ['https://resurtidoredu.site', 'https://www.resurtidoredu.site', 'http://localhost:3000', 'https://resurtidoredu.site:3000', 'http://127.0.0.1:3000'];
 
 function isOneSignalOriginAllowed() {
     if (typeof window === 'undefined') return false;
@@ -166,7 +160,11 @@ export async function setupOneSignalForUser(user) {
                 // REST), se puede agregar aca con try/catch.
                 let aliasResult = null;
                 if (typeof OneSignal.User.getAliases === 'function') {
-                    try { aliasResult = await OneSignal.User.getAliases(); } catch (_) { /* noop */ }
+                    try {
+                        aliasResult = await OneSignal.User.getAliases();
+                    } catch (_) {
+                        /* noop */
+                    }
                 }
                 console.info('[OneSignal] Alias confirmados:', aliasResult);
 
@@ -189,4 +187,3 @@ export async function setupOneSignalForUser(user) {
         });
     });
 }
-

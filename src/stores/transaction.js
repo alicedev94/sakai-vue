@@ -20,7 +20,7 @@ export const useTransactionStore = defineStore('transaction', () => {
             // Extraer registros del objeto devuelto
             if (data && data.content !== undefined) {
                 transactions.value = data.content;
-                
+
                 // Extraer el total priorizando el nuevo formato de Spring (data.page)
                 if (data.page && data.page.totalElements !== undefined) {
                     totalRecords.value = data.page.totalElements;
@@ -40,10 +40,10 @@ export const useTransactionStore = defineStore('transaction', () => {
                     // Hack: si trae la página llena, asumimos que hay otra pagina mas para habilitar el botón "Next"
                     totalRecords.value = ((params?.page || 0) + 2) * size;
                 } else {
-                    totalRecords.value = ((params?.page || 0) * size) + transactions.value.length;
+                    totalRecords.value = (params?.page || 0) * size + transactions.value.length;
                 }
             }
-            
+
             return data;
         } catch (err) {
             error.value = err.userMessage || 'Error al cargar transacciones';

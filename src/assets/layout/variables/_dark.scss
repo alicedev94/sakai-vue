@@ -3,3 +3,46 @@
     --code-background: var(--p-surface-800);
     --code-color: var(--p-surface-100);
 }
+
+.app-dark .p-datatable {
+    --p-datatable-body-cell-background: var(--p-surface-900);
+    --p-datatable-header-cell-background: var(--p-surface-800);
+    --p-datatable-body-cell-color: var(--p-surface-100);
+    --p-datatable-header-cell-color: var(--p-surface-0);
+    --p-datatable-body-row-striped-background: var(--p-surface-850);
+    --p-datatable-body-row-hover-background: var(--p-surface-700);
+}
+
+.app-dark .p-datatable .p-datatable-thead > tr > th {
+    background: var(--p-surface-800);
+    color: var(--p-surface-0);
+    border-color: var(--p-surface-700);
+}
+
+.app-dark .p-datatable .p-datatable-tbody > tr {
+    background: var(--p-surface-900);
+    color: var(--p-surface-100);
+    border-color: var(--p-surface-700);
+}
+
+.app-dark .p-datatable .p-datatable-tbody > tr:nth-child(even) {
+    background: var(--p-surface-850);
+}
+
+.app-dark .p-datatable .p-datatable-tbody > tr:hover {
+    background: var(--p-surface-700);
+}
+
+.app-dark .p-datatable .p-paginator {
+    background: var(--p-surface-900);
+    color: var(--p-surface-100);
+    border-color: var(--p-surface-700);
+}
+
+.app-dark .p-datatable .p-datatable-tbody > tr > td {
+    border-color: var(--p-surface-700);
+}
+
+.app-dark .p-datatable .p-datatable-thead > tr > th {
+    border-color: var(--p-surface-700);
+}

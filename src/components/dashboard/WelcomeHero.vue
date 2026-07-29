@@ -17,11 +17,11 @@ const greeting = computed(() => {
 });
 
 const currentDate = computed(() => {
-    const options = { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
+    const options = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
     };
     return new Date().toLocaleDateString('es-ES', options);
 });
@@ -32,7 +32,10 @@ const currentDate = computed(() => {
         <div class="mesh-gradient"></div>
         <div class="content-wrapper">
             <div class="text-content">
-                <h1 class="greeting">{{ greeting }}, <span class="user-name">{{ userName }}</span>!</h1>
+                <h1 class="greeting">
+                    {{ greeting }}, <span class="user-name">{{ userName }}</span
+                    >!
+                </h1>
                 <p class="date">{{ currentDate }}</p>
                 <p class="subtitle">Bienvenido a tu panel de control</p>
             </div>
@@ -66,13 +69,8 @@ const currentDate = computed(() => {
 .mesh-gradient {
     position: absolute;
     inset: 0;
-    background: 
-        radial-gradient(at 27% 37%, hsla(215, 98%, 61%, 0.8) 0px, transparent 50%),
-        radial-gradient(at 97% 21%, hsla(125, 98%, 72%, 0.6) 0px, transparent 50%),
-        radial-gradient(at 52% 99%, hsla(354, 98%, 61%, 0.5) 0px, transparent 50%),
-        radial-gradient(at 10% 29%, hsla(256, 96%, 67%, 0.7) 0px, transparent 50%),
-        radial-gradient(at 97% 96%, hsla(38, 60%, 74%, 0.6) 0px, transparent 50%),
-        radial-gradient(at 33% 50%, hsla(222, 67%, 73%, 0.8) 0px, transparent 50%),
+    background: radial-gradient(at 27% 37%, hsla(215, 98%, 61%, 0.8) 0px, transparent 50%), radial-gradient(at 97% 21%, hsla(125, 98%, 72%, 0.6) 0px, transparent 50%), radial-gradient(at 52% 99%, hsla(354, 98%, 61%, 0.5) 0px, transparent 50%),
+        radial-gradient(at 10% 29%, hsla(256, 96%, 67%, 0.7) 0px, transparent 50%), radial-gradient(at 97% 96%, hsla(38, 60%, 74%, 0.6) 0px, transparent 50%), radial-gradient(at 33% 50%, hsla(222, 67%, 73%, 0.8) 0px, transparent 50%),
         radial-gradient(at 79% 53%, hsla(343, 68%, 79%, 0.7) 0px, transparent 50%);
     filter: blur(60px);
     animation: mesh-animation 20s ease infinite;
@@ -80,7 +78,8 @@ const currentDate = computed(() => {
 }
 
 @keyframes mesh-animation {
-    0%, 100% {
+    0%,
+    100% {
         transform: scale(1) rotate(0deg);
     }
     33% {
@@ -193,7 +192,8 @@ const currentDate = computed(() => {
 }
 
 @keyframes float {
-    0%, 100% {
+    0%,
+    100% {
         transform: translateY(0px) scale(1);
         opacity: 0.7;
     }

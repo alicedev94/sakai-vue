@@ -15,7 +15,7 @@ const selectedPermissions = ref([]);
 const searchQuery = ref('');
 
 const canWrite = computed(() => {
-    const perm = authStore.permissions.find(p => p.code === 'permisos');
+    const perm = authStore.permissions.find((p) => p.code === 'permisos');
     return perm ? !perm.isReadonly : false;
 });
 
@@ -24,11 +24,11 @@ const mobileCurrentPage = ref(0);
 const mobileRowsPerPage = 8;
 
 const activePermissions = computed(() => {
-    return permissionStore.permissions.filter(p => !p.deletedAt && p.status !== false &&
-        (!searchQuery.value ||
-            p.name?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-            p.code?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-            p.url?.toLowerCase().includes(searchQuery.value.toLowerCase()))
+    return permissionStore.permissions.filter(
+        (p) =>
+            !p.deletedAt &&
+            p.status !== false &&
+            (!searchQuery.value || p.name?.toLowerCase().includes(searchQuery.value.toLowerCase()) || p.code?.toLowerCase().includes(searchQuery.value.toLowerCase()) || p.url?.toLowerCase().includes(searchQuery.value.toLowerCase()))
     );
 });
 
@@ -73,8 +73,9 @@ const confirmDeletePermission = (permData) => {
 };
 
 const isSaveDisabled = computed(() => {
-    return !permission.value.name?.trim() || !permission.value.code?.trim() || !permission.value.url?.trim() ||
-           !permission.value.categoryLabel?.trim() || !permission.value.label?.trim() || !permission.value.icon?.trim() || !permission.value.to?.trim();
+    return (
+        !permission.value.name?.trim() || !permission.value.code?.trim() || !permission.value.url?.trim() || !permission.value.categoryLabel?.trim() || !permission.value.label?.trim() || !permission.value.icon?.trim() || !permission.value.to?.trim()
+    );
 });
 
 const savePermission = async () => {
@@ -140,13 +141,7 @@ onMounted(() => {
                 <template #end>
                     <IconField class="w-full md:w-auto">
                         <InputIcon><i class="pi pi-search" /></InputIcon>
-                        <InputText
-                            v-model="searchQuery"
-                            placeholder="Buscar por nombre, código o URL..."
-                            class="w-full"
-                            style="min-width: 0;"
-                            @input="resetMobilePage"
-                        />
+                        <InputText v-model="searchQuery" placeholder="Buscar por nombre, código o URL..." class="w-full" style="min-width: 0" @input="resetMobilePage" />
                     </IconField>
                 </template>
             </Toolbar>
@@ -259,9 +254,7 @@ onMounted(() => {
                     <!-- Paginador móvil -->
                     <div v-if="mobileTotalPages > 1" class="flex justify-center items-center gap-3 mt-2">
                         <Button icon="pi pi-chevron-left" outlined rounded size="small" :disabled="mobileCurrentPage === 0" @click="mobileCurrentPage--" />
-                        <span class="text-sm" style="color: var(--text-color-secondary)">
-                            Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }}
-                        </span>
+                        <span class="text-sm" style="color: var(--text-color-secondary)"> Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }} </span>
                         <Button icon="pi pi-chevron-right" outlined rounded size="small" :disabled="mobileCurrentPage >= mobileTotalPages - 1" @click="mobileCurrentPage++" />
                     </div>
                 </div>
@@ -317,7 +310,10 @@ onMounted(() => {
         <Dialog v-model:visible="deletePermissionDialog" :style="{ width: '450px' }" header="Confirmar" :modal="true">
             <div class="confirmation-content">
                 <i class="pi pi-exclamation-triangle mr-3" style="font-size: 2rem; color: var(--red-500)" />
-                <span v-if="permission">¿Estás seguro de que deseas eliminar el permiso <b>{{ permission.name }}</b>?</span>
+                <span v-if="permission"
+                    >¿Estás seguro de que deseas eliminar el permiso <b>{{ permission.name }}</b
+                    >?</span
+                >
             </div>
             <template #footer>
                 <Button label="Cancelar" icon="pi pi-times" text @click="deletePermissionDialog = false" />
@@ -330,7 +326,9 @@ onMounted(() => {
 <style scoped lang="scss">
 .permissions-container {
     padding: 1rem;
-    @media (min-width: 768px) { padding: 1.5rem; }
+    @media (min-width: 768px) {
+        padding: 1.5rem;
+    }
 }
 
 .card {
@@ -391,7 +389,10 @@ onMounted(() => {
 }
 
 .permissions-table {
-    :deep(.p-datatable-header) { background: transparent; border: none; }
+    :deep(.p-datatable-header) {
+        background: transparent;
+        border: none;
+    }
 }
 
 /* Badges */
@@ -435,7 +436,10 @@ onMounted(() => {
     text-align: center;
     padding: 3rem 1rem;
     color: var(--text-color-secondary);
-    p { margin-top: 1rem; font-size: 1.1rem; }
+    p {
+        margin-top: 1rem;
+        font-size: 1.1rem;
+    }
 }
 
 .confirmation-content {
@@ -443,7 +447,9 @@ onMounted(() => {
     align-items: center;
     justify-content: center;
     padding: 1rem;
-    span { line-height: 1.6; }
+    span {
+        line-height: 1.6;
+    }
 }
 
 /* Cards mobile */
@@ -554,7 +560,12 @@ onMounted(() => {
 /* Form grid */
 .field {
     margin-bottom: 1.5rem;
-    label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-color); }
+    label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: var(--text-color);
+    }
 }
 .formgrid {
     display: flex;
@@ -569,9 +580,17 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
 }
-.formgrid .field input { width: 100%; }
-.col-12 { flex: 0 0 auto; width: 100%; }
+.formgrid .field input {
+    width: 100%;
+}
+.col-12 {
+    flex: 0 0 auto;
+    width: 100%;
+}
 @media (min-width: 768px) {
-    .md\:col-6 { flex: 0 0 auto; width: 50%; }
+    .md\:col-6 {
+        flex: 0 0 auto;
+        width: 50%;
+    }
 }
 </style>

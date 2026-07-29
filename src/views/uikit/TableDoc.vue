@@ -81,7 +81,7 @@ function getStockSeverity(product) {
 }
 
 onBeforeMount(() => {
-/*    ProductService.getProductsWithOrdersSmall().then((data) => (products.value = data));
+    /*    ProductService.getProductsWithOrdersSmall().then((data) => (products.value = data));
     CustomerService.getCustomersLarge().then((data) => {
         customers1.value = data;
         loading1.value = false;

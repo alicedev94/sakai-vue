@@ -53,7 +53,7 @@ export default class AuthService {
             // Si tienes un endpoint de logout en el backend, descoméntalo:
             // const response = await apiClient.post('/auth/logout');
             // return response.data;
-            
+
             const authStore = useAuthStore();
             authStore.logout();
             return { success: true };
@@ -95,4 +95,3 @@ export default class AuthService {
 
 // Exportar también la instancia de axios por si se necesita
 export { apiClient };
-

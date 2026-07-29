@@ -1,5 +1,4 @@
 <script setup>
-import { operacionesService } from '@/service/OperacionesService';
 import { useAuthStore } from '@/stores/auth';
 import { useUbicationsStore } from '@/stores/ubications';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
@@ -13,7 +12,7 @@ const store = useUbicationsStore();
 const authStore = useAuthStore();
 
 const canWrite = computed(() => {
-    const perm = authStore.permissions.find(p => p.code === 'ubicaciones');
+    const perm = authStore.permissions.find((p) => p.code === 'ubicaciones');
     return perm ? !perm.isReadonly : false;
 });
 
@@ -27,10 +26,6 @@ const showDialog = ref(false);
 const showScannerDialog = ref(false);
 const isEditing = ref(false);
 const saving = ref(false);
-const showPurgeDialog = ref(false);
-const purgeLocationQuery = ref('');
-const purging = ref(false);
-const selectedUbicaciones = ref([]);
 
 // ─── Escáner de cámara ───────────────────────────────────────────────────────
 const CAMARA_HOST_ID = 'camara-codigo-host';
@@ -112,11 +107,9 @@ function mensajeFalloCamara(err) {
     }
     const name = err?.name || '';
     const msg = String(err?.message || err || '');
-    if (name === 'NotAllowedError' || /denied|Permission|permi/i.test(msg))
-        return 'Permiso de cámara denegado. Permite el acceso en tu navegador.';
+    if (name === 'NotAllowedError' || /denied|Permission|permi/i.test(msg)) return 'Permiso de cámara denegado. Permite el acceso en tu navegador.';
     if (name === 'NotFoundError') return 'No se encontró ninguna cámara.';
-    if (name === 'NotReadableError' || name === 'TrackStartError')
-        return 'La cámara está en uso por otra app.';
+    if (name === 'NotReadableError' || name === 'TrackStartError') return 'La cámara está en uso por otra app.';
     return msg ? `No se pudo usar la cámara: ${msg}` : 'No se pudo usar la cámara.';
 }
 
@@ -129,8 +122,16 @@ async function detenerCamara() {
     }
     const scanner = html5Scanner;
     html5Scanner = null;
-    try { await scanner.stop(); } catch { /* ya detenido */ }
-    try { scanner.clear(); } catch { /* */ }
+    try {
+        await scanner.stop();
+    } catch {
+        /* ya detenido */
+    }
+    try {
+        scanner.clear();
+    } catch {
+        /* */
+    }
     cameraActiva.value = false;
     cameraLoading.value = false;
 }
@@ -171,7 +172,7 @@ async function iniciarCamara(target = 'codigo') {
             let codigo = texto?.trim();
             if (!codigo || decodeLock) return;
             decodeLock = true;
-            
+
             // Limpiar si viene con URL o ruta (extraer el código final)
             codigo = limpiarCodigoEscaneado(codigo);
 
@@ -185,15 +186,14 @@ async function iniciarCamara(target = 'codigo') {
                     filtroUbicacion.value = codigo;
                     resetMobilePage();
                     showScannerDialog.value = false;
-                } else if (scanTarget.value === 'purgeLocation') {
-                    purgeLocationQuery.value = codigo;
-                    showScannerDialog.value = false;
                 } else {
                     form.value[scanTarget.value] = codigo;
                 }
                 toast.add({ severity: 'success', summary: 'Escaneo exitoso', detail: codigo, life: 2500 });
             } finally {
-                setTimeout(() => { decodeLock = false; }, 600);
+                setTimeout(() => {
+                    decodeLock = false;
+                }, 600);
             }
         };
 
@@ -208,15 +208,19 @@ async function iniciarCamara(target = 'codigo') {
         for (const [cam, cfg] of attempts) {
             try {
                 if (html5Scanner) {
-                    try { await html5Scanner.stop(); } catch { /* */ }
-                    try { html5Scanner.clear(); } catch { /* */ }
+                    try {
+                        await html5Scanner.stop();
+                    } catch {
+                        /* */
+                    }
+                    try {
+                        html5Scanner.clear();
+                    } catch {
+                        /* */
+                    }
                     html5Scanner = null;
                 }
-                html5Scanner = new Html5Qrcode(
-                    scanTarget.value === 'filtroCodigo' || scanTarget.value === 'filtroUbicacion'
-                        ? 'camara-filter-host'
-                        : CAMARA_HOST_ID
-                );
+                html5Scanner = new Html5Qrcode(scanTarget.value === 'filtroCodigo' || scanTarget.value === 'filtroUbicacion' ? 'camara-filter-host' : CAMARA_HOST_ID);
                 await html5Scanner.start(cam, cfg, onDecode, () => {});
                 lastErr = null;
                 break;
@@ -290,19 +294,7 @@ const totalUbicaciones = computed(() => ubicacionesFiltradas.value.length);
 const totalActivas = computed(() => ubicacionesFiltradas.value.filter((u) => u.activo).length);
 const totalInactivas = computed(() => ubicacionesFiltradas.value.filter((u) => !u.activo).length);
 
-// ─── Paginado Escritorio y Móvil ─────────────────────────────────────────────
-const desktopFirst = ref(0);
-const desktopRows = ref(10);
-
-function onDesktopPage(event) {
-    desktopFirst.value = event.first;
-    desktopRows.value = event.rows;
-}
-
-const desktopPagedItems = computed(() => {
-    return ubicacionesFiltradas.value.slice(desktopFirst.value, desktopFirst.value + desktopRows.value);
-});
-
+// ─── Paginado móvil ──────────────────────────────────────────────────────────
 const mobileCurrentPage = ref(0);
 const mobileRowsPerPage = 10;
 
@@ -313,62 +305,9 @@ const mobilePagedItems = computed(() => {
 
 const mobileTotalPages = computed(() => Math.ceil(ubicacionesFiltradas.value.length / mobileRowsPerPage));
 
-function resetPages() {
+function resetMobilePage() {
     mobileCurrentPage.value = 0;
-    desktopFirst.value = 0;
 }
-const resetMobilePage = resetPages;
-
-// ─── Consulta Dinámica de Inventario por Ubicación (Piso / Almacén) ─────────
-const inventarioMap = ref({});
-
-async function cargarInventarioParaVisibles(items) {
-    if (!items || items.length === 0) return;
-
-    // Solo consultar productos visibles que aún no han sido cargados ni estén cargando
-    const itemsACargar = items.filter(it => it.codigo && !inventarioMap.value[it.id]?.loaded && !inventarioMap.value[it.id]?.loading);
-    if (itemsACargar.length === 0) return;
-
-    itemsACargar.forEach(it => {
-        inventarioMap.value[it.id] = {
-            piso: '-',
-            almacen: '-',
-            loading: true,
-            loaded: false
-        };
-    });
-
-    await Promise.all(itemsACargar.map(async (it) => {
-        try {
-            const inv = await operacionesService.obtenerInventarioUbicacion(it.codigo);
-            inventarioMap.value[it.id] = {
-                piso: inv?.piso ?? 0,
-                almacen: inv?.almacen ?? 0,
-                cedis: inv?.cedis ?? 0,
-                loading: false,
-                loaded: true
-            };
-        } catch (e) {
-            console.warn(`Error al cargar inventario de ubicación para código "${it.codigo}":`, e);
-            inventarioMap.value[it.id] = {
-                piso: '-',
-                almacen: '-',
-                cedis: '-',
-                loading: false,
-                loaded: true
-            };
-        }
-    }));
-}
-
-// Observadores para disparar la consulta asíncrona al cambiar la página visible (desktop o móvil)
-watch(desktopPagedItems, (newItems) => {
-    cargarInventarioParaVisibles(newItems);
-}, { immediate: true, deep: true });
-
-watch(mobilePagedItems, (newItems) => {
-    cargarInventarioParaVisibles(newItems);
-}, { immediate: true, deep: true });
 
 // ─── Utilidades ──────────────────────────────────────────────────────────────
 const formatFecha = (value) => {
@@ -470,131 +409,6 @@ function confirmarEliminar(ubication) {
     });
 }
 
-// ─── Selección Múltiple y Borrado por Ubicación ──────────────────────────────
-function isSeleccionado(item) {
-    return selectedUbicaciones.value.some((s) => s.id === item.id);
-}
-
-function toggleSeleccion(item) {
-    const index = selectedUbicaciones.value.findIndex((s) => s.id === item.id);
-    if (index !== -1) {
-        selectedUbicaciones.value.splice(index, 1);
-    } else {
-        selectedUbicaciones.value.push(item);
-    }
-}
-
-const ubicacionesParaPurga = computed(() => {
-    const query = purgeLocationQuery.value.trim().toLowerCase();
-    if (!query) return [];
-    return store.ubications.filter((u) => u.ubicacion?.toLowerCase() === query);
-});
-
-const listaUbicacionesUnicas = computed(() => {
-    const set = new Set();
-    store.ubications.forEach((u) => {
-        if (u.ubicacion?.trim()) set.add(u.ubicacion.trim());
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
-});
-
-const sugerenciasUbicacion = ref([]);
-
-function buscarSugerenciasUbicacion(event) {
-    const query = (event?.query || '').trim().toLowerCase();
-    if (!query) {
-        sugerenciasUbicacion.value = [...listaUbicacionesUnicas.value];
-    } else {
-        sugerenciasUbicacion.value = listaUbicacionesUnicas.value.filter((u) => u.toLowerCase().includes(query));
-    }
-}
-
-function abrirDialogoPurga(nombreUbicacion = '') {
-    purgeLocationQuery.value = nombreUbicacion;
-    showPurgeDialog.value = true;
-}
-
-function confirmarEliminarSeleccionados() {
-    if (selectedUbicaciones.value.length === 0) return;
-    const count = selectedUbicaciones.value.length;
-    const ids = selectedUbicaciones.value.map((u) => u.id);
-
-    confirm.require({
-        message: `¿Estás seguro de eliminar los ${count} registros seleccionados de forma permanente?`,
-        header: 'Confirmar Eliminación Múltiple',
-        icon: 'pi pi-exclamation-triangle',
-        acceptClass: 'p-button-danger',
-        acceptLabel: `Eliminar ${count}`,
-        rejectLabel: 'Cancelar',
-        accept: async () => {
-            try {
-                await store.deleteMultipleUbications(ids);
-                selectedUbicaciones.value = [];
-                toast.add({
-                    severity: 'success',
-                    summary: 'Eliminación completada',
-                    detail: `Se eliminaron ${count} registros correctamente`,
-                    life: 3500
-                });
-            } catch (err) {
-                toast.add({
-                    severity: 'error',
-                    summary: 'Error',
-                    detail: err.response?.data?.message || 'No se pudieron eliminar los registros seleccionados',
-                    life: 5000
-                });
-            }
-        }
-    });
-}
-
-async function ejecutarPurgaUbicacion() {
-    const items = ubicacionesParaPurga.value;
-    if (items.length === 0) {
-        toast.add({ severity: 'warn', summary: 'Atención', detail: 'No se encontraron registros para la ubicación especificada', life: 3000 });
-        return;
-    }
-
-    const nombreUbi = purgeLocationQuery.value.trim();
-    const count = items.length;
-    const ids = items.map((u) => u.id);
-
-    confirm.require({
-        message: `¿Estás seguro de eliminar TODOS los ${count} códigos asignados a la ubicación "${nombreUbi}"?`,
-        header: `Purga de Ubicación: ${nombreUbi}`,
-        icon: 'pi pi-trash',
-        acceptClass: 'p-button-danger',
-        acceptLabel: `Eliminar los ${count} códigos`,
-        rejectLabel: 'Cancelar',
-        accept: async () => {
-            purging.value = true;
-            try {
-                await store.deleteMultipleUbications(ids);
-                const idsSet = new Set(ids);
-                selectedUbicaciones.value = selectedUbicaciones.value.filter((u) => !idsSet.has(u.id));
-
-                showPurgeDialog.value = false;
-                purgeLocationQuery.value = '';
-                toast.add({
-                    severity: 'success',
-                    summary: 'Purga Exitosa',
-                    detail: `Se eliminaron todos los ${count} registros de la ubicación "${nombreUbi}"`,
-                    life: 4000
-                });
-            } catch (err) {
-                toast.add({
-                    severity: 'error',
-                    summary: 'Error',
-                    detail: err.response?.data?.message || 'No se pudo realizar el borrado por ubicación',
-                    life: 5000
-                });
-            } finally {
-                purging.value = false;
-            }
-        }
-    });
-}
-
 onMounted(cargarDatos);
 onUnmounted(detenerCamara);
 </script>
@@ -611,13 +425,7 @@ onUnmounted(detenerCamara);
                     </h2>
                     <p class="subtitle">Administración de ubicaciones de productos por código de barras</p>
                 </div>
-                <Button
-                    label="Nueva Ubicación"
-                    icon="pi pi-plus"
-                    class="btn-nueva hidden md:flex"
-                    @click="abrirCrear"
-                    :disabled="!canWrite"
-                />
+                <Button label="Nueva Ubicación" icon="pi pi-plus" class="btn-nueva hidden md:flex" @click="abrirCrear" :disabled="!canWrite" />
             </div>
 
             <!-- Stats Banner -->
@@ -641,51 +449,11 @@ onUnmounted(detenerCamara);
             <!-- Toolbar / Filtros -->
             <Toolbar class="mb-5 flex flex-col md:flex-row gap-4">
                 <template #start>
-                    <div class="flex items-center gap-2 w-full md:w-auto flex-wrap">
-                        <Button
-                            icon="pi pi-refresh"
-                            severity="secondary"
-                            outlined
-                            v-tooltip.top="'Actualizar'"
-                            :loading="store.isLoading"
-                            @click="cargarDatos"
-                        />
-                        <Button
-                            icon="pi pi-filter-slash"
-                            severity="secondary"
-                            outlined
-                            v-tooltip.top="'Limpiar filtros'"
-                            @click="clearFilters"
-                        />
+                    <div class="flex items-center gap-2 w-full md:w-auto">
+                        <Button icon="pi pi-refresh" severity="secondary" outlined v-tooltip.top="'Actualizar'" :loading="store.isLoading" @click="cargarDatos" class="flex-1 md:flex-none" />
+                        <Button icon="pi pi-filter-slash" severity="secondary" outlined v-tooltip.top="'Limpiar filtros'" @click="clearFilters" class="flex-1 md:flex-none" />
                         <!-- Nueva ubicación solo visible en mobile desde toolbar -->
-                        <Button
-                            icon="pi pi-plus"
-                            class="md:hidden ml-auto"
-                            v-tooltip.top="'Nueva ubicación'"
-                            @click="abrirCrear"
-                            :disabled="!canWrite"
-                        />
-                        <Button
-                            v-if="selectedUbicaciones.length > 0"
-                            :label="`Eliminar (${selectedUbicaciones.length})`"
-                            icon="pi pi-trash"
-                            severity="danger"
-                            outlined
-                            v-tooltip.top="'Eliminar registros seleccionados'"
-                            @click="confirmarEliminarSeleccionados"
-                            :disabled="!canWrite"
-                            class="w-full sm:w-auto whitespace-nowrap"
-                        />
-                        <Button
-                            label="Eliminar por Ubicación"
-                            icon="pi pi-trash"
-                            severity="danger"
-                            outlined
-                            v-tooltip.top="'Borrar todos los códigos de una ubicación'"
-                            @click="() => abrirDialogoPurga()"
-                            :disabled="!canWrite"
-                            class="w-full md:w-auto whitespace-nowrap"
-                        />
+                        <Button icon="pi pi-plus" class="flex-1 md:hidden" v-tooltip.top="'Nueva ubicación'" @click="abrirCrear" :disabled="!canWrite" />
                     </div>
                 </template>
                 <template #end>
@@ -702,13 +470,7 @@ onUnmounted(detenerCamara);
                                     @keydown.enter="filtroCodigo = limpiarCodigoEscaneado(filtroCodigo)"
                                 />
                             </IconField>
-                            <Button
-                                icon="pi pi-camera"
-                                severity="secondary"
-                                outlined
-                                v-tooltip.top="'Escanear para buscar'"
-                                @click="abrirScannerFiltro"
-                            />
+                            <Button icon="pi pi-camera" severity="secondary" outlined v-tooltip.top="'Escanear para buscar'" @click="abrirScannerFiltro" />
                         </div>
                         <div class="flex gap-2 w-full md:w-auto">
                             <IconField class="w-full md:w-auto">
@@ -722,22 +484,11 @@ onUnmounted(detenerCamara);
                                     @keydown.enter="filtroUbicacion = limpiarCodigoEscaneado(filtroUbicacion)"
                                 />
                             </IconField>
-                            <Button
-                                icon="pi pi-camera"
-                                severity="secondary"
-                                outlined
-                                v-tooltip.top="'Escanear para buscar'"
-                                @click="abrirScannerFiltro('filtroUbicacion')"
-                            />
+                            <Button icon="pi pi-camera" severity="secondary" outlined v-tooltip.top="'Escanear para buscar'" @click="abrirScannerFiltro('filtroUbicacion')" />
                         </div>
                         <IconField class="w-full md:w-auto">
                             <InputIcon><i class="pi pi-building" /></InputIcon>
-                            <InputText
-                                v-model="filtroLocalidad"
-                                placeholder="Buscar por localidad..."
-                                class="w-full md:w-36"
-                                @input="resetMobilePage"
-                            />
+                            <InputText v-model="filtroLocalidad" placeholder="Buscar por localidad..." class="w-full md:w-36" @input="resetMobilePage" />
                         </IconField>
                     </div>
                 </template>
@@ -747,20 +498,16 @@ onUnmounted(detenerCamara);
             <DataTable
                 class="hidden md:block"
                 :value="ubicacionesFiltradas"
-                v-model:selection="selectedUbicaciones"
                 :loading="store.isLoading"
                 dataKey="id"
                 :paginator="true"
-                :first="desktopFirst"
-                :rows="desktopRows"
-                @page="onDesktopPage"
+                :rows="10"
                 :rowsPerPageOptions="[5, 10, 25, 50]"
                 paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                 currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} ubicaciones"
                 responsiveLayout="scroll"
                 stripedRows
             >
-                <Column selectionMode="multiple" headerStyle="width: 3rem" />
                 <template #empty>
                     <div class="empty-state">
                         <i class="pi pi-map-marker" style="font-size: 3rem; color: var(--text-color-secondary)" />
@@ -786,30 +533,6 @@ onUnmounted(detenerCamara);
                             <i class="pi pi-map-marker ubi-pin" />
                             <span class="font-semibold">{{ data.ubicacion }}</span>
                         </div>
-                    </template>
-                </Column>
-
-                <!-- Columna Piso -->
-                <Column field="piso" header="Piso" :sortable="false" style="min-width: 6rem">
-                    <template #body="{ data }">
-                        <span v-if="inventarioMap[data.id]?.loading" class="text-secondary text-xs">
-                            <i class="pi pi-spin pi-spinner text-xs" />
-                        </span>
-                        <span v-else class="font-semibold text-surface-900 dark:text-surface-0">
-                            {{ inventarioMap[data.id]?.piso ?? '-' }}
-                        </span>
-                    </template>
-                </Column>
-
-                <!-- Columna Almacén -->
-                <Column field="almacen" header="Almacén" :sortable="false" style="min-width: 6rem">
-                    <template #body="{ data }">
-                        <span v-if="inventarioMap[data.id]?.loading" class="text-secondary text-xs">
-                            <i class="pi pi-spin pi-spinner text-xs" />
-                        </span>
-                        <span v-else class="font-semibold text-surface-900 dark:text-surface-0">
-                            {{ inventarioMap[data.id]?.almacen ?? '-' }}
-                        </span>
                     </template>
                 </Column>
 
@@ -844,24 +567,8 @@ onUnmounted(detenerCamara);
                 <Column :exportable="false" header="Acciones" style="min-width: 9rem">
                     <template #body="{ data }">
                         <div class="action-buttons">
-                            <Button
-                                icon="pi pi-pencil"
-                                outlined
-                                rounded
-                                severity="info"
-                                v-tooltip.top="'Editar'"
-                                @click="abrirEditar(data)"
-                                :disabled="!canWrite"
-                            />
-                            <Button
-                                icon="pi pi-trash"
-                                outlined
-                                rounded
-                                severity="danger"
-                                v-tooltip.top="'Eliminar'"
-                                @click="confirmarEliminar(data)"
-                                :disabled="!canWrite"
-                            />
+                            <Button icon="pi pi-pencil" outlined rounded severity="info" v-tooltip.top="'Editar'" @click="abrirEditar(data)" :disabled="!canWrite" />
+                            <Button icon="pi pi-trash" outlined rounded severity="danger" v-tooltip.top="'Eliminar'" @click="confirmarEliminar(data)" :disabled="!canWrite" />
                         </div>
                     </template>
                 </Column>
@@ -905,24 +612,6 @@ onUnmounted(detenerCamara);
                                 <span v-if="data.localidad" class="localidad-tag">{{ data.localidad }}</span>
                                 <span v-else class="text-surface-400">—</span>
                             </div>
-                            <div class="flex justify-between items-center">
-                                <span class="font-medium text-surface-500 dark:text-surface-400">Piso:</span>
-                                <span v-if="inventarioMap[data.id]?.loading" class="text-secondary text-xs">
-                                    <i class="pi pi-spin pi-spinner text-xs" />
-                                </span>
-                                <span v-else class="font-semibold text-surface-900 dark:text-surface-0">
-                                    {{ inventarioMap[data.id]?.piso ?? '-' }}
-                                </span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="font-medium text-surface-500 dark:text-surface-400">Almacén:</span>
-                                <span v-if="inventarioMap[data.id]?.loading" class="text-secondary text-xs">
-                                    <i class="pi pi-spin pi-spinner text-xs" />
-                                </span>
-                                <span v-else class="font-semibold text-surface-900 dark:text-surface-0">
-                                    {{ inventarioMap[data.id]?.almacen ?? '-' }}
-                                </span>
-                            </div>
                             <div class="flex justify-between">
                                 <span class="font-medium text-surface-500 dark:text-surface-400">Usuario:</span>
                                 <span class="fecha-text">{{ data.usuario || '—' }}</span>
@@ -935,177 +624,78 @@ onUnmounted(detenerCamara);
 
                         <div class="flex justify-end gap-2 pt-3 border-t border-surface-200 dark:border-surface-700">
                             <Button icon="pi pi-pencil" outlined rounded severity="info" v-tooltip.top="'Editar'" @click="abrirEditar(data)" :disabled="!canWrite" />
-                            <Button icon="pi pi-trash" outlined rounded severity="danger" v-tooltip.top="'Eliminar este registro'" @click="confirmarEliminar(data)" :disabled="!canWrite" />
+                            <Button icon="pi pi-trash" outlined rounded severity="danger" v-tooltip.top="'Eliminar'" @click="confirmarEliminar(data)" :disabled="!canWrite" />
                         </div>
                     </div>
 
                     <!-- Paginador móvil -->
                     <div v-if="mobileTotalPages > 1" class="flex justify-center items-center gap-3 mt-2">
-                        <Button
-                            icon="pi pi-chevron-left"
-                            outlined
-                            rounded
-                            size="small"
-                            :disabled="mobileCurrentPage === 0"
-                            @click="mobileCurrentPage--"
-                        />
-                        <span class="text-sm text-secondary">
-                            Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }}
-                        </span>
-                        <Button
-                            icon="pi pi-chevron-right"
-                            outlined
-                            rounded
-                            size="small"
-                            :disabled="mobileCurrentPage >= mobileTotalPages - 1"
-                            @click="mobileCurrentPage++"
-                        />
+                        <Button icon="pi pi-chevron-left" outlined rounded size="small" :disabled="mobileCurrentPage === 0" @click="mobileCurrentPage--" />
+                        <span class="text-sm text-secondary"> Página {{ mobileCurrentPage + 1 }} de {{ mobileTotalPages }} </span>
+                        <Button icon="pi pi-chevron-right" outlined rounded size="small" :disabled="mobileCurrentPage >= mobileTotalPages - 1" @click="mobileCurrentPage++" />
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Dialog: Crear / Editar -->
-        <Dialog
-            v-model:visible="showDialog"
-            :style="{ width: '520px' }"
-            :breakpoints="{ '1199px': '85vw', '575px': '98vw' }"
-            :header="isEditing ? 'Editar Ubicación' : 'Nueva Ubicación'"
-            :modal="true"
-            :closable="!saving"
-        >
+        <Dialog v-model:visible="showDialog" :style="{ width: '520px' }" :breakpoints="{ '1199px': '85vw', '575px': '98vw' }" :header="isEditing ? 'Editar Ubicación' : 'Nueva Ubicación'" :modal="true" :closable="!saving">
             <div class="form-grid">
                 <!-- Código -->
                 <div class="form-field">
-                    <label class="form-label required">
-                        <i class="pi pi-barcode" /> Código de producto
-                    </label>
+                    <label class="form-label required"> <i class="pi pi-barcode" /> Código de producto </label>
                     <div class="scan-row">
-                        <InputText
-                            v-model="form.codigo"
-                            class="scan-input"
-                            :class="{ 'p-invalid': !form.codigo?.trim() && saving }"
-                            @blur="procesarInputBlur('codigo')"
-                            @keydown.enter="procesarInputBlur('codigo')"
-                        />
-                        <Button
-                            v-if="!cameraActiva"
-                            icon="pi pi-camera"
-                            severity="secondary"
-                            outlined
-                            :loading="cameraLoading"
-                            v-tooltip.top="'Escanear con cámara'"
-                            @click="iniciarCamara('codigo')"
-                        />
-                        <Button
-                            v-else-if="scanTarget === 'codigo'"
-                            icon="pi pi-stop"
-                            severity="danger"
-                            outlined
-                            v-tooltip.top="'Detener cámara'"
-                            @click="detenerCamara"
-                        />
+                        <InputText v-model="form.codigo" class="scan-input" :class="{ 'p-invalid': !form.codigo?.trim() && saving }" @blur="procesarInputBlur('codigo')" @keydown.enter="procesarInputBlur('codigo')" />
+                        <Button v-if="!cameraActiva" icon="pi pi-camera" severity="secondary" outlined :loading="cameraLoading" v-tooltip.top="'Escanear con cámara'" @click="iniciarCamara('codigo')" />
+                        <Button v-else-if="scanTarget === 'codigo'" icon="pi pi-stop" severity="danger" outlined v-tooltip.top="'Detener cámara'" @click="detenerCamara" />
                     </div>
                     <small class="form-hint">Escribe, escanea con pistola (Enter) o usa la cámara</small>
 
                     <!-- Panel de cámara -->
                     <div v-if="(cameraActiva || cameraLoading) && scanTarget === 'codigo'" class="camara-panel">
-                        <p v-if="cameraError" class="camara-error">
-                            <i class="pi pi-exclamation-circle" /> {{ cameraError }}
-                        </p>
+                        <p v-if="cameraError" class="camara-error"><i class="pi pi-exclamation-circle" /> {{ cameraError }}</p>
                         <div :id="CAMARA_HOST_ID" class="camara-host" />
-                        <p class="camara-hint">
-                            Apunta la cámara al código de barras. El código se llenará automáticamente.
-                        </p>
+                        <p class="camara-hint">Apunta la cámara al código de barras. El código se llenará automáticamente.</p>
                     </div>
-                    <p v-if="cameraError && !cameraActiva && scanTarget === 'codigo'" class="camara-error mt-1">
-                        <i class="pi pi-exclamation-circle" /> {{ cameraError }}
-                    </p>
+                    <p v-if="cameraError && !cameraActiva && scanTarget === 'codigo'" class="camara-error mt-1"><i class="pi pi-exclamation-circle" /> {{ cameraError }}</p>
                 </div>
 
                 <!-- Ubicación -->
                 <div class="form-field">
-                    <label class="form-label required">
-                        <i class="pi pi-map-marker" /> Ubicación
-                    </label>
+                    <label class="form-label required"> <i class="pi pi-map-marker" /> Ubicación </label>
                     <div class="scan-row">
-                        <InputText
-                            v-model="form.ubicacion"
-                            class="scan-input"
-                            :class="{ 'p-invalid': !form.ubicacion?.trim() && saving }"
-                            @blur="procesarInputBlur('ubicacion')"
-                            @keydown.enter="procesarInputBlur('ubicacion')"
-                        />
-                        <Button
-                            v-if="!cameraActiva"
-                            icon="pi pi-camera"
-                            severity="secondary"
-                            outlined
-                            :loading="cameraLoading"
-                            v-tooltip.top="'Escanear con cámara'"
-                            @click="iniciarCamara('ubicacion')"
-                        />
-                        <Button
-                            v-else-if="scanTarget === 'ubicacion'"
-                            icon="pi pi-stop"
-                            severity="danger"
-                            outlined
-                            v-tooltip.top="'Detener cámara'"
-                            @click="detenerCamara"
-                        />
+                        <InputText v-model="form.ubicacion" class="scan-input" :class="{ 'p-invalid': !form.ubicacion?.trim() && saving }" @blur="procesarInputBlur('ubicacion')" @keydown.enter="procesarInputBlur('ubicacion')" />
+                        <Button v-if="!cameraActiva" icon="pi pi-camera" severity="secondary" outlined :loading="cameraLoading" v-tooltip.top="'Escanear con cámara'" @click="iniciarCamara('ubicacion')" />
+                        <Button v-else-if="scanTarget === 'ubicacion'" icon="pi pi-stop" severity="danger" outlined v-tooltip.top="'Detener cámara'" @click="detenerCamara" />
                     </div>
                     <small class="form-hint">Descripción de la ubicación física (requerido)</small>
 
                     <!-- Panel de cámara -->
                     <div v-if="(cameraActiva || cameraLoading) && scanTarget === 'ubicacion'" class="camara-panel">
-                        <p v-if="cameraError" class="camara-error">
-                            <i class="pi pi-exclamation-circle" /> {{ cameraError }}
-                        </p>
+                        <p v-if="cameraError" class="camara-error"><i class="pi pi-exclamation-circle" /> {{ cameraError }}</p>
                         <div :id="CAMARA_HOST_ID" class="camara-host" />
-                        <p class="camara-hint">
-                            Apunta la cámara al código de barras. La ubicación se llenará automáticamente.
-                        </p>
+                        <p class="camara-hint">Apunta la cámara al código de barras. La ubicación se llenará automáticamente.</p>
                     </div>
-                    <p v-if="cameraError && !cameraActiva && scanTarget === 'ubicacion'" class="camara-error mt-1">
-                        <i class="pi pi-exclamation-circle" /> {{ cameraError }}
-                    </p>
+                    <p v-if="cameraError && !cameraActiva && scanTarget === 'ubicacion'" class="camara-error mt-1"><i class="pi pi-exclamation-circle" /> {{ cameraError }}</p>
                 </div>
 
                 <!-- Localidad -->
                 <div class="form-field">
-                    <label class="form-label">
-                        <i class="pi pi-building" /> Localidad
-                    </label>
-                    <InputText
-                        v-model="form.localidad"
-                        class="w-full"
-                        maxlength="10"
-                        @blur="procesarInputBlur('localidad')"
-                        @keydown.enter="procesarInputBlur('localidad')"
-                    />
+                    <label class="form-label"> <i class="pi pi-building" /> Localidad </label>
+                    <InputText v-model="form.localidad" class="w-full" maxlength="10" @blur="procesarInputBlur('localidad')" @keydown.enter="procesarInputBlur('localidad')" />
                     <small class="form-hint">Código de localidad (máx. 10 caracteres)</small>
                 </div>
 
                 <!-- Usuario -->
                 <div class="form-field">
-                    <label class="form-label">
-                        <i class="pi pi-user" /> Usuario
-                    </label>
-                    <InputText
-                        v-model="form.usuario"
-                        placeholder="Ej. admin"
-                        class="w-full p-disabled"
-                        maxlength="50"
-                        readonly
-                    />
+                    <label class="form-label"> <i class="pi pi-user" /> Usuario </label>
+                    <InputText v-model="form.usuario" placeholder="Ej. admin" class="w-full p-disabled" maxlength="50" readonly />
                     <small class="form-hint">Usuario responsable del registro (poblado automáticamente)</small>
                 </div>
 
                 <!-- Activo -->
                 <div class="form-field form-field-inline">
-                    <label class="form-label">
-                        <i class="pi pi-power-off" /> Estado
-                    </label>
+                    <label class="form-label"> <i class="pi pi-power-off" /> Estado </label>
                     <div class="flex items-center gap-3">
                         <ToggleSwitch v-model="form.activo" inputId="activo-switch" :disabled="!canWrite" />
                         <label for="activo-switch" class="cursor-pointer select-none text-sm font-medium">
@@ -1116,107 +706,20 @@ onUnmounted(detenerCamara);
             </div>
 
             <template #footer>
-                <Button
-                    label="Cancelar"
-                    icon="pi pi-times"
-                    severity="secondary"
-                    outlined
-                    :disabled="saving"
-                    @click="showDialog = false"
-                />
-                <Button
-                    :label="isEditing ? 'Actualizar' : 'Crear'"
-                    :icon="isEditing ? 'pi pi-check' : 'pi pi-plus'"
-                    :loading="saving"
-                    @click="guardar"
-                    :disabled="!canWrite"
-                />
+                <Button label="Cancelar" icon="pi pi-times" severity="secondary" outlined :disabled="saving" @click="showDialog = false" />
+                <Button :label="isEditing ? 'Actualizar' : 'Crear'" :icon="isEditing ? 'pi pi-check' : 'pi pi-plus'" :loading="saving" @click="guardar" :disabled="!canWrite" />
             </template>
         </Dialog>
 
         <!-- Dialog: Escáner Filtro -->
-        <Dialog
-            v-model:visible="showScannerDialog"
-            :style="{ width: '400px' }"
-            :header="scanTarget === 'filtroUbicacion' ? 'Escanear Ubicación' : 'Escanear Código'"
-            :modal="true"
-        >
+        <Dialog v-model:visible="showScannerDialog" :style="{ width: '400px' }" :header="scanTarget === 'filtroUbicacion' ? 'Escanear Ubicación' : 'Escanear Código'" :modal="true">
             <div class="camara-panel mt-3">
-                <p v-if="cameraError" class="camara-error">
-                    <i class="pi pi-exclamation-circle" /> {{ cameraError }}
-                </p>
+                <p v-if="cameraError" class="camara-error"><i class="pi pi-exclamation-circle" /> {{ cameraError }}</p>
                 <div id="camara-filter-host" class="camara-host" />
                 <p class="camara-hint">
                     {{ scanTarget === 'filtroUbicacion' ? 'Apunta la cámara al código de barras para buscar la ubicación.' : 'Apunta la cámara al código de barras para buscar por código.' }}
                 </p>
             </div>
-        </Dialog>
-
-        <!-- Dialog: Eliminar por Ubicación (Purga de todos los códigos de una ubicación) -->
-        <Dialog
-            v-model:visible="showPurgeDialog"
-            :style="{ width: '520px' }"
-            :breakpoints="{ '1199px': '85vw', '575px': '98vw' }"
-            header="Eliminar por Ubicación"
-            :modal="true"
-            :closable="!purging"
-        >
-            <div class="form-grid p-2">
-                <div class="form-field">
-                    <label class="form-label required">
-                        <i class="pi pi-map-marker" /> Ubicación a vaciar
-                    </label>
-                    <div class="scan-row">
-                        <AutoComplete
-                            v-model="purgeLocationQuery"
-                            :suggestions="sugerenciasUbicacion"
-                            @complete="buscarSugerenciasUbicacion"
-                            dropdown
-                            placeholder="Escribe o selecciona la ubicación..."
-                            class="w-full"
-                            inputClass="w-full"
-                        />
-                        <Button
-                            icon="pi pi-camera"
-                            severity="secondary"
-                            outlined
-                            v-tooltip.top="'Escanear ubicación con cámara'"
-                            @click="abrirScannerFiltro('purgeLocation')"
-                        />
-                    </div>
-                    <small class="form-hint">Escribe el código exacto de la ubicación (ej. A1-02-03) o escanéalo.</small>
-                </div>
-
-                <div v-if="purgeLocationQuery.trim()" class="p-3 border rounded-lg bg-surface-50 dark:bg-surface-800 border-surface-200 dark:border-surface-700 mt-3">
-                    <div v-if="ubicacionesParaPurga.length > 0" class="flex flex-col gap-2 text-sm">
-                        <div class="flex justify-between items-center text-primary font-bold">
-                            <span>Ubicación: {{ purgeLocationQuery.trim() }}</span>
-                            <span class="px-2.5 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded-full text-xs font-extrabold">
-                                {{ ubicacionesParaPurga.length }} registro(s) encontrados
-                            </span>
-                        </div>
-                        <p class="text-xs text-secondary m-0">
-                            Se eliminarán de forma permanente todos los códigos de producto asignados a esta ubicación.
-                        </p>
-                    </div>
-                    <div v-else class="text-sm text-secondary flex items-center gap-2">
-                        <i class="pi pi-info-circle text-warn" />
-                        <span>No hay códigos registrados asignados a "{{ purgeLocationQuery.trim() }}".</span>
-                    </div>
-                </div>
-            </div>
-
-            <template #footer>
-                <Button label="Cancelar" icon="pi pi-times" severity="secondary" outlined @click="showPurgeDialog = false" :disabled="purging" />
-                <Button
-                    :label="`Eliminar ${ubicacionesParaPurga.length} registros`"
-                    icon="pi pi-trash"
-                    severity="danger"
-                    :loading="purging"
-                    :disabled="ubicacionesParaPurga.length === 0 || !canWrite"
-                    @click="ejecutarPurgaUbicacion"
-                />
-            </template>
         </Dialog>
 
         <ConfirmDialog />
@@ -1226,7 +729,9 @@ onUnmounted(detenerCamara);
 <style scoped lang="scss">
 .ubications-container {
     padding: 1rem;
-    @media (min-width: 768px) { padding: 1.5rem; }
+    @media (min-width: 768px) {
+        padding: 1.5rem;
+    }
 }
 
 .card {
@@ -1298,8 +803,12 @@ onUnmounted(detenerCamara);
     font-weight: 700;
     color: var(--text-color);
     line-height: 1;
-    &.stat-activa { color: var(--green-500); }
-    &.stat-inactiva { color: var(--red-400); }
+    &.stat-activa {
+        color: var(--green-500);
+    }
+    &.stat-inactiva {
+        color: var(--red-400);
+    }
 }
 
 .stat-label {
@@ -1341,9 +850,16 @@ onUnmounted(detenerCamara);
         padding: 1.2rem;
         gap: 1rem;
     }
-    .stat-divider { display: none; }
-    .stat-value { font-size: 1.4rem; }
-    .stat-label { font-size: 0.7rem; text-align: center; }
+    .stat-divider {
+        display: none;
+    }
+    .stat-value {
+        font-size: 1.4rem;
+    }
+    .stat-label {
+        font-size: 0.7rem;
+        text-align: center;
+    }
 }
 
 /* Toolbar */
@@ -1358,10 +874,10 @@ onUnmounted(detenerCamara);
 .codigo-badge {
     background: var(--surface-100);
     color: var(--primary-color);
-    padding: 0.25rem 0.75rem;
+    padding: 0.28rem 0.75rem;
     border-radius: 20px;
     font-weight: 700;
-    font-size: 0.85rem;
+    font-size: 0.83rem;
     font-family: monospace;
     border: 1px solid color-mix(in srgb, var(--primary-color) 25%, transparent);
     letter-spacing: 0.04em;
@@ -1418,7 +934,9 @@ onUnmounted(detenerCamara);
 .fecha-text {
     font-size: 0.9rem;
     color: var(--text-color);
-    &.text-secondary { color: var(--text-color-secondary); }
+    &.text-secondary {
+        color: var(--text-color-secondary);
+    }
 }
 
 /* Acciones */
@@ -1433,7 +951,10 @@ onUnmounted(detenerCamara);
     text-align: center;
     padding: 3rem 1rem;
     color: var(--text-color-secondary);
-    p { margin: 0.75rem 0; font-size: 1rem; }
+    p {
+        margin: 0.75rem 0;
+        font-size: 1rem;
+    }
 }
 
 /* Escáner en dialog */
@@ -1478,7 +999,10 @@ onUnmounted(detenerCamara);
     display: flex;
     align-items: flex-start;
     gap: 0.4rem;
-    i { margin-top: 2px; flex-shrink: 0; }
+    i {
+        margin-top: 2px;
+        flex-shrink: 0;
+    }
 }
 
 .camara-hint {
@@ -1536,7 +1060,9 @@ onUnmounted(detenerCamara);
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1rem;
-    @media (max-width: 480px) { grid-template-columns: 1fr; }
+    @media (max-width: 480px) {
+        grid-template-columns: 1fr;
+    }
 }
 
 .detail-field {

@@ -17,9 +17,7 @@ const cameraVisible = ref(false);
 const cameraLoading = ref(false);
 const cameraSupported = ref(true);
 
-const totalLabel = computed(() =>
-    `TOTAL (${tiendas.value.length} tienda${tiendas.value.length === 1 ? '' : 's'})`
-);
+const totalLabel = computed(() => `TOTAL (${tiendas.value.length} tienda${tiendas.value.length === 1 ? '' : 's'})`);
 
 let html5Scanner = null;
 // timeout de 6s para detectar cuando la camara no se inicializa
@@ -47,9 +45,15 @@ function fmt(n) {
     return Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
-function showError(t) { toast.add({ severity: 'error', summary: 'Error', detail: t, life: 4000 }); }
-function showWarn(t)  { toast.add({ severity: 'warn',  summary: 'Atención', detail: t, life: 4000 }); }
-function showInfo(t)  { toast.add({ severity: 'info',  summary: 'Info', detail: t, life: 3000 }); }
+function showError(t) {
+    toast.add({ severity: 'error', summary: 'Error', detail: t, life: 4000 });
+}
+function showWarn(t) {
+    toast.add({ severity: 'warn', summary: 'Atención', detail: t, life: 4000 });
+}
+function showInfo(t) {
+    toast.add({ severity: 'info', summary: 'Info', detail: t, life: 3000 });
+}
 
 /**
  * Normaliza lo que llega del scanner o de tipeo manual.
@@ -86,7 +90,7 @@ async function buscar() {
 
     try {
         const r = await fetch('/api/v1/escaneo-producto/' + encodeURIComponent(value), {
-            headers: { 'Authorization': 'Bearer ' + authStore.token, 'Accept': 'application/json' }
+            headers: { Authorization: 'Bearer ' + authStore.token, Accept: 'application/json' }
         });
         if (r.status === 401 || r.status === 403) {
             showError('Sesión expirada o sin permisos. Vuelve a iniciar sesión.');
@@ -106,12 +110,15 @@ async function buscar() {
         const data = await r.json();
         product.value = data;
         tiendas.value = data.tiendas || [];
-        let tPiso = 0, tAlm = 0, tCedis = 0, tTotal = 0;
+        let tPiso = 0,
+            tAlm = 0,
+            tCedis = 0,
+            tTotal = 0;
         for (const t of tiendas.value) {
-            tPiso  += t.piso    || 0;
-            tAlm   += t.almacen || 0;
-            tCedis += t.cedis   || 0;
-            tTotal += t.total   || 0;
+            tPiso += t.piso || 0;
+            tAlm += t.almacen || 0;
+            tCedis += t.cedis || 0;
+            tTotal += t.total || 0;
         }
         totales.value = { piso: tPiso, almacen: tAlm, cedis: tCedis, total: tTotal };
     } catch (e) {
@@ -190,8 +197,16 @@ async function toggleScanner() {
 
 async function stopScanner() {
     if (html5Scanner) {
-        try { await html5Scanner.stop(); } catch (_) { /* noop */ }
-        try { await html5Scanner.clear(); } catch (_) { /* noop */ }
+        try {
+            await html5Scanner.stop();
+        } catch (_) {
+            /* noop */
+        }
+        try {
+            await html5Scanner.clear();
+        } catch (_) {
+            /* noop */
+        }
         html5Scanner = null;
     }
     cameraVisible.value = false;
@@ -221,7 +236,11 @@ async function escanearArchivo(event) {
             code.value = result;
             buscar();
         } finally {
-            try { await scanner.clear(); } catch (_) { /* noop */ }
+            try {
+                await scanner.clear();
+            } catch (_) {
+                /* noop */
+            }
             document.body.removeChild(tempHost);
         }
     } catch (e) {
@@ -233,8 +252,16 @@ async function escanearArchivo(event) {
 
 onBeforeUnmount(async () => {
     if (html5Scanner) {
-        try { await html5Scanner.stop(); } catch (_) { /* noop */ }
-        try { await html5Scanner.clear(); } catch (_) { /* noop */ }
+        try {
+            await html5Scanner.stop();
+        } catch (_) {
+            /* noop */
+        }
+        try {
+            await html5Scanner.clear();
+        } catch (_) {
+            /* noop */
+        }
         html5Scanner = null;
     }
 });
@@ -252,20 +279,9 @@ onBeforeUnmount(async () => {
                  propaga keydown.enter desde InputText). Ademas dejamos
                  keyup.enter como red de seguridad. -->
             <form class="escaneo-search" @submit.prevent="buscar">
-                <InputText
-                    v-model="code"
-                    placeholder="Escanea o escribe el código (Enter para buscar)"
-                    class="escaneo-input"
-                    @keyup.enter.prevent="buscar"
-                />
+                <InputText v-model="code" placeholder="Escanea o escribe el código (Enter para buscar)" class="escaneo-input" @keyup.enter.prevent="buscar" />
                 <Button type="submit" label="Buscar" />
-                <Button
-                    type="button"
-                    :label="cameraVisible ? 'Detener cámara' : 'Escanear'"
-                    :severity="cameraVisible ? 'danger' : 'secondary'"
-                    :loading="cameraLoading"
-                    @click="toggleScanner"
-                />
+                <Button type="button" :label="cameraVisible ? 'Detener cámara' : 'Escanear'" :severity="cameraVisible ? 'danger' : 'secondary'" :loading="cameraLoading" @click="toggleScanner" />
             </form>
 
             <!-- wrapper con position:relative. adentro:
@@ -282,25 +298,19 @@ onBeforeUnmount(async () => {
             </div>
 
             <div class="escaneo-upload-row">
-                <label for="escaneo-file" class="escaneo-upload-label">
-                    <i class="pi pi-image" /> Escanear desde imagen (si la camara no funciona)
-                </label>
-                <input
-                    id="escaneo-file"
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    class="escaneo-upload-input"
-                    @change="escanearArchivo"
-                />
+                <label for="escaneo-file" class="escaneo-upload-label"> <i class="pi pi-image" /> Escanear desde imagen (si la camara no funciona) </label>
+                <input id="escaneo-file" type="file" accept="image/*" capture="environment" class="escaneo-upload-input" @change="escanearArchivo" />
             </div>
 
-            <p class="escaneo-hint">El token se reutiliza del login del SPA.</p>
+            
         </section>
 
         <section v-if="loading" class="escaneo-card escaneo-loading">
             <ProgressSpinner style="width: 50px; height: 50px" strokeWidth="4" />
-            <p style="margin-top: 1rem">Buscando <code>{{ code }}</code>…</p>
+            <p style="margin-top: 1rem">
+                Buscando <code>{{ code }}</code
+                >…
+            </p>
         </section>
 
         <section v-else-if="product" class="escaneo-card">
@@ -308,7 +318,9 @@ onBeforeUnmount(async () => {
                 <div class="escaneo-product-info">
                     <h3 class="escaneo-product-title">{{ product.descripcion || '(sin descripción)' }}</h3>
                     <div class="escaneo-product-meta">
-                        <span><strong>Código:</strong> <code>{{ product.codigo || '—' }}</code></span>
+                        <span
+                            ><strong>Código:</strong> <code>{{ product.codigo || '—' }}</code></span
+                        >
                         <span v-if="product.codigoBarra">
                             <strong>Barra:</strong> <code>{{ product.codigoBarra }}</code>
                         </span>
@@ -316,7 +328,9 @@ onBeforeUnmount(async () => {
                 </div>
                 <div class="escaneo-price-block">
                     <div v-if="product.enOferta && product.precioOferta && product.precio1" class="escaneo-price-offer-wrap">
-                        <div class="escaneo-price-old"><s>{{ fmtMoney(product.precio1) }}</s></div>
+                        <div class="escaneo-price-old">
+                            <s>{{ fmtMoney(product.precio1) }}</s>
+                        </div>
                         <div class="escaneo-price-offer">
                             {{ fmtMoney(product.precioOferta) }}
                             <span class="escaneo-badge">Oferta</span>
@@ -332,27 +346,21 @@ onBeforeUnmount(async () => {
 
             <h4 class="escaneo-section-title">Disponibilidad por tienda</h4>
 
-            <Message v-if="tiendas.length === 0" severity="info" :closable="false">
-                El producto existe pero no se encontró inventario desglosado en la vista R3.
-            </Message>
+            <Message v-if="tiendas.length === 0" severity="info" :closable="false"> El producto existe pero no se encontró inventario desglosado en la vista R3. </Message>
 
-            <DataTable
-                v-else
-                :value="tiendas"
-                class="escaneo-tiendas"
-            >
-                <Column field="departamento" header="Tienda" :header-style="{ textAlign: 'left', background: '#f9fafb' }"></Column>
-                <Column field="piso"      header="Piso"     :header-style="{ textAlign: 'right', background: '#f9fafb' }" :body-style="{ textAlign: 'right' }"></Column>
-                <Column field="almacen"   header="Almacén"  :header-style="{ textAlign: 'right', background: '#f9fafb' }" :body-style="{ textAlign: 'right' }"></Column>
-                <Column field="cedis"     header="Cedis"    :header-style="{ textAlign: 'right', background: '#f9fafb' }" :body-style="{ textAlign: 'right' }"></Column>
-                <Column field="total"     header="Total"    :header-style="{ textAlign: 'right', background: '#f9fafb', fontWeight: '700' }" :body-style="{ textAlign: 'right', fontWeight: '700' }"></Column>
+            <DataTable v-else :value="tiendas" class="escaneo-tiendas">
+                <Column field="departamento" header="Tienda" header-style="text-align:left"></Column>
+                <Column field="piso" header="Piso" header-style="text-align:right" body-style="text-align:right"></Column>
+                <Column field="almacen" header="Almacén" header-style="text-align:right" body-style="text-align:right"></Column>
+                <Column field="cedis" header="Cedis" header-style="text-align:right" body-style="text-align:right"></Column>
+                <Column field="total" header="Total" header-style="text-align:right;font-weight:700" body-style="text-align:right;font-weight:700"></Column>
                 <ColumnGroup type="footer">
                     <Row>
-                        <Column :footer="totalLabel" :footer-style="{ textAlign: 'left', fontWeight: '700' }" />
-                        <Column :footer="fmt(totales.piso)"      :footer-style="{ textAlign: 'right' }" />
-                        <Column :footer="fmt(totales.almacen)"   :footer-style="{ textAlign: 'right' }" />
-                        <Column :footer="fmt(totales.cedis)"     :footer-style="{ textAlign: 'right' }" />
-                        <Column :footer="fmt(totales.total)"     :footer-style="{ textAlign: 'right', fontWeight: '700' }" />
+                        <Column :footer="totalLabel" footer-style="text-align:left;font-weight:700" />
+                        <Column :footer="fmt(totales.piso)" footer-style="text-align:right" />
+                        <Column :footer="fmt(totales.almacen)" footer-style="text-align:right" />
+                        <Column :footer="fmt(totales.cedis)" footer-style="text-align:right" />
+                        <Column :footer="fmt(totales.total)" footer-style="text-align:right;font-weight:700" />
                     </Row>
                 </ColumnGroup>
             </DataTable>
@@ -369,7 +377,9 @@ onBeforeUnmount(async () => {
     background: var(--surface-card, #fff);
     border-radius: 12px;
     padding: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.06),
+        0 1px 2px rgba(0, 0, 0, 0.04);
     margin-bottom: 1rem;
 }
 .escaneo-header {
@@ -569,15 +579,17 @@ onBeforeUnmount(async () => {
     font-size: 0.8125rem;
     font-weight: 700;
     padding: 12px 16px;
-    border-bottom: 1px solid #e5e7eb;
-    background: #f9fafb;
+    border-bottom: 1px solid var(--p-datatable-column-border-color, #e5e7eb);
+    background: var(--p-datatable-header-cell-background, #f9fafb);
+    color: var(--p-datatable-header-cell-color, inherit);
     white-space: nowrap;
 }
 .escaneo-tiendas :deep(.p-datatable-tbody > tr > td) {
     padding: 12px 16px;
     font-size: 0.875rem;
     vertical-align: middle;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--p-datatable-column-border-color, #f3f4f6);
+    color: var(--p-datatable-body-cell-color, inherit);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -585,8 +597,9 @@ onBeforeUnmount(async () => {
 .escaneo-tiendas :deep(.p-datatable-tfoot > tr > td) {
     padding: 14px 16px;
     font-size: 0.875rem;
-    background: #f9fafb;
-    border-top: 2px solid #e5e7eb;
+    background: var(--p-datatable-header-cell-background, #f9fafb);
+    color: var(--p-datatable-header-cell-color, inherit);
+    border-top: 2px solid var(--p-datatable-column-border-color, #e5e7eb);
     white-space: nowrap;
 }
 .escaneo-tiendas :deep(.p-datatable-tbody > tr:last-child > td) {
@@ -608,6 +621,31 @@ onBeforeUnmount(async () => {
 .escaneo-tiendas :deep(.p-datatable-tbody > tr > td:nth-child(5)) {
     width: 12%;
     text-align: right;
+}
+
+.app-dark .escaneo-tiendas :deep(.p-datatable-thead > tr > th),
+.app-dark .escaneo-tiendas :deep(.p-datatable-tfoot > tr > td) {
+    background: var(--p-surface-800);
+    color: var(--p-surface-0);
+    border-color: var(--p-surface-700);
+}
+.app-dark .escaneo-tiendas :deep(.p-datatable-tbody > tr > td) {
+    background: var(--p-surface-900);
+    color: var(--p-surface-100);
+    border-color: var(--p-surface-700);
+}
+.app-dark .escaneo-tiendas :deep(.p-datatable-tbody > tr:hover > td) {
+    background: var(--p-surface-700);
+}
+.app-dark .escaneo-card {
+    background: var(--p-surface-900);
+}
+.app-dark .escaneo-upload-row {
+    background: var(--p-surface-800);
+    border-color: var(--p-surface-700);
+}
+.app-dark .escaneo-product-meta code {
+    background: var(--p-surface-800);
 }
 
 @media (max-width: 760px) {

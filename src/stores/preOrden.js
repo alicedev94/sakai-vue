@@ -23,7 +23,7 @@ export const usePreOrdenStore = defineStore('preOrden', () => {
             if (data && data.content !== undefined) {
                 preOrdenes.value = data.content;
                 // Soporta tanto Page (totalElements) como PagedModel (page.totalElements)
-                totalRecords.value = data.page ? data.page.totalElements : (data.totalElements !== undefined ? data.totalElements : data.content.length);
+                totalRecords.value = data.page ? data.page.totalElements : data.totalElements !== undefined ? data.totalElements : data.content.length;
             } else {
                 preOrdenes.value = Array.isArray(data) ? data : [];
                 totalRecords.value = preOrdenes.value.length;
@@ -164,6 +164,6 @@ export const usePreOrdenStore = defineStore('preOrden', () => {
         actualizarPreOrden,
         eliminarPreOrden,
         aprobarPreOrden,
-        limpiarOrdenActiva,
+        limpiarOrdenActiva
     };
 });

@@ -62,7 +62,7 @@ export const useRoleStore = defineStore('role', () => {
         error.value = null;
         try {
             const updated = await RoleService.updateRole(id, roleData);
-            const idx = roles.value.findIndex(r => r.id === id);
+            const idx = roles.value.findIndex((r) => r.id === id);
             if (idx !== -1) {
                 roles.value[idx] = updated;
             }
@@ -81,7 +81,7 @@ export const useRoleStore = defineStore('role', () => {
         error.value = null;
         try {
             await RoleService.softDeleteRole(id);
-            const idx = roles.value.findIndex(r => r.id === id);
+            const idx = roles.value.findIndex((r) => r.id === id);
             if (idx !== -1) {
                 roles.value[idx].status = false;
                 roles.value[idx].deletedAt = new Date().toISOString();
