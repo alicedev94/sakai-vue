@@ -2,9 +2,14 @@
 # Si necesitas configurar URLs diferentes para desarrollo/producción
 # Crea un archivo .env.local en la raíz del proyecto con este contenido:
 
-VITE_API_BASE_URL=http://localhost:8080/api/v1
+VITE_API_BASE_URL=/api/v1
+VITE_BACKEND_R1=/r1/api/v1
+VITE_BACKEND_R2=/r2/api/v1
+VITE_BACKEND_R3=/r3/api/v1
 VITE_PORT=3000
 VITE_MODE=development
 
-# Nota: Actualmente no son necesarias porque el proxy de Vite 
+# Nota: Actualmente no son necesarias porque el proxy de Vite
 # está configurado directamente en vite.config.mjs
+# En producción, el archivo .env se usa para mapear /r1, /r2, /r3
+# a los backends correspondientes vía proxy de nginx.

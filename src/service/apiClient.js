@@ -1,9 +1,18 @@
 import { useAuthStore } from '@/stores/auth';
 import axios from 'axios';
 
+const getBackendBaseURL = () => {
+    if (typeof window === 'undefined') return '/api/v1';
+    const path = window.location.pathname;
+    if (path.startsWith('/r1')) return import.meta.env.VITE_BACKEND_R1;
+    if (path.startsWith('/r2')) return import.meta.env.VITE_BACKEND_R2;
+    if (path.startsWith('/r3')) return import.meta.env.VITE_BACKEND_R3;
+    return import.meta.env.VITE_API_BASE_URL || '/api/v1';
+};
+
 // Instancia de Axios compartida para todos los servicios
 const apiClient = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
+    baseURL: getBackendBaseURL(),
     headers: {
         'Content-Type': 'application/json'
     },
