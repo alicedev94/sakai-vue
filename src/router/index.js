@@ -206,6 +206,14 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
     const authStore = useAuthStore();
 
+    // Normalizar prefijo /rN → /v1/ para que las rutas de Vue Router funcionen
+    const rMatch = to.path.match(/^\/r([123])(\/.*)?$/);
+    if (rMatch) {
+        const suffix = rMatch[2] || '/';
+        next({ path: '/v1' + suffix, replace: true });
+        return;
+    }
+
     // Validar la sesión antes de cada navegación
     const isAuthenticated = authStore.validateSession();
 
