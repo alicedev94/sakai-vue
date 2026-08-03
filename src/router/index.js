@@ -206,10 +206,16 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
     const authStore = useAuthStore();
 
-    // Normalizar prefijo /rN → /v1/ para que las rutas de Vue Router funcionen
+    // Normalizar prefijo /rN o /v1/rN → /v1/
     const rMatch = to.path.match(/^\/r([123])(\/.*)?$/);
+    const v1rMatch = to.path.match(/^\/v1\/r([123])(\/.*)?$/);
     if (rMatch) {
         const suffix = rMatch[2] || '/';
+        next({ path: '/v1' + suffix, replace: true });
+        return;
+    }
+    if (v1rMatch) {
+        const suffix = v1rMatch[2] || '/';
         next({ path: '/v1' + suffix, replace: true });
         return;
     }
@@ -221,13 +227,20 @@ router.beforeEach((to, from, next) => {
     if (to.meta.requiresAuth && !isAuthenticated) {
         console.log('🔒 Ruta protegida, redirigiendo al login...');
 
+        // Preservar el prefijo /rN en el redirect para que después del
+        // login el usuario vuelva al entorno correcto.
+        const redirectPath = to.path.match(/^\/r([123])/)
+            ? '/v1' + to.path
+            : to.fullPath;
+
         // NO cerramos sesión aquí. La sesión queda en localStorage; si el
         // usuario ya está autenticado y esto es un race, validateSession()
         // re-hidrata desde localStorage antes de devolver false.
         next({
             name: 'login',
-            query: { redirect: to.fullPath }
+            query: { redirect: redirectPath }
         });
+        return;
     }
     // Si la ruta es solo para invitados (login, register)
     else if (to.meta.requiresGuest && isAuthenticated) {
