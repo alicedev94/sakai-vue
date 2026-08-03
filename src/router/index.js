@@ -168,6 +168,31 @@ const router = createRouter({
             name: 'landing',
             component: () => import('@/views/pages/Landing.vue')
         }, */
+        // Redirigir /rN y /rN/ al dashboard principal
+        {
+            path: '/r1',
+            redirect: '/v1/'
+        },
+        {
+            path: '/r1/',
+            redirect: '/v1/'
+        },
+        {
+            path: '/r2',
+            redirect: '/v1/'
+        },
+        {
+            path: '/r2/',
+            redirect: '/v1/'
+        },
+        {
+            path: '/r3',
+            redirect: '/v1/'
+        },
+        {
+            path: '/r3/',
+            redirect: '/v1/'
+        },
         {
             path: '/v1/pages/notfound',
             name: 'notfound',
