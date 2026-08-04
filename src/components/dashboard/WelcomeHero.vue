@@ -25,6 +25,17 @@ const currentDate = computed(() => {
     };
     return new Date().toLocaleDateString('es-ES', options);
 });
+
+const currentStore = computed(() => {
+    if (typeof window === 'undefined') return null;
+    const stored = localStorage.getItem('sakai-backend');
+    const path = window.location.pathname;
+    let id = null;
+    if (path.startsWith('/r1') || stored?.includes('/r1/')) id = 1;
+    else if (path.startsWith('/r2') || stored?.includes('/r2/')) id = 2;
+    else if (path.startsWith('/r3') || stored?.includes('/r3/')) id = 3;
+    return id ? `R${id}` : null;
+});
 </script>
 
 <template>
@@ -32,6 +43,12 @@ const currentDate = computed(() => {
         <div class="mesh-gradient"></div>
         <div class="content-wrapper">
             <div class="text-content">
+                <div class="store-badge-row">
+                    <span v-if="currentStore" class="store-badge">
+                        <i class="pi pi-shop"></i>
+                        Estás en la tienda {{ currentStore }}
+                    </span>
+                </div>
                 <h1 class="greeting">
                     {{ greeting }}, <span class="user-name">{{ userName }}</span
                     >!
@@ -106,6 +123,30 @@ const currentDate = computed(() => {
 
 .text-content {
     flex: 1;
+}
+
+.store-badge-row {
+    margin-bottom: 0.75rem;
+}
+
+.store-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.85rem;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(8px);
+    border-radius: 999px;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.store-badge i {
+    font-size: 0.85rem;
 }
 
 .greeting {

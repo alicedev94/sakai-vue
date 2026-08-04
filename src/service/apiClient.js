@@ -3,8 +3,6 @@ import axios from 'axios';
 
 const getBackendBaseURL = () => {
     if (typeof window === 'undefined') return '/api/v1';
-    const stored = localStorage.getItem('sakai-backend');
-    if (stored) return stored;
     const path = window.location.pathname;
     let backend = null;
     if (path.startsWith('/r1')) backend = import.meta.env.VITE_BACKEND_R1;
@@ -14,6 +12,10 @@ const getBackendBaseURL = () => {
         try { localStorage.setItem('sakai-backend', backend); } catch { /* noop */ }
         return backend;
     }
+    // Fallback: si el pathname no tiene /rN (ej. /v1/ después de redirect),
+    // usar lo que esté en localStorage para mantener la sesión entre navegaciones
+    const stored = localStorage.getItem('sakai-backend');
+    if (stored) return stored;
     return import.meta.env.VITE_API_BASE_URL || '/api/v1';
 };
 
