@@ -205,6 +205,43 @@ const router = createRouter({
             path: '/r3/',
             redirect: '/v1/'
         },
+        // Redirigir /v1/rN y /v1/rN/* al dashboard /v1/* (caso login redirect)
+        {
+            path: '/v1/r1/:pathMatch(.*)*',
+            redirect: '/v1/:pathMatch(.*)*'
+        },
+        {
+            path: '/v1/r2/:pathMatch(.*)*',
+            redirect: '/v1/:pathMatch(.*)*'
+        },
+        {
+            path: '/v1/r3/:pathMatch(.*)*',
+            redirect: '/v1/:pathMatch(.*)*'
+        },
+        {
+            path: '/v1/r1',
+            redirect: '/v1/'
+        },
+        {
+            path: '/v1/r1/',
+            redirect: '/v1/'
+        },
+        {
+            path: '/v1/r2',
+            redirect: '/v1/'
+        },
+        {
+            path: '/v1/r2/',
+            redirect: '/v1/'
+        },
+        {
+            path: '/v1/r3',
+            redirect: '/v1/'
+        },
+        {
+            path: '/v1/r3/',
+            redirect: '/v1/'
+        },
         {
             path: '/v1/pages/notfound',
             name: 'notfound',
