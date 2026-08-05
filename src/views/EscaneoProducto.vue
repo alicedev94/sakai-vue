@@ -4,6 +4,7 @@ import { useToast } from 'primevue/usetoast';
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue';
 
 import { useAuthStore } from '@/stores/auth';
+import apiClient from '@/service/apiClient';
 
 const toast = useToast();
 const authStore = useAuthStore();
@@ -89,25 +90,8 @@ async function buscar() {
     loading.value = true;
 
     try {
-        const r = await fetch('/api/v1/escaneo-producto/' + encodeURIComponent(value), {
-            headers: { Authorization: 'Bearer ' + authStore.token, Accept: 'application/json' }
-        });
-        if (r.status === 401 || r.status === 403) {
-            showError('Sesión expirada o sin permisos. Vuelve a iniciar sesión.');
-            loading.value = false;
-            return;
-        }
-        if (r.status === 404) {
-            showWarn('No se encontró ningún producto con código ' + value + '.');
-            loading.value = false;
-            return;
-        }
-        if (!r.ok) {
-            showError('Error del servidor: HTTP ' + r.status);
-            loading.value = false;
-            return;
-        }
-        const data = await r.json();
+        const r = await apiClient.get('/escaneo-producto/' + encodeURIComponent(value));
+        const data = r.data;
         product.value = data;
         tiendas.value = data.tiendas || [];
         let tPiso = 0,
@@ -122,7 +106,19 @@ async function buscar() {
         }
         totales.value = { piso: tPiso, almacen: tAlm, cedis: tCedis, total: tTotal };
     } catch (e) {
-        showError('No se pudo conectar: ' + e.message);
+        // Axios rechaza la promesa en 4xx/5xx con error.response poblado
+        if (e.response) {
+            const status = e.response.status;
+            if (status === 401 || status === 403) {
+                showError('Sesión expirada o sin permisos. Vuelve a iniciar sesión.');
+            } else if (status === 404) {
+                showWarn('No se encontró ningún producto con código ' + value + '.');
+            } else {
+                showError('Error del servidor: HTTP ' + status);
+            }
+        } else {
+            showError('No se pudo conectar: ' + e.message);
+        }
     } finally {
         loading.value = false;
     }
