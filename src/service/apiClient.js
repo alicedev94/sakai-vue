@@ -10,6 +10,15 @@ if (typeof window !== 'undefined') {
     );
     console.log('[sakai-apiClient] window.location.pathname =', window.location.pathname);
     console.log('[sakai-apiClient] window.location.href =', window.location.href);
+    const initialBaseURL = (() => {
+        const path = window.location.pathname;
+        if (path.startsWith('/r1')) return import.meta.env.VITE_BACKEND_R1;
+        if (path.startsWith('/r2')) return import.meta.env.VITE_BACKEND_R2;
+        if (path.startsWith('/r3')) return import.meta.env.VITE_BACKEND_R3;
+        return null;
+    })();
+    console.log('[sakai-apiClient] initial baseURL from pathname =', initialBaseURL);
+    console.log('[sakai-apiClient] localStorage sakai-backend =', localStorage.getItem('sakai-backend'));
 }
 
 const getBackendBaseURL = () => {
@@ -23,6 +32,9 @@ const getBackendBaseURL = () => {
         // El usuario está navegando desde un prefijo /rN/ — sobrescribir
         // cualquier cache stale de localStorage y usar este backend.
         try { localStorage.setItem('sakai-backend', backend); } catch { /* noop */ }
+        if (typeof window !== 'undefined') {
+            console.log('[sakai-apiClient] getBackendBaseURL: pathname=' + path + ' -> ' + backend);
+        }
         return backend;
     }
     // Fallback: pathname no tiene /rN (ej. /v1/ después de redirect del router).
@@ -30,7 +42,13 @@ const getBackendBaseURL = () => {
     // valor lo ignoramos para evitar llamadas a /api/v1 cuando estamos en /r1.
     const stored = localStorage.getItem('sakai-backend');
     if (stored && (stored.includes('/r1/') || stored.includes('/r2/') || stored.includes('/r3/'))) {
+        if (typeof window !== 'undefined') {
+            console.log('[sakai-apiClient] getBackendBaseURL: pathname=' + path + ' -> from localStorage: ' + stored);
+        }
         return stored;
+    }
+    if (typeof window !== 'undefined') {
+        console.log('[sakai-apiClient] getBackendBaseURL: pathname=' + path + ' -> FALLBACK /api/v1 (no /rN detected, localStorage=' + stored + ')');
     }
     return import.meta.env.VITE_API_BASE_URL || '/api/v1';
 };
@@ -52,11 +70,18 @@ apiClient.interceptors.request.use(
     (config) => {
         // Recalcular baseURL en cada request para soportar cambio de pathname
         const freshBaseURL = getBackendBaseURL();
-        if (config.baseURL !== freshBaseURL) {
+        if (typeof window !== 'undefined') {
             console.log(
-                '[sakai-apiClient] baseURL change: ' + config.baseURL + ' -> ' + freshBaseURL +
+                '[sakai-apiClient] request: ' + config.method.toUpperCase() + ' ' + freshBaseURL + config.url +
                 ' (pathname: ' + window.location.pathname + ')'
             );
+        }
+        if (config.baseURL !== freshBaseURL) {
+            if (typeof window !== 'undefined') {
+                console.log(
+                    '[sakai-apiClient] baseURL change: ' + config.baseURL + ' -> ' + freshBaseURL
+                );
+            }
             config.baseURL = freshBaseURL;
         }
 

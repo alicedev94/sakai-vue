@@ -1,8 +1,34 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { useRoute } from 'vue-router';
 
 const authStore = useAuthStore();
+const route = useRoute();
+
+// Forzar re-evaluación del currentStore cuando cambia la ruta o el localStorage
+const routePath = ref(route.path);
+const localStorageTick = ref(0);
+
+let pollInterval = null;
+
+onMounted(() => {
+    // Escuchar cambios de localStorage (de otras pestañas)
+    window.addEventListener('storage', () => {
+        localStorageTick.value++;
+    });
+    // Re-evaluar cada 500ms para detectar cambios de pathname
+    pollInterval = setInterval(() => {
+        if (window.location.pathname !== routePath.value) {
+            routePath.value = window.location.pathname;
+        }
+        localStorageTick.value++;
+    }, 500);
+});
+
+onUnmounted(() => {
+    if (pollInterval) clearInterval(pollInterval);
+});
 
 const userName = computed(() => {
     const user = authStore.currentUser;
@@ -27,6 +53,9 @@ const currentDate = computed(() => {
 });
 
 const currentStore = computed(() => {
+    // Dependencias: routePath, localStorageTick (para forzar re-evaluación)
+    // eslint-disable-next-line no-unused-vars
+    const _ = [routePath.value, localStorageTick.value];
     if (typeof window === 'undefined') return null;
     const stored = localStorage.getItem('sakai-backend');
     const path = window.location.pathname;
