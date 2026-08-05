@@ -20,17 +20,26 @@ const getBackendBaseURL = () => {
 };
 
 // Instancia de Axios compartida para todos los servicios
+// baseURL se recalcula en cada request vía interceptor para que los cambios
+// de pathname (ej. entrar por /r1 después de haber cargado el módulo en /v1)
+// se reflejen sin recargar la página.
 const apiClient = axios.create({
-    baseURL: getBackendBaseURL(),
+    baseURL: '/api/v1', // se sobrescribe en cada request
     headers: {
         'Content-Type': 'application/json'
     },
     timeout: 600000
 });
 
-// ─── Interceptor de REQUEST: adjuntar JWT ────────────────────────────────────
+// ─── Interceptor de REQUEST: recalcular baseURL y adjuntar JWT ───────────────
 apiClient.interceptors.request.use(
     (config) => {
+        // Recalcular baseURL en cada request para soportar cambio de pathname
+        const freshBaseURL = getBackendBaseURL();
+        if (config.baseURL !== freshBaseURL) {
+            config.baseURL = freshBaseURL;
+        }
+
         // Leer token desde el store de Pinia si está disponible,
         // o desde localStorage como fallback (p.ej. al recargar la página
         // antes de que Vue/Pinia estén completamente inicializados).
