@@ -53,6 +53,15 @@ const getBackendBaseURL = () => {
     return import.meta.env.VITE_API_BASE_URL || '/api/v1';
 };
 
+// Forzar el guardado en localStorage lo antes posible, ANTES de que Vue Router
+// redirija /r1/ a /v1/. Esto asegura que cuando el interceptor se ejecute
+// después del redirect, localStorage tenga el valor correcto.
+if (typeof window !== 'undefined') {
+    const earlyBaseURL = getBackendBaseURL();
+    console.log('[sakai-apiClient] EARLY baseURL on module load: ' + earlyBaseURL);
+    console.log('[sakai-apiClient] EARLY localStorage sakai-backend: ' + localStorage.getItem('sakai-backend'));
+}
+
 // Instancia de Axios compartida para todos los servicios
 // baseURL se recalcula en cada request vía interceptor para que los cambios
 // de pathname (ej. entrar por /r1 después de haber cargado el módulo en /v1)
