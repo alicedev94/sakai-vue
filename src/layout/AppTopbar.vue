@@ -27,6 +27,23 @@ const userEmail = computed(() => {
 const pendingCount = computed(() => notificationStore.totalPendientes);
 const visibleNotifications = computed(() => notificationStore.notificaciones.slice(0, 10));
 
+const currentStore = computed(() => {
+    if (typeof window === 'undefined') return null;
+    const stored = localStorage.getItem('sakai-backend') || '';
+    const path = window.location.pathname || '';
+
+    if (path.includes('/r1') || stored.includes('/r1/')) {
+        return { id: 1, name: 'Tienda R1', code: 'R1', badgeClass: 'store-badge-r1', color: '#10b981' };
+    }
+    if (path.includes('/r2') || stored.includes('/r2/')) {
+        return { id: 2, name: 'Tienda R2', code: 'R2', badgeClass: 'store-badge-r2', color: '#16a34a' };
+    }
+    if (path.includes('/r3') || stored.includes('/r3/')) {
+        return { id: 3, name: 'Tienda R3', code: 'R3', badgeClass: 'store-badge-r3', color: '#84cc16' };
+    }
+    return null;
+});
+
 const formatFecha = (value) => {
     if (!value) return '';
     const d = new Date(value);
@@ -132,7 +149,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div class="layout-topbar">
+    <div class="layout-topbar" :style="currentStore ? { borderTop: `4px solid ${currentStore.color}` } : {}">
         <div class="layout-topbar-logo-container">
             <button class="layout-menu-button layout-topbar-action" @click="toggleMenu">
                 <i class="pi pi-bars"></i>
@@ -142,6 +159,12 @@ onUnmounted(() => {
                 <img :src="logo" alt="Logo" class="h-10 w-auto logo-rounded shadow-md" />
                 <span class="text-xl font-semibold tracking-wide text-primary"> Tiendas Redu! </span>
             </a>
+
+            <!-- Badge permanente de tienda activa (sin icono para mejor ajuste móvil) -->
+            <div v-if="currentStore" :class="['store-status-pill', currentStore.badgeClass]" v-tooltip.bottom="`Conectado a ${currentStore.name}`">
+                <span class="store-status-dot"></span>
+                <span class="store-status-text">{{ currentStore.name }}</span>
+            </div>
         </div>
 
         <div class="layout-topbar-actions">
@@ -202,6 +225,64 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.store-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    margin-left: 0.5rem;
+    transition: all 0.3s ease;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.store-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 8px currentColor;
+    animation: pulse-dot 2s infinite ease-in-out;
+}
+
+@keyframes pulse-dot {
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(1.3);
+    }
+}
+
+/* Tienda R1: Verde Esmeralda */
+.store-badge-r1 {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Tienda R2: Verde Bosque */
+.store-badge-r2 {
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Tienda R3: Verde Lima / Oliva */
+.store-badge-r3 {
+    background: linear-gradient(135deg, #84cc16 0%, #4d7c0f 100%);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
 .notification-action {
     position: relative;
 }
