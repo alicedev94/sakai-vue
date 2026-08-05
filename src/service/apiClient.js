@@ -1,6 +1,17 @@
 import { useAuthStore } from '@/stores/auth';
 import axios from 'axios';
 
+const BUNDLE_VERSION = '2026-08-05-v5-multi-backend-fix';
+
+if (typeof window !== 'undefined') {
+    console.log(
+        '%c[sakai-apiClient] Bundle: ' + BUNDLE_VERSION,
+        'background:#16a34a;color:white;padding:4px 8px;border-radius:4px;font-weight:bold;'
+    );
+    console.log('[sakai-apiClient] window.location.pathname =', window.location.pathname);
+    console.log('[sakai-apiClient] window.location.href =', window.location.href);
+}
+
 const getBackendBaseURL = () => {
     if (typeof window === 'undefined') return '/api/v1';
     const path = window.location.pathname;
@@ -42,6 +53,10 @@ apiClient.interceptors.request.use(
         // Recalcular baseURL en cada request para soportar cambio de pathname
         const freshBaseURL = getBackendBaseURL();
         if (config.baseURL !== freshBaseURL) {
+            console.log(
+                '[sakai-apiClient] baseURL change: ' + config.baseURL + ' -> ' + freshBaseURL +
+                ' (pathname: ' + window.location.pathname + ')'
+            );
             config.baseURL = freshBaseURL;
         }
 
