@@ -9,13 +9,18 @@ const getBackendBaseURL = () => {
     else if (path.startsWith('/r2')) backend = import.meta.env.VITE_BACKEND_R2;
     else if (path.startsWith('/r3')) backend = import.meta.env.VITE_BACKEND_R3;
     if (backend) {
+        // El usuario está navegando desde un prefijo /rN/ — sobrescribir
+        // cualquier cache stale de localStorage y usar este backend.
         try { localStorage.setItem('sakai-backend', backend); } catch { /* noop */ }
         return backend;
     }
-    // Fallback: si el pathname no tiene /rN (ej. /v1/ después de redirect),
-    // usar lo que esté en localStorage para mantener la sesión entre navegaciones
+    // Fallback: pathname no tiene /rN (ej. /v1/ después de redirect del router).
+    // Usar localStorage SOLO si tiene un valor de /rN/ cacheado; cualquier otro
+    // valor lo ignoramos para evitar llamadas a /api/v1 cuando estamos en /r1.
     const stored = localStorage.getItem('sakai-backend');
-    if (stored) return stored;
+    if (stored && (stored.includes('/r1/') || stored.includes('/r2/') || stored.includes('/r3/'))) {
+        return stored;
+    }
     return import.meta.env.VITE_API_BASE_URL || '/api/v1';
 };
 
