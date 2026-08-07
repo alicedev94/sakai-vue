@@ -285,7 +285,14 @@ const ubicacionesFiltradas = computed(() => {
     const ubi = filtroUbicacion.value.trim().toLowerCase();
     const loc = filtroLocalidad.value.trim().toLowerCase();
 
-    if (cod) lista = lista.filter((u) => u.codigo?.toLowerCase().includes(cod));
+    if (cod) {
+        lista = lista.filter((u) => {
+            const matchMaster = u.codigo?.toLowerCase().includes(cod);
+            const matchDesc = u.descripcion?.toLowerCase().includes(cod);
+            const matchBarras = Array.isArray(u.codigosBarra) && u.codigosBarra.some((b) => b.toLowerCase().includes(cod));
+            return matchMaster || matchDesc || matchBarras;
+        });
+    }
     if (ubi) lista = lista.filter((u) => u.ubicacion?.toLowerCase().includes(ubi));
     if (loc) lista = lista.filter((u) => u.localidad?.toLowerCase().includes(loc));
 
@@ -701,8 +708,8 @@ onUnmounted(detenerCamara);
                                 <InputIcon><i class="pi pi-barcode" /></InputIcon>
                                 <InputText
                                     v-model="filtroCodigo"
-                                    placeholder="Buscar por código..."
-                                    class="w-full md:w-44"
+                                    placeholder="Buscar por código o barra..."
+                                    class="w-full md:w-56"
                                     @input="resetMobilePage"
                                     @blur="filtroCodigo = limpiarCodigoEscaneado(filtroCodigo)"
                                     @keydown.enter="filtroCodigo = limpiarCodigoEscaneado(filtroCodigo)"
@@ -763,9 +770,19 @@ onUnmounted(detenerCamara);
                     </div>
                 </template>
 
-                <Column field="codigo" header="Código" :sortable="true" style="min-width: 10rem">
+                <Column field="codigo" header="Código" :sortable="true" style="min-width: 12rem">
                     <template #body="{ data }">
-                        <span class="codigo-badge">{{ data.codigo }}</span>
+                        <div class="flex flex-col gap-1">
+                            <span class="codigo-badge font-mono self-start">{{ data.codigo }}</span>
+                            <span v-if="data.descripcion" class="text-xs text-surface-500 dark:text-surface-400 font-medium max-w-xs truncate" :title="data.descripcion">
+                                {{ data.descripcion }}
+                            </span>
+                            <div v-if="data.codigosBarra && data.codigosBarra.length > 0" class="flex flex-wrap gap-1 mt-0.5">
+                                <span v-for="bar in data.codigosBarra" :key="bar" class="text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300 border border-surface-200 dark:border-surface-700 font-mono" :title="'Código alternativo: ' + bar">
+                                    {{ bar }}
+                                </span>
+                            </div>
+                        </div>
                     </template>
                 </Column>
 
@@ -857,8 +874,18 @@ onUnmounted(detenerCamara);
 
                     <!-- Cards paginadas -->
                     <div v-for="data in mobilePagedItems" :key="data.id" class="card p-4 mb-0 flex flex-col gap-3">
-                        <div class="flex justify-between items-center border-b border-surface-200 dark:border-surface-700 pb-3">
-                            <span class="codigo-badge text-base">{{ data.codigo }}</span>
+                        <div class="flex justify-between items-start border-b border-surface-200 dark:border-surface-700 pb-3">
+                            <div class="flex flex-col gap-1">
+                                <span class="codigo-badge text-base font-mono self-start">{{ data.codigo }}</span>
+                                <span v-if="data.descripcion" class="text-xs text-surface-500 dark:text-surface-400 font-medium">
+                                    {{ data.descripcion }}
+                                </span>
+                                <div v-if="data.codigosBarra && data.codigosBarra.length > 0" class="flex flex-wrap gap-1 mt-1">
+                                    <span v-for="bar in data.codigosBarra" :key="bar" class="text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300 border border-surface-200 dark:border-surface-700 font-mono">
+                                        {{ bar }}
+                                    </span>
+                                </div>
+                            </div>
                             <span :class="['activo-badge', data.activo ? 'activo' : 'inactivo']">
                                 <i :class="data.activo ? 'pi pi-check-circle' : 'pi pi-times-circle'" />
                                 {{ data.activo ? 'Activo' : 'Inactivo' }}
