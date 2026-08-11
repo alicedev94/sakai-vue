@@ -997,8 +997,8 @@ onUnmounted(detenerCamara);
                     <small class="form-hint">Código de localidad (máx. 10 caracteres)</small>
                 </div>
 
-                <!-- Usuario -->
-                <div class="form-field">
+                <!-- Usuario (visible solo al crear, oculto al editar) -->
+                <div v-if="!isEditing" class="form-field">
                     <label class="form-label"> <i class="pi pi-user" /> Usuario </label>
                     <InputText v-model="form.usuario" placeholder="Ej. admin" class="w-full p-disabled" maxlength="50" readonly />
                     <small class="form-hint">Usuario responsable del registro (poblado automáticamente)</small>
