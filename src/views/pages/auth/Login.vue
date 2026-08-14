@@ -15,8 +15,22 @@ const email = ref('');
 const password = ref('');
 const rememberMe = ref(false);
 const loading = ref(false);
+const submitted = ref(false);
+
+const storeOptions = [
+    { label: 'R1', value: 'r1' },
+    { label: 'R2', value: 'r2' },
+    { label: 'R3', value: 'r3' }
+];
+const selectedStore = ref(null);
 
 onMounted(() => {
+    // Pre-seleccionar tienda segun el prefijo /rN/ en la URL
+    const path = window.location.pathname;
+    if (path.startsWith('/r1')) selectedStore.value = 'r1';
+    else if (path.startsWith('/r2')) selectedStore.value = 'r2';
+    else if (path.startsWith('/r3')) selectedStore.value = 'r3';
+
     if (route.query.error === 'forbidden') {
         toast.add({
             severity: 'error',
@@ -28,6 +42,19 @@ onMounted(() => {
 });
 
 const handleLogin = async () => {
+    submitted.value = true;
+
+    // Validacion: tienda seleccionada
+    if (!selectedStore.value) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Selecciona una tienda',
+            detail: 'Debes elegir R1, R2 o R3 antes de continuar',
+            life: 3000
+        });
+        return;
+    }
+
     // Validaciones básicas
     if (!email.value || !password.value) {
         toast.add({
@@ -51,6 +78,17 @@ const handleLogin = async () => {
         return;
     }
 
+    // Guardar la tienda seleccionada en localStorage para que el apiClient la use
+    const baseURLByStore = {
+        r1: import.meta.env.VITE_BACKEND_R1,
+        r2: import.meta.env.VITE_BACKEND_R2,
+        r3: import.meta.env.VITE_BACKEND_R3
+    };
+    try {
+        localStorage.setItem('sakai-backend', baseURLByStore[selectedStore.value]);
+        localStorage.setItem('user-tienda', selectedStore.value);
+    } catch { /* noop */ }
+
     loading.value = true;
 
     try {
@@ -68,11 +106,18 @@ const handleLogin = async () => {
         toast.add({
             severity: 'success',
             summary: 'Bienvenido',
-            detail: `¡Hola ${response.username || 'Usuario'}!`,
+            detail: `¡Hola ${response.username || 'Usuario'}! (Tienda ${selectedStore.value.toUpperCase()})`,
             life: 3000
         });
 
-        router.push('/v1/');
+        // Redirigir: prioriza query.redirect, luego tienda seleccionada, luego /v1/
+        const redirectQuery = route.query.redirect;
+        if (redirectQuery) {
+            router.push(String(redirectQuery));
+        } else {
+            // Forzar recarga completa para que el apiClient tome el nuevo baseURL
+            window.location.href = '/' + selectedStore.value + '/';
+        }
     } catch (error) {
         console.error('Error en login:', error);
 
@@ -118,6 +163,23 @@ const handleKeyPress = (event) => {
                     </div>
 
                     <div>
+                        <label class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">
+                            Tienda <span class="text-red-500">*</span>
+                        </label>
+                        <SelectButton
+                            v-model="selectedStore"
+                            :options="storeOptions"
+                            optionLabel="label"
+                            optionValue="value"
+                            class="mb-2 store-selector"
+                            :allowEmpty="false"
+                            :disabled="loading"
+                        />
+                        <small v-if="submitted && !selectedStore" class="p-error block mb-6">
+                            Selecciona una tienda para continuar
+                        </small>
+                        <div v-else class="mb-6"></div>
+
                         <label for="email1" class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">Email</label>
                         <InputText id="email1" type="email" placeholder="correo@ejemplo.com" class="w-full md:w-[30rem] mb-8" v-model="email" @keypress="handleKeyPress" :disabled="loading" />
 
@@ -160,5 +222,16 @@ const handleKeyPress = (event) => {
 
 .logo-rounded {
     border-radius: 10px;
+}
+
+:deep(.store-selector .p-button) {
+    min-width: 80px;
+    font-weight: 600;
+}
+
+:deep(.store-selector .p-button.p-highlight) {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
 }
 </style>

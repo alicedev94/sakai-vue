@@ -18,11 +18,23 @@ export default class AuthService {
     }
 
     /**
-     * Login de usuario
-     * @param {Object} credentials - Credenciales { email, password }
-     * @returns {Promise} Respuesta del servidor con token
+     * Login de usuario.
+     * El usuario DEBE haber seleccionado una tienda en el Login.vue antes de llamar.
+     * La tienda seleccionada se guarda en localStorage y el apiClient usa ese baseURL.
      */
     static async login(credentials) {
+        const userTienda = typeof window !== 'undefined' ? localStorage.getItem('user-tienda') : null;
+        const path = typeof window !== 'undefined' ? window.location.pathname : '';
+        const hasStorePrefix = /^\/r[123](\/|$)/.test(path);
+
+        if (!hasStorePrefix && !userTienda) {
+            throw {
+                status: -1,
+                message: 'Selecciona una tienda antes de iniciar sesion',
+                data: null
+            };
+        }
+
         try {
             const response = await apiClient.post('/auth/login', credentials);
             return response.data;
