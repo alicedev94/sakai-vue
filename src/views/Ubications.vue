@@ -357,18 +357,18 @@ async function cargarInventarioParaVisibles(items) {
         };
     });
 
-    await Promise.all(itemsACargar.map(async (it) => {
-        try {
-            const inv = await operacionesService.obtenerInventarioUbicacion(it.codigo);
+    const lote = await operacionesService.obtenerInventarioUbicacionLote(itemsACargar.map((it) => it.codigo));
+    itemsACargar.forEach((it) => {
+        const inv = lote[it.codigo];
+        if (inv) {
             inventarioMap.value[it.id] = {
-                piso: inv?.piso ?? 0,
-                almacen: inv?.almacen ?? 0,
-                cedis: inv?.cedis ?? 0,
+                piso: inv.piso ?? 0,
+                almacen: inv.almacen ?? 0,
+                cedis: inv.cedis ?? 0,
                 loading: false,
                 loaded: true
             };
-        } catch (e) {
-            console.warn(`Error al cargar inventario de ubicación para código "${it.codigo}":`, e);
+        } else {
             inventarioMap.value[it.id] = {
                 piso: '-',
                 almacen: '-',
@@ -377,7 +377,7 @@ async function cargarInventarioParaVisibles(items) {
                 loaded: true
             };
         }
-    }));
+    });
 }
 
 // Observadores para disparar la consulta asíncrona al cambiar la página visible (desktop o móvil)

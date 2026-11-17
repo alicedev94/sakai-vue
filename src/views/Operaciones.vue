@@ -269,23 +269,20 @@ async function verDetalle(orden) {
         ordenSeleccionada.value = store.ordenActiva;
 
         if (ordenSeleccionada.value?.items) {
-            const promises = ordenSeleccionada.value.items
-                .filter((it) => it.codigoBarra)
-                .map(async (it) => {
-                    try {
-                        const inv = await store.obtenerInventarioUbicacion(it.codigoBarra);
-                        if (inv) {
-                            it.r3Piso = inv.piso ?? 0;
-                            it.r3Almacen = inv.almacen ?? 0;
-                            it.cedis = inv.cedis ?? 0;
-                        }
-                    } catch {
-                        it.r3Piso = '-';
-                        it.r3Almacen = '-';
-                        it.cedis = '-';
-                    }
-                });
-            await Promise.all(promises);
+            const itemsConCodigo = ordenSeleccionada.value.items.filter((it) => it.codigoBarra);
+            const lote = await store.obtenerInventarioUbicacionLote(itemsConCodigo.map((it) => it.codigoBarra));
+            itemsConCodigo.forEach((it) => {
+                const inv = lote[it.codigoBarra];
+                if (inv) {
+                    it.r3Piso = inv.piso ?? 0;
+                    it.r3Almacen = inv.almacen ?? 0;
+                    it.cedis = inv.cedis ?? 0;
+                } else {
+                    it.r3Piso = '-';
+                    it.r3Almacen = '-';
+                    it.cedis = '-';
+                }
+            });
         }
 
         detailDialog.value = true;
@@ -305,23 +302,20 @@ async function abrirSurtido(orden) {
         ordenSeleccionada.value = store.ordenActiva;
 
         if (ordenSeleccionada.value?.items) {
-            const promises = ordenSeleccionada.value.items
-                .filter((it) => it.codigoBarra)
-                .map(async (it) => {
-                    try {
-                        const inv = await store.obtenerInventarioUbicacion(it.codigoBarra);
-                        if (inv) {
-                            it.r3Piso = inv.piso ?? 0;
-                            it.r3Almacen = inv.almacen ?? 0;
-                            it.cedis = inv.cedis ?? 0;
-                        }
-                    } catch {
-                        it.r3Piso = '-';
-                        it.r3Almacen = '-';
-                        it.cedis = '-';
-                    }
-                });
-            await Promise.all(promises);
+            const itemsConCodigo = ordenSeleccionada.value.items.filter((it) => it.codigoBarra);
+            const lote = await store.obtenerInventarioUbicacionLote(itemsConCodigo.map((it) => it.codigoBarra));
+            itemsConCodigo.forEach((it) => {
+                const inv = lote[it.codigoBarra];
+                if (inv) {
+                    it.r3Piso = inv.piso ?? 0;
+                    it.r3Almacen = inv.almacen ?? 0;
+                    it.cedis = inv.cedis ?? 0;
+                } else {
+                    it.r3Piso = '-';
+                    it.r3Almacen = '-';
+                    it.cedis = '-';
+                }
+            });
         }
 
         codigoEscaneado.value = '';

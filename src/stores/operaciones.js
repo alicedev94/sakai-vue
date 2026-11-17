@@ -125,6 +125,15 @@ export const useOperacionesStore = defineStore('operaciones', () => {
         }
     }
 
+    async function obtenerInventarioUbicacionLote(codigos) {
+        try {
+            return await OperacionesService.obtenerInventarioUbicacionLote(codigos);
+        } catch (err) {
+            console.error('Error al consultar inventario por ubicacion (lote):', err);
+            return {};
+        }
+    }
+
     return {
         ordenes,
         ordenActiva,
@@ -141,6 +150,7 @@ export const useOperacionesStore = defineStore('operaciones', () => {
         limpiarOrdenActiva,
         finalizarOrden,
         obtenerInventarioFinal,
-        obtenerInventarioUbicacion
+        obtenerInventarioUbicacion,
+        obtenerInventarioUbicacionLote
     };
 });

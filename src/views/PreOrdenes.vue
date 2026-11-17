@@ -154,23 +154,20 @@ async function verDetalle(orden) {
         preOrdenSeleccionada.value = store.preOrdenActiva;
 
         if (preOrdenSeleccionada.value?.items) {
-            const promises = preOrdenSeleccionada.value.items
-                .filter((it) => it.codigoBarra)
-                .map(async (it) => {
-                    try {
-                        const inv = await operacionesService.obtenerInventarioUbicacion(it.codigoBarra);
-                        if (inv) {
-                            it.r3Piso = inv.piso ?? 0;
-                            it.r3Almacen = inv.almacen ?? 0;
-                            it.cedis = inv.cedis ?? 0;
-                        }
-                    } catch {
-                        it.r3Piso = '-';
-                        it.r3Almacen = '-';
-                        it.cedis = '-';
-                    }
-                });
-            await Promise.all(promises);
+            const itemsConCodigo = preOrdenSeleccionada.value.items.filter((it) => it.codigoBarra);
+            const lote = await operacionesService.obtenerInventarioUbicacionLote(itemsConCodigo.map((it) => it.codigoBarra));
+            itemsConCodigo.forEach((it) => {
+                const inv = lote[it.codigoBarra];
+                if (inv) {
+                    it.r3Piso = inv.piso ?? 0;
+                    it.r3Almacen = inv.almacen ?? 0;
+                    it.cedis = inv.cedis ?? 0;
+                } else {
+                    it.r3Piso = '-';
+                    it.r3Almacen = '-';
+                    it.cedis = '-';
+                }
+            });
         }
 
         detailDialog.value = true;
@@ -663,25 +660,19 @@ async function abrirEditar(orden) {
 
         const itemsConCodigo = (newPreOrden.value.items || []).filter((it) => it.codigoBarra);
         console.log(`[abrirEditar] items con codigoBarra: ${itemsConCodigo.length}/${newPreOrden.value.items?.length}`);
-        const promises = itemsConCodigo.map(async (it) => {
-            try {
-                console.log('[abrirEditar] consultando inventario para:', it.codigoBarra);
-                const inv = await operacionesService.obtenerInventarioUbicacion(it.codigoBarra);
-                console.log('[abrirEditar] inventario respuesta:', it.codigoBarra, inv);
-                if (inv) {
-                    it.r3Piso = inv.piso ?? 0;
-                    it.r3Almacen = inv.almacen ?? 0;
-                    it.cedis = inv.cedis ?? 0;
-                    console.log(`[abrirEditar] item actualizado: ${it.codigoBarra} → piso=${it.r3Piso} almacen=${it.r3Almacen} cedis=${it.cedis}`);
-                }
-            } catch (e) {
-                console.log('[abrirEditar] error inventario para', it.codigoBarra, e);
+        const lote = await operacionesService.obtenerInventarioUbicacionLote(itemsConCodigo.map((it) => it.codigoBarra));
+        itemsConCodigo.forEach((it) => {
+            const inv = lote[it.codigoBarra];
+            if (inv) {
+                it.r3Piso = inv.piso ?? 0;
+                it.r3Almacen = inv.almacen ?? 0;
+                it.cedis = inv.cedis ?? 0;
+            } else {
                 it.r3Piso = '-';
                 it.r3Almacen = '-';
                 it.cedis = '-';
             }
         });
-        await Promise.all(promises);
         console.log('[abrirEditar] inventario cargado para todos los items');
 
         setTimeout(() => {

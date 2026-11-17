@@ -107,6 +107,25 @@ class OperacionesService {
         }
     }
 
+    static async obtenerInventarioUbicacionLote(codigos) {
+        const lista = [...new Set((codigos || []).map((c) => (c || '').trim()).filter(Boolean))];
+        if (!lista.length) return {};
+        try {
+            const { data } = await apiClient.get(`${BASE}/inventarioUbicacion`, {
+                params: { codigos: lista.join(',') }
+            });
+            const porCodigo = {};
+            (data || []).forEach((inv) => {
+                if (inv?.codigo) porCodigo[inv.codigo] = inv;
+                if (inv?.codBarra) porCodigo[inv.codBarra] = inv;
+            });
+            return porCodigo;
+        } catch (error) {
+            this.handleError(error, 'obtener inventario por ubicacion (lote)');
+            return {};
+        }
+    }
+
     static async auditarOrden(id, body) {
         try {
             const response = await apiClient.post(`${BASE}/${id}/auditoria`, body);
