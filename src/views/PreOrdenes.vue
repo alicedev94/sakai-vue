@@ -473,11 +473,27 @@ watch(
     }
 );
 
-async function agregarProducto() {
-    const p = nuevoProducto.value.producto;
-    if (!p || nuevoProducto.value.cantidad <= 0) return;
+function resolverProductoSeleccionado(seleccion) {
+    if (!seleccion) return null;
+    if (typeof seleccion === 'object') return seleccion;
+    return productosList.value.find((x) => x.c_Codigo === seleccion) || null;
+}
 
-    const codBarra = p.codigoBarra || p.barra1 || '';
+async function agregarProducto() {
+    const p = resolverProductoSeleccionado(nuevoProducto.value.producto);
+    if (!p) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Producto no valido',
+            detail: 'No se pudo resolver el producto seleccionado. Vuelva a elegirlo.',
+            life: 3000
+        });
+        nuevoProducto.value = { producto: null, cantidad: 1, atributo: '' };
+        return;
+    }
+    if (nuevoProducto.value.cantidad <= 0) return;
+
+    const codBarra = p.codigoBarra || p.c_Codigo || p.barra1 || '';
 
     const existing = newPreOrden.value.items.find((i) => (codBarra && i.codigoBarra === codBarra) || (p.id !== undefined && i.id === p.id) || (p.idProducto !== undefined && i.idProducto === (p.id || codBarra)));
 
@@ -595,7 +611,7 @@ async function buscarProductoPorCodigo() {
         }
 
         // Pre-seleccionar en el Select y agregar directamente con la cantidad actual
-        nuevoProducto.value.producto = encontrado;
+        nuevoProducto.value.producto = encontrado.c_Codigo || encontrado.codigoBarra || '';
         codigoScan.value = '';
 
         agregarProducto();
@@ -1395,6 +1411,7 @@ const exportarPDF = () => {
                                 v-model="nuevoProducto.producto"
                                 :options="productosList"
                                 optionLabel="label"
+                                optionValue="c_Codigo"
                                 placeholder="Seleccione un producto"
                                 class="w-full mt-2 product-select"
                                 :filter="true"
