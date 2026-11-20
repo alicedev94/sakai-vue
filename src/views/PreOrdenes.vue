@@ -219,6 +219,36 @@ const FORMATOS_BARRAS = [
     Html5QrcodeSupportedFormats.QR_CODE
 ];
 
+
+// Texto de ubicaciones de un item (para el PDF).
+const ubicacionesTexto = (item) =>
+    item.ubicaciones && item.ubicaciones.length > 0
+        ? item.ubicaciones.map((u) => (u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion)).join(', ')
+        : '—';
+
+const formatearCantidad = (valor) =>
+    valor === null || valor === undefined || valor === '' || valor === '-' ? '—' : valor;
+
+// Las cantidades por ubicacion (piso, almacen, cedis) no vienen en el DTO: las
+// carga el detalle de la orden. Si faltan, se piden en una sola llamada.
+async function asegurarCantidades(items) {
+    const faltan = items.filter((it) => it.codigoBarra && (it.r3Piso === undefined || it.r3Piso === null));
+    if (!faltan.length) {
+        return items;
+    }
+    try {
+        const lote = await operacionesService.obtenerInventarioUbicacionLote(faltan.map((it) => it.codigoBarra));
+        return items.map((it) => {
+            const inv = lote[it.codigoBarra];
+            if (!inv) return it;
+            return { ...it, r3Piso: inv.piso ?? 0, r3Almacen: inv.almacen ?? 0, cedis: inv.cedis ?? 0 };
+        });
+    } catch (e) {
+        console.warn('No se pudieron cargar las cantidades por ubicacion para el PDF', e);
+        return items;
+    }
+}
+
 // Ordenación de productos por ubicación
 function obtenerTextoUbicacion(item) {
     if (!item.ubicaciones || item.ubicaciones.length === 0) {
@@ -807,7 +837,7 @@ const confirmarAprobar = (orden) => {
 };
 
 const exportarPDF = async () => {
-    const doc = new jsPDF();
+    const doc = new jsPDF({ orientation: 'landscape' });
     await aplicarFuenteUnicode(doc);
     const data = preOrdenSeleccionada.value;
 
@@ -868,29 +898,35 @@ const exportarPDF = async () => {
     // Tabla de Productos
     doc.text('Lista de Productos', 14, doc.lastAutoTable.finalY + 10);
 
-    const itemsParaImprimir = ordenarItemsPorUbicacion(data.items || []);
+    const itemsConCantidades = await asegurarCantidades(data.items || []);
+    const itemsParaImprimir = ordenarItemsPorUbicacion(itemsConCantidades);
     const tableData = itemsParaImprimir.map((item) => [
         item.codigoBarra,
         item.nombreProducto,
         item.atributo || '—',
         item.departamento || '—',
-        item.ubicaciones && item.ubicaciones.length > 0
-            ? item.ubicaciones.map((u) => (u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion)).join(', ')
-            : '—',
+        ubicacionesTexto(item),
+        formatearCantidad(item.r3Piso),
+        formatearCantidad(item.r3Almacen),
+        formatearCantidad(item.cedis),
         item.cantidad,
         item.estadoItem
     ]);
 
     autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 15,
-        head: [['Código', 'Producto', 'Atributo', 'Dpto.', 'Ubicación', 'Cant.', 'Estado']],
+        head: [['Código', 'Producto', 'Atributo', 'Dpto.', 'Ubicación', 'Piso', 'Almacén', 'Cedis', 'Cant.', 'Estado']],
         body: tableData,
         headStyles: { fillColor: primaryColor },
         alternateRowStyles: { fillColor: [245, 245, 245] },
         styles: { fontSize: 8 },
         columnStyles: {
-            1: { cellWidth: 48 },
-            4: { cellWidth: 26 }
+            1: { cellWidth: 52 },
+            4: { cellWidth: 30 },
+            5: { halign: 'right' },
+            6: { halign: 'right' },
+            7: { halign: 'right' },
+            8: { halign: 'right' }
         }
     });
 
@@ -900,7 +936,7 @@ const exportarPDF = async () => {
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setTextColor(150);
-        doc.text(`Página ${i} de ${pageCount}`, 196, 285, { align: 'right' });
+        doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.getWidth() - 14, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
     }
 
     doc.save(`Doc_${data.numeroOrden || data.id}.pdf`);
