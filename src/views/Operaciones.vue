@@ -7,6 +7,7 @@ import { FilterMatchMode } from '@primevue/core/api';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { aplicarFuenteUnicode } from '@/utils/pdfFuente';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -155,6 +156,7 @@ const ESTADOS = [
     { label: 'Lista', value: 'LISTA' }
 ];
 const filtroEstado = ref(null);
+const filtroOrigen = ref(null);
 
 const ordenesFiltradas = computed(() => {
     return store.ordenes;
@@ -183,9 +185,22 @@ const itemEstadoConfig = {
 };
 
 const origenConfig = {
-    PICKING:    { label: 'Picking',    class: 'origen-picking',    icon: 'pi pi-hand-pointer' },
+    PICKING:    { label: 'Piso',       class: 'origen-picking',    icon: 'pi pi-hand-pointer' },
     AUTOMATICO: { label: 'Automatico', class: 'origen-automatico', icon: 'pi pi-replay' }
 };
+
+// Origen vacio (null) = ordenes creadas por el ETL desde el ERP = ventas.
+const etiquetaOrigen = (origen) => {
+    if (!origen) return 'Venta (sistema)';
+    return origenConfig[origen]?.label || origen;
+};
+
+const origenesFiltro = [
+    { label: 'Todas', value: null },
+    { label: 'Ordenes de piso', value: 'PICKING' },
+    { label: 'Ventas (ERP)', value: 'SISTEMA' },
+    { label: 'Automaticas', value: 'AUTOMATICO' }
+];
 
 const rowClass = (data) => {
     return {
@@ -243,6 +258,9 @@ async function cargarDatos() {
         if (filtroEstado.value) {
             params.estado = filtroEstado.value;
         }
+        if (filtroOrigen.value) {
+            params.origen = filtroOrigen.value;
+        }
         if (searchQuery.value) {
             params.query = searchQuery.value;
         }
@@ -259,6 +277,7 @@ watch(filtroFecha, () => {
 function clearFilters() {
     searchQuery.value = '';
     filtroEstado.value = null;
+    filtroOrigen.value = null;
     filtroFecha.value = null;
     cargarDatos();
 }
@@ -695,8 +714,9 @@ onMounted(cargarDatos);
 
 onUnmounted(detenerCamara);
 
-const exportarPDF = () => {
+const exportarPDF = async () => {
     const doc = new jsPDF();
+    await aplicarFuenteUnicode(doc);
     const data = ordenSeleccionada.value;
     console.log(data);
 
@@ -752,19 +772,33 @@ const exportarPDF = () => {
 
     doc.text('Lista de Productos', 14, doc.lastAutoTable.finalY + 10);
 
-    const tableData = data.items.map((item) => [item.codigoBarra, item.nombreProducto, item.atributo || '—', item.departamento || '—', item.cantidad, item.estadoItem, item.cantidadSurtida]);
+    const itemsParaImprimir = ordenarItemsPorUbicacion(data.items || []);
+    const tableData = itemsParaImprimir.map((item) => [
+        item.codigoBarra,
+        item.nombreProducto,
+        item.atributo || '—',
+        item.departamento || '—',
+        item.ubicaciones && item.ubicaciones.length > 0
+            ? item.ubicaciones.map((u) => (u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion)).join(', ')
+            : '—',
+        item.cantidad,
+        item.estadoItem,
+        item.cantidadSurtida
+    ]);
 
     autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 15,
-        head: [['Código', 'Producto', 'Atributo', 'Dpto.', 'Cantidad', 'Estado', 'Cantidad Surtida']],
+        head: [['Código', 'Producto', 'Atributo', 'Dpto.', 'Ubicación', 'Cantidad', 'Estado', 'Cantidad Surtida']],
         body: tableData,
         headStyles: { fillColor: primaryColor },
         alternateRowStyles: { fillColor: [245, 245, 245] },
-        styles: { fontSize: 9 },
+        styles: { fontSize: 8 },
         columnStyles: {
+            1: { cellWidth: 46 },
             3: { halign: 'right' },
-            4: { halign: 'right' },
-            5: { halign: 'right' }
+            4: { cellWidth: 26 },
+            5: { halign: 'right' },
+            6: { halign: 'right' }
         }
     });
 
@@ -850,6 +884,7 @@ const finalizarOrden = async () => {
                 <template #end>
                     <div class="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto mt-3 md:mt-0">
                         <Select v-model="filtroEstado" :options="ESTADOS" optionLabel="label" optionValue="value" placeholder="Todos los estados" class="w-full md:w-44" />
+                        <Select v-model="filtroOrigen" :options="origenesFiltro" optionLabel="label" optionValue="value" placeholder="Piso y ventas" class="w-full md:w-48" />
                         <Calendar v-model="filtroFecha" dateFormat="yy-mm-dd" placeholder="Fecha de consulta" :showIcon="true" class="w-full md:w-44" />
                         <IconField class="w-full md:w-auto">
                             <InputIcon><i class="pi pi-search" /></InputIcon>
@@ -932,11 +967,10 @@ const finalizarOrden = async () => {
                 <!-- Badge de Origen (Picking vs Automatico) -->
                 <Column header="Origen" style="min-width: 8rem">
                     <template #body="{ data }">
-                        <span v-if="origenConfig[data.origen]" :class="['origen-badge', origenConfig[data.origen]?.class]">
-                            <i :class="origenConfig[data.origen]?.icon" />
-                            {{ origenConfig[data.origen]?.label || '—' }}
+                        <span :class="['origen-badge', origenConfig[data.origen]?.class || 'origen-automatico']">
+                            <i :class="origenConfig[data.origen]?.icon || 'pi pi-replay'" />
+                            {{ etiquetaOrigen(data.origen) }}
                         </span>
-                        <span v-else class="text-secondary">—</span>
                     </template>
                 </Column>
 

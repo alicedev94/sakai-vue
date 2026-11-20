@@ -7,6 +7,7 @@ import { FilterMatchMode } from '@primevue/core/api';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { aplicarFuenteUnicode } from '@/utils/pdfFuente';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -805,8 +806,9 @@ const confirmarAprobar = (orden) => {
     });
 };
 
-const exportarPDF = () => {
+const exportarPDF = async () => {
     const doc = new jsPDF();
+    await aplicarFuenteUnicode(doc);
     const data = preOrdenSeleccionada.value;
 
     // Configuración de colores y fuentes
@@ -866,15 +868,30 @@ const exportarPDF = () => {
     // Tabla de Productos
     doc.text('Lista de Productos', 14, doc.lastAutoTable.finalY + 10);
 
-    const tableData = data.items.map((item) => [item.codigoBarra, item.nombreProducto, item.atributo || '—', item.departamento || '—', item.cantidad, item.estadoItem]);
+    const itemsParaImprimir = ordenarItemsPorUbicacion(data.items || []);
+    const tableData = itemsParaImprimir.map((item) => [
+        item.codigoBarra,
+        item.nombreProducto,
+        item.atributo || '—',
+        item.departamento || '—',
+        item.ubicaciones && item.ubicaciones.length > 0
+            ? item.ubicaciones.map((u) => (u.localidad ? `${u.ubicacion} (${u.localidad})` : u.ubicacion)).join(', ')
+            : '—',
+        item.cantidad,
+        item.estadoItem
+    ]);
 
     autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 15,
-        head: [['Código', 'Producto', 'Atributo', 'Dpto.', 'Cant.', 'Estado']],
+        head: [['Código', 'Producto', 'Atributo', 'Dpto.', 'Ubicación', 'Cant.', 'Estado']],
         body: tableData,
         headStyles: { fillColor: primaryColor },
         alternateRowStyles: { fillColor: [245, 245, 245] },
-        styles: { fontSize: 9 }
+        styles: { fontSize: 8 },
+        columnStyles: {
+            1: { cellWidth: 48 },
+            4: { cellWidth: 26 }
+        }
     });
 
     // Footer del PDF
